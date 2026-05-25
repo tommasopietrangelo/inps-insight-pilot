@@ -72,14 +72,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "INPS Copilot — Copilot AI per circolari e messaggi INPS" },
+      { name: "description", content: "Strumento privato per CAF, patronati e consulenti del lavoro: cerca, monitora e cita fonti ufficiali INPS." },
+      { name: "author", content: "INPS Copilot" },
+      { property: "og:title", content: "INPS Copilot" },
+      { property: "og:description", content: "Copilot AI per intermediari INPS." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@inpscopilot" },
     ],
     links: [
       {
