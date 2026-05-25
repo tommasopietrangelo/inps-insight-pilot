@@ -75,11 +75,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "INPS Copilot — Copilot AI per circolari e messaggi INPS" },
       { name: "description", content: "Strumento privato per CAF, patronati e consulenti del lavoro: cerca, monitora e cita fonti ufficiali INPS." },
       { name: "author", content: "INPS Copilot" },
-      { property: "og:title", content: "INPS Copilot" },
-      { property: "og:description", content: "Copilot AI per intermediari INPS." },
+      { property: "og:title", content: "INPS Copilot — Copilot AI per circolari e messaggi INPS" },
+      { property: "og:description", content: "Strumento privato per CAF, patronati e consulenti del lavoro: cerca, monitora e cita fonti ufficiali INPS." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@inpscopilot" },
+      { name: "twitter:title", content: "INPS Copilot — Copilot AI per circolari e messaggi INPS" },
+      { name: "twitter:description", content: "Strumento privato per CAF, patronati e consulenti del lavoro: cerca, monitora e cita fonti ufficiali INPS." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8d593868-c32d-4263-91e1-fc9a5e88b233/id-preview-6b27678e--a1e945c3-ebbe-431d-a805-2a88f4b444cc.lovable.app-1779714256151.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8d593868-c32d-4263-91e1-fc9a5e88b233/id-preview-6b27678e--a1e945c3-ebbe-431d-a805-2a88f4b444cc.lovable.app-1779714256151.png" },
     ],
     links: [
       {
