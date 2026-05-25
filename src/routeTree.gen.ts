@@ -9,38 +9,141 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AppshellRouteImport } from './routes/_appshell'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppshellWorkspaceRouteImport } from './routes/_appshell.workspace'
+import { Route as AppshellSourcesRouteImport } from './routes/_appshell.sources'
+import { Route as AppshellSettingsRouteImport } from './routes/_appshell.settings'
+import { Route as AppshellSearchRouteImport } from './routes/_appshell.search'
+import { Route as AppshellDashboardRouteImport } from './routes/_appshell.dashboard'
+import { Route as AppshellAlertsRouteImport } from './routes/_appshell.alerts'
+import { Route as AppshellSourceIdRouteImport } from './routes/_appshell.source.$id'
 
+const AppshellRoute = AppshellRouteImport.update({
+  id: '/_appshell',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppshellWorkspaceRoute = AppshellWorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => AppshellRoute,
+} as any)
+const AppshellSourcesRoute = AppshellSourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => AppshellRoute,
+} as any)
+const AppshellSettingsRoute = AppshellSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppshellRoute,
+} as any)
+const AppshellSearchRoute = AppshellSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AppshellRoute,
+} as any)
+const AppshellDashboardRoute = AppshellDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppshellRoute,
+} as any)
+const AppshellAlertsRoute = AppshellAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => AppshellRoute,
+} as any)
+const AppshellSourceIdRoute = AppshellSourceIdRouteImport.update({
+  id: '/source/$id',
+  path: '/source/$id',
+  getParentRoute: () => AppshellRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/alerts': typeof AppshellAlertsRoute
+  '/dashboard': typeof AppshellDashboardRoute
+  '/search': typeof AppshellSearchRoute
+  '/settings': typeof AppshellSettingsRoute
+  '/sources': typeof AppshellSourcesRoute
+  '/workspace': typeof AppshellWorkspaceRoute
+  '/source/$id': typeof AppshellSourceIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/alerts': typeof AppshellAlertsRoute
+  '/dashboard': typeof AppshellDashboardRoute
+  '/search': typeof AppshellSearchRoute
+  '/settings': typeof AppshellSettingsRoute
+  '/sources': typeof AppshellSourcesRoute
+  '/workspace': typeof AppshellWorkspaceRoute
+  '/source/$id': typeof AppshellSourceIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_appshell': typeof AppshellRouteWithChildren
+  '/_appshell/alerts': typeof AppshellAlertsRoute
+  '/_appshell/dashboard': typeof AppshellDashboardRoute
+  '/_appshell/search': typeof AppshellSearchRoute
+  '/_appshell/settings': typeof AppshellSettingsRoute
+  '/_appshell/sources': typeof AppshellSourcesRoute
+  '/_appshell/workspace': typeof AppshellWorkspaceRoute
+  '/_appshell/source/$id': typeof AppshellSourceIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/alerts'
+    | '/dashboard'
+    | '/search'
+    | '/settings'
+    | '/sources'
+    | '/workspace'
+    | '/source/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/alerts'
+    | '/dashboard'
+    | '/search'
+    | '/settings'
+    | '/sources'
+    | '/workspace'
+    | '/source/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/_appshell'
+    | '/_appshell/alerts'
+    | '/_appshell/dashboard'
+    | '/_appshell/search'
+    | '/_appshell/settings'
+    | '/_appshell/sources'
+    | '/_appshell/workspace'
+    | '/_appshell/source/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppshellRoute: typeof AppshellRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_appshell': {
+      id: '/_appshell'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppshellRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +151,86 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_appshell/workspace': {
+      id: '/_appshell/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof AppshellWorkspaceRouteImport
+      parentRoute: typeof AppshellRoute
+    }
+    '/_appshell/sources': {
+      id: '/_appshell/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof AppshellSourcesRouteImport
+      parentRoute: typeof AppshellRoute
+    }
+    '/_appshell/settings': {
+      id: '/_appshell/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppshellSettingsRouteImport
+      parentRoute: typeof AppshellRoute
+    }
+    '/_appshell/search': {
+      id: '/_appshell/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof AppshellSearchRouteImport
+      parentRoute: typeof AppshellRoute
+    }
+    '/_appshell/dashboard': {
+      id: '/_appshell/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppshellDashboardRouteImport
+      parentRoute: typeof AppshellRoute
+    }
+    '/_appshell/alerts': {
+      id: '/_appshell/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AppshellAlertsRouteImport
+      parentRoute: typeof AppshellRoute
+    }
+    '/_appshell/source/$id': {
+      id: '/_appshell/source/$id'
+      path: '/source/$id'
+      fullPath: '/source/$id'
+      preLoaderRoute: typeof AppshellSourceIdRouteImport
+      parentRoute: typeof AppshellRoute
+    }
   }
 }
 
+interface AppshellRouteChildren {
+  AppshellAlertsRoute: typeof AppshellAlertsRoute
+  AppshellDashboardRoute: typeof AppshellDashboardRoute
+  AppshellSearchRoute: typeof AppshellSearchRoute
+  AppshellSettingsRoute: typeof AppshellSettingsRoute
+  AppshellSourcesRoute: typeof AppshellSourcesRoute
+  AppshellWorkspaceRoute: typeof AppshellWorkspaceRoute
+  AppshellSourceIdRoute: typeof AppshellSourceIdRoute
+}
+
+const AppshellRouteChildren: AppshellRouteChildren = {
+  AppshellAlertsRoute: AppshellAlertsRoute,
+  AppshellDashboardRoute: AppshellDashboardRoute,
+  AppshellSearchRoute: AppshellSearchRoute,
+  AppshellSettingsRoute: AppshellSettingsRoute,
+  AppshellSourcesRoute: AppshellSourcesRoute,
+  AppshellWorkspaceRoute: AppshellWorkspaceRoute,
+  AppshellSourceIdRoute: AppshellSourceIdRoute,
+}
+
+const AppshellRouteWithChildren = AppshellRoute._addFileChildren(
+  AppshellRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppshellRoute: AppshellRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
