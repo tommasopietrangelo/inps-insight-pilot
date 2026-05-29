@@ -46,8 +46,15 @@ function Settings() {
   const [inAppAlerts, setInAppAlerts] = useState(true);
   const [weekly, setWeekly] = useState(false);
   const runIngest = useServerFn(ingestEmbeddings);
+  const runImportUrl = useServerFn(importFromUrl);
+  const runImportRss = useServerFn(importInpsLatest);
   const [ingesting, setIngesting] = useState(false);
   const [ingestResult, setIngestResult] = useState<string | null>(null);
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const [rssing, setRssing] = useState(false);
+  const [rssResult, setRssResult] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
