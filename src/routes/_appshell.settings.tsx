@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ingestEmbeddings } from "@/lib/search.functions";
 import { importFromUrl, importInpsLatest, importFromText } from "@/lib/import.functions";
+import { backfillInpsViaFirecrawl } from "@/lib/inps-firecrawl.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, Download, Rss, ClipboardPaste } from "lucide-react";
+import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame } from "lucide-react";
 import { TeamCard } from "@/components/team-card";
 
 export const Route = createFileRoute("/_appshell/settings")({
@@ -42,6 +43,10 @@ function Settings() {
   const [txtBody, setTxtBody] = useState("");
   const [txting, setTxting] = useState(false);
   const [txtResult, setTxtResult] = useState<string | null>(null);
+  const runBackfill = useServerFn(backfillInpsViaFirecrawl);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<string | null>(null);
+  const [backfillLimit, setBackfillLimit] = useState(100);
 
   return (
     <div className="space-y-6">
