@@ -86,15 +86,34 @@ function renderInline(line: string) {
 
 function SearchPage() {
   const [q, setQ] = useState("Nuove regole ADI 2026 per nuclei con minori");
+  const { current } = useWorkspace();
+  const qc = useQueryClient();
   const runSearch = useServerFn(groundedSearch);
+  const saveFn = useServerFn(createSavedSearch);
   const mutation = useMutation<SearchResult, Error, string>({
     mutationFn: (query: string) => runSearch({ data: { query } }),
+  });
+  const saveMut = useMutation({
+    mutationFn: () =>
+      saveFn({
+        data: {
+          query: q.trim(),
+          workspaceId: current?.id ?? null,
+          resultsCount: mutation.data?.sources.length ?? 0,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Ricerca salvata nello workspace");
+      qc.invalidateQueries({ queryKey: ["saved-searches"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const submit = (query: string) => {
     if (query.trim().length < 2) return;
     mutation.mutate(query);
   };
+
 
   const result = mutation.data;
   const sources = result?.sources ?? [];
