@@ -1,15 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Briefcase } from "lucide-react";
+import { Loader2, Briefcase, Mail } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { createWorkspace, listMyWorkspaces } from "@/lib/workspace.functions";
+import { acceptInvitation, listMyPendingInvitations } from "@/lib/invitations.functions";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Crea workspace · INPS Copilot" }] }),
@@ -22,9 +25,18 @@ function OnboardingPage() {
   const { setWorkspaces, setCurrent } = useWorkspace();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   const listFn = useServerFn(listMyWorkspaces);
   const createFn = useServerFn(createWorkspace);
+  const acceptFn = useServerFn(acceptInvitation);
+  const pendingFn = useServerFn(listMyPendingInvitations);
+
+  const pendingQ = useQuery({
+    queryKey: ["my-pending-invitations", user?.id],
+    queryFn: () => pendingFn(),
+    enabled: !!user,
+  });
 
   useEffect(() => {
     if (loading) return;
@@ -40,6 +52,22 @@ function OnboardingPage() {
       }
     });
   }, [loading, user, navigate, listFn, setWorkspaces, setCurrent]);
+
+  const onAccept = async (token: string, id: string) => {
+    setAcceptingId(id);
+    try {
+      await acceptFn({ data: { token } });
+      const all = await listFn({});
+      setWorkspaces(all);
+      if (all[0]) setCurrent(all[0].id);
+      toast.success("Invito accettato");
+      navigate({ to: "/dashboard", replace: true });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setAcceptingId(null);
+    }
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,9 +87,58 @@ function OnboardingPage() {
     }
   };
 
+  const hasInvites = (pendingQ.data?.length ?? 0) > 0;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <Card className="w-full max-w-lg p-8">
+        {hasInvites && (
+          <>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Mail className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg font-semibold">Hai inviti in attesa</h2>
+                <p className="text-sm text-muted-foreground">
+                  Unisciti a un workspace esistente del tuo team.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {pendingQ.data!.map((inv) => {
+                const ws = inv.workspace as { name?: string } | null;
+                return (
+                  <div
+                    key={inv.id}
+                    className="flex items-center justify-between rounded-md border bg-surface px-4 py-3"
+                  >
+                    <div>
+                      <div className="text-sm font-medium">{ws?.name ?? "Workspace"}</div>
+                      <div className="text-xs text-muted-foreground">Ruolo: {inv.role}</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={acceptingId === inv.id}
+                      onClick={() => onAccept(inv.token, inv.id)}
+                    >
+                      {acceptingId === inv.id && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Accetta
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="my-6 flex items-center gap-3">
+              <Separator className="flex-1" />
+              <span className="text-xs text-muted-foreground">oppure crea il tuo</span>
+              <Separator className="flex-1" />
+            </div>
+          </>
+        )}
+
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Briefcase className="h-5 w-5" />
@@ -88,7 +165,7 @@ function OnboardingPage() {
               autoFocus
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Potrai invitare colleghi in seguito dalle impostazioni.
+              Potrai invitare colleghi dopo, dalle impostazioni.
             </p>
           </div>
           <Button type="submit" className="w-full" disabled={busy || name.trim().length < 2}>
