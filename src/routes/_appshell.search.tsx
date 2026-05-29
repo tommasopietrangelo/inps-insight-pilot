@@ -2,7 +2,7 @@ import type React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   ShieldCheck,
@@ -20,6 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { groundedSearch } from "@/lib/search.functions";
+import { createSavedSearch } from "@/lib/saved-searches.functions";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_appshell/search")({
   head: () => ({ meta: [{ title: "Ricerca · INPS Copilot" }] }),
@@ -83,15 +86,34 @@ function renderInline(line: string) {
 
 function SearchPage() {
   const [q, setQ] = useState("Nuove regole ADI 2026 per nuclei con minori");
+  const { current } = useWorkspace();
+  const qc = useQueryClient();
   const runSearch = useServerFn(groundedSearch);
+  const saveFn = useServerFn(createSavedSearch);
   const mutation = useMutation<SearchResult, Error, string>({
     mutationFn: (query: string) => runSearch({ data: { query } }),
+  });
+  const saveMut = useMutation({
+    mutationFn: () =>
+      saveFn({
+        data: {
+          query: q.trim(),
+          workspaceId: current?.id ?? null,
+          resultsCount: mutation.data?.sources.length ?? 0,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Ricerca salvata nello workspace");
+      qc.invalidateQueries({ queryKey: ["saved-searches"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const submit = (query: string) => {
     if (query.trim().length < 2) return;
     mutation.mutate(query);
   };
+
 
   const result = mutation.data;
   const sources = result?.sources ?? [];
@@ -186,16 +208,28 @@ function SearchPage() {
                 )}
               </div>
               <div className="flex gap-1.5">
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Bookmark className="h-3.5 w-3.5" /> Salva
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => saveMut.mutate()}
+                  disabled={saveMut.isPending || !mutation.data}
+                >
+                  {saveMut.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Bookmark className="h-3.5 w-3.5" />
+                  )}
+                  Salva
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5">
+                <Button variant="outline" size="sm" className="gap-1.5" disabled>
                   <Download className="h-3.5 w-3.5" /> Esporta
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5">
+                <Button variant="outline" size="sm" className="gap-1.5" disabled>
                   <PenSquare className="h-3.5 w-3.5" /> A nota
                 </Button>
               </div>
+
             </div>
 
             <h2 className="mt-5 font-display text-xl font-semibold">Risposta</h2>
