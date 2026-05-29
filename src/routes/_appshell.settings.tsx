@@ -12,33 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Loader2, Download, Rss, ClipboardPaste } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TeamCard } from "@/components/team-card";
 
 export const Route = createFileRoute("/_appshell/settings")({
   head: () => ({ meta: [{ title: "Impostazioni · INPS Copilot" }] }),
   component: Settings,
 });
 
-const MEMBERS = [
-  { name: "Giulia Rossi", email: "giulia.rossi@studiorossi.it", role: "Admin" },
-  { name: "Marco De Luca", email: "marco.deluca@studiorossi.it", role: "Operatore" },
-  { name: "Sara Bianchi", email: "sara.bianchi@studiorossi.it", role: "Operatore" },
-  { name: "Luca Verdi", email: "luca.verdi@studiorossi.it", role: "Sola lettura" },
-];
 
 function Settings() {
   const [name, setName] = useState("Studio Rossi · CAF");
@@ -327,48 +307,7 @@ function Settings() {
           </div>
         </Card>
 
-        {/* Roles */}
-        <Card className="p-6 lg:col-span-2">
-          <div className="mb-1 font-display text-base font-semibold">Ruoli e permessi</div>
-          <p className="text-sm text-muted-foreground">
-            Admin gestisce membri e fatturazione · Operatore può creare ricerche, note e avvisi · Sola lettura può solo
-            consultare.
-          </p>
-          <Separator className="my-4" />
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Membro</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Ruolo</TableHead>
-                <TableHead className="text-right">Azioni</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {MEMBERS.map((m) => (
-                <TableRow key={m.email}>
-                  <TableCell className="font-medium">{m.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{m.email}</TableCell>
-                  <TableCell>
-                    <Select defaultValue={m.role}>
-                      <SelectTrigger className="h-8 w-36">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {["Admin", "Operatore", "Sola lettura"].map((r) => (
-                          <SelectItem key={r} value={r}>{r}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">Rimuovi</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+        <TeamCard />
 
         {/* Billing */}
         <Card className="p-6 lg:col-span-2">
