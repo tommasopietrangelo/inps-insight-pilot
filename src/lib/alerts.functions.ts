@@ -4,6 +4,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const FrequencyEnum = z.enum(["immediata", "giornaliera", "settimanale"]);
 const PriorityEnum = z.enum(["alta", "media", "bassa"]);
+const SourceTypeEnum = z.enum([
+  "circolare",
+  "decreto",
+  "messaggio",
+  "normativa",
+  "pagina_servizio",
+]);
+type SourceTypeValue = z.infer<typeof SourceTypeEnum>;
 
 export const listAlerts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -28,7 +36,7 @@ export const createAlert = createServerFn({ method: "POST" })
       workspaceId: string;
       name: string;
       topicTags: string[];
-      sourceTypes?: string[];
+      sourceTypes?: SourceTypeValue[];
       frequency: "immediata" | "giornaliera" | "settimanale";
       priority: "alta" | "media" | "bassa";
       channels: string[];
@@ -38,7 +46,7 @@ export const createAlert = createServerFn({ method: "POST" })
           workspaceId: z.string().uuid(),
           name: z.string().min(1).max(120),
           topicTags: z.array(z.string().min(1).max(60)).min(1).max(10),
-          sourceTypes: z.array(z.string().min(1).max(40)).max(10).optional(),
+          sourceTypes: z.array(SourceTypeEnum).max(10).optional(),
           frequency: FrequencyEnum,
           priority: PriorityEnum,
           channels: z.array(z.string().min(1).max(20)).min(1).max(5),
