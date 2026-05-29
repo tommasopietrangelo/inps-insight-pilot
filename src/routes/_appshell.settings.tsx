@@ -44,6 +44,9 @@ function Settings() {
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [inAppAlerts, setInAppAlerts] = useState(true);
   const [weekly, setWeekly] = useState(false);
+  const runIngest = useServerFn(ingestEmbeddings);
+  const [ingesting, setIngesting] = useState(false);
+  const [ingestResult, setIngestResult] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
