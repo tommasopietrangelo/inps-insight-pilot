@@ -415,6 +415,56 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["workspace_member_role"]
+          status: Database["public"]["Enums"]["invitation_status"]
+          token: string
+          workspace_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          role?: Database["public"]["Enums"]["workspace_member_role"]
+          status?: Database["public"]["Enums"]["invitation_status"]
+          token?: string
+          workspace_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["workspace_member_role"]
+          status?: Database["public"]["Enums"]["invitation_status"]
+          token?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_invitations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           created_at: string
@@ -482,6 +532,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_workspace_invitation: {
+        Args: { _token: string }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          plan: string
+          slug: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workspaces"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_workspace_with_owner: {
         Args: { _name: string; _slug: string }
         Returns: {
@@ -541,6 +609,7 @@ export type Database = {
       alert_frequency: "immediata" | "giornaliera" | "settimanale"
       alert_priority: "alta" | "media" | "bassa"
       app_role: "admin" | "editor" | "viewer"
+      invitation_status: "pending" | "accepted" | "revoked" | "expired"
       source_type:
         | "circolare"
         | "messaggio"
@@ -678,6 +747,7 @@ export const Constants = {
       alert_frequency: ["immediata", "giornaliera", "settimanale"],
       alert_priority: ["alta", "media", "bassa"],
       app_role: ["admin", "editor", "viewer"],
+      invitation_status: ["pending", "accepted", "revoked", "expired"],
       source_type: [
         "circolare",
         "messaggio",
