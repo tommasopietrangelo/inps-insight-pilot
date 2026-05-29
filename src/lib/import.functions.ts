@@ -8,6 +8,12 @@ function stripHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+    .replace(/<header[\s\S]*?<\/header>/gi, " ")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+    .replace(/<aside[\s\S]*?<\/aside>/gi, " ")
+    .replace(/<form[\s\S]*?<\/form>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
@@ -17,6 +23,16 @@ function stripHtml(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function extractMain(html: string): string {
+  const main = html.match(/<main[\s\S]*?<\/main>/i);
+  if (main) return main[0];
+  const article = html.match(/<article[\s\S]*?<\/article>/i);
+  if (article) return article[0];
+  const idContent = html.match(/<div[^>]+id=["'](?:content|main-content|contenuto|main)["'][\s\S]*?<\/div>/i);
+  if (idContent) return idContent[0];
+  return html;
 }
 
 function pickMeta(html: string, name: string): string | null {
@@ -120,7 +136,13 @@ export const importFromUrl = createServerFn({ method: "POST" })
 
     const title = pickTitle(html) ?? "Documento INPS";
     const description = pickMeta(html, "og:description") ?? pickMeta(html, "description") ?? "";
-    const fullText = stripHtml(html).slice(0, 20000);
+    const mainHtml = extractMain(html);
+    const fullText = stripHtml(mainHtml).slice(0, 30000);
+    if (fullText.length < 400) {
+      throw new Error(
+        "Pagina troppo povera di contenuto (probabilmente renderizzata via JavaScript). Usa l'opzione \"Importa da testo incollato\" copiando il testo dal PDF ufficiale.",
+      );
+    }
     const sourceType = detectType(data.url, title);
     const number = detectNumber(title);
     const date = detectDate(html, title);
@@ -229,4 +251,55 @@ export const importInpsLatest = createServerFn({ method: "POST" })
       }
     }
     return { ok: true, imported, found: unique.length, tried, errors: errors.slice(0, 5) };
+  });
+
+// ---------- Import from pasted text ----------
+
+const TextInput = z.object({
+  title: z.string().min(3).max(500),
+  text: z.string().min(200).max(60000),
+  official_url: z.string().url(),
+  source_type: z.enum(["circolare", "messaggio", "decreto", "normativa", "pagina_servizio"]).optional(),
+  document_number: z.string().max(50).optional(),
+  publication_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  topic_tags: z.array(z.string()).optional(),
+});
+
+export const importFromText = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => TextInput.parse(data))
+  .handler(async ({ data }) => {
+    const date = data.publication_date ?? new Date().toISOString().slice(0, 10);
+    const sourceType = data.source_type ?? detectType(data.official_url, data.title);
+    const number = data.document_number ?? detectNumber(data.title);
+    const topics = data.topic_tags && data.topic_tags.length > 0
+      ? data.topic_tags
+      : guessTopicTags(`${data.title} ${data.text.slice(0, 2000)}`);
+
+    const external_id = `manual-${(number ?? Buffer.from(data.official_url).toString("base64url").slice(0, 12))}-${date}`;
+
+    const { data: upserted, error } = await supabaseAdmin
+      .from("sources")
+      .upsert(
+        {
+          external_id,
+          title: data.title,
+          source_type: sourceType,
+          document_number: number,
+          publication_date: date,
+          topic_tags: topics,
+          summary: data.text.slice(0, 500),
+          excerpt: data.text.slice(0, 800),
+          full_text: data.text,
+          official_url: data.official_url,
+        },
+        { onConflict: "external_id" },
+      )
+      .select("id, title, external_id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    // Also clear any stale chunk so re-indexing picks it up
+    await supabaseAdmin.from("chunks").delete().eq("source_id", upserted.id);
+
+    return { ok: true, source: upserted, detected: { sourceType, number, date, topics } };
   });

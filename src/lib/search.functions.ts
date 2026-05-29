@@ -90,7 +90,7 @@ export const groundedSearch = createServerFn({ method: "POST" })
       document_number: m.document_number,
       publication_date: m.publication_date,
       official_url: m.official_url,
-      excerpt: (m.content ?? "").slice(0, 320),
+      excerpt: (m.content ?? "").slice(0, 1800),
       similarity: m.similarity,
     }));
 
