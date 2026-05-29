@@ -136,7 +136,13 @@ export const importFromUrl = createServerFn({ method: "POST" })
 
     const title = pickTitle(html) ?? "Documento INPS";
     const description = pickMeta(html, "og:description") ?? pickMeta(html, "description") ?? "";
-    const fullText = stripHtml(html).slice(0, 20000);
+    const mainHtml = extractMain(html);
+    const fullText = stripHtml(mainHtml).slice(0, 30000);
+    if (fullText.length < 400) {
+      throw new Error(
+        "Pagina troppo povera di contenuto (probabilmente renderizzata via JavaScript). Usa l'opzione \"Importa da testo incollato\" copiando il testo dal PDF ufficiale.",
+      );
+    }
     const sourceType = detectType(data.url, title);
     const number = detectNumber(title);
     const date = detectDate(html, title);
