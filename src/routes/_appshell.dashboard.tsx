@@ -14,7 +14,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SOURCES, TOPICS, SAVED_SEARCHES, NOTES } from "@/lib/mock-data";
+import { SAVED_SEARCHES, NOTES } from "@/lib/mock-data";
+import { useSources, useTopics, useCorpusStats } from "@/lib/data";
 
 export const Route = createFileRoute("/_appshell/dashboard")({
   head: () => ({ meta: [{ title: "Cruscotto · INPS Copilot" }] }),
