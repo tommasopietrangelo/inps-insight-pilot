@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -7,6 +7,11 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { WorkspaceProvider } from "@/hooks/use-workspace";
+import { supabase } from "@/integrations/supabase/client";
 
 import appCss from "../styles.css?url";
 
@@ -82,8 +87,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@inpscopilot" },
       { name: "twitter:title", content: "INPS Copilot — Copilot AI per circolari e messaggi INPS" },
       { name: "twitter:description", content: "Strumento privato per CAF, patronati e consulenti del lavoro: cerca, monitora e cita fonti ufficiali INPS." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8d593868-c32d-4263-91e1-fc9a5e88b233/id-preview-6b27678e--a1e945c3-ebbe-431d-a805-2a88f4b444cc.lovable.app-1779714256151.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8d593868-c32d-4263-91e1-fc9a5e88b233/id-preview-6b27678e--a1e945c3-ebbe-431d-a805-2a88f4b444cc.lovable.app-1779714256151.png" },
     ],
     links: [
       {
@@ -112,12 +115,36 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function AuthEvents() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      router.invalidate();
+      queryClient.invalidateQueries();
+    });
+    return () => subscription.unsubscribe();
+  }, [router, queryClient]);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <AuthProvider>
+        <WorkspaceProvider>
+          <AuthEvents />
+          <Outlet />
+          <Toaster richColors position="top-right" />
+        </WorkspaceProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
+
+// silence unused
+void useAuth;
