@@ -56,6 +56,12 @@ function Settings() {
   const [importResult, setImportResult] = useState<string | null>(null);
   const [rssing, setRssing] = useState(false);
   const [rssResult, setRssResult] = useState<string | null>(null);
+  const runImportText = useServerFn(importFromText);
+  const [txtTitle, setTxtTitle] = useState("");
+  const [txtUrl, setTxtUrl] = useState("");
+  const [txtBody, setTxtBody] = useState("");
+  const [txting, setTxting] = useState(false);
+  const [txtResult, setTxtResult] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
