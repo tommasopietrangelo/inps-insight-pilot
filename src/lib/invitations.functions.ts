@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const RoleEnum = z.enum(["admin", "member", "viewer"]);
+const RoleEnum = z.enum(["admin", "member"]);
 
 export const listWorkspaceInvitations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -23,7 +23,7 @@ export const listWorkspaceInvitations = createServerFn({ method: "GET" })
 export const createInvitation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (input: { workspaceId: string; email: string; role: "admin" | "member" | "viewer" }) =>
+    (input: { workspaceId: string; email: string; role: "admin" | "member" }) =>
       z
         .object({
           workspaceId: z.string().uuid(),

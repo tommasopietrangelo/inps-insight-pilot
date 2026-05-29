@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const RoleEnum = z.enum(["owner", "admin", "member", "viewer"]);
+const RoleEnum = z.enum(["owner", "admin", "member"]);
 
 export const listMembers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -23,7 +23,7 @@ export const listMembers = createServerFn({ method: "GET" })
 export const updateMemberRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (input: { workspaceId: string; userId: string; role: "owner" | "admin" | "member" | "viewer" }) =>
+    (input: { workspaceId: string; userId: string; role: "owner" | "admin" | "member" }) =>
       z
         .object({
           workspaceId: z.string().uuid(),
