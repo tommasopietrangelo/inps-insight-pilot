@@ -145,6 +145,77 @@ function Settings() {
           )}
         </Card>
 
+        {/* Import from pasted text */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex items-center gap-2 font-display text-base font-semibold">
+            <ClipboardPaste className="h-4 w-4 text-primary" /> Importa da testo incollato (consigliato)
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Le pagine <code>dettaglio-atto</code> di inps.it sono renderizzate via JavaScript, quindi l'import automatico
+            spesso non trova il contenuto. Apri il <strong>PDF ufficiale</strong> della circolare, copia il testo (Ctrl+A,
+            Ctrl+C) e incollalo qui: è il modo più affidabile per avere risposte AI fondate.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="txt-title">Titolo</Label>
+              <Input
+                id="txt-title"
+                placeholder="Circolare INPS n. 14 del 30 gennaio 2026 — Assegno di Inclusione"
+                value={txtTitle}
+                onChange={(e) => setTxtTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="txt-url">URL ufficiale</Label>
+              <Input
+                id="txt-url"
+                placeholder="https://www.inps.it/..."
+                value={txtUrl}
+                onChange={(e) => setTxtUrl(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            <Label htmlFor="txt-body">Testo dell'atto</Label>
+            <Textarea
+              id="txt-body"
+              rows={10}
+              placeholder="Incolla qui il testo integrale della circolare, messaggio o decreto…"
+              value={txtBody}
+              onChange={(e) => setTxtBody(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{txtBody.length} caratteri · minimo 200</p>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <Button
+              size="sm"
+              disabled={txting || !txtTitle || !txtUrl || txtBody.length < 200}
+              onClick={async () => {
+                setTxting(true);
+                setTxtResult(null);
+                try {
+                  const r = await runImportText({
+                    data: { title: txtTitle, official_url: txtUrl, text: txtBody },
+                  });
+                  setTxtResult(
+                    `Importato: ${r.source.title} · tipo ${r.detected.sourceType} · n. ${r.detected.number ?? "—"}. Ora clicca "Aggiorna indice" qui sotto.`,
+                  );
+                  setTxtTitle("");
+                  setTxtUrl("");
+                  setTxtBody("");
+                } catch (e) {
+                  setTxtResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setTxting(false);
+                }
+              }}
+            >
+              {txting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Importa testo"}
+            </Button>
+            {txtResult && <span className="text-sm text-muted-foreground">{txtResult}</span>}
+          </div>
+        </Card>
+
         {/* RSS pull (best effort) */}
         <Card className="p-6 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
