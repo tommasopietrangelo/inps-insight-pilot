@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ingestEmbeddings } from "@/lib/search.functions";
 import { importFromUrl, importInpsLatest, importFromText } from "@/lib/import.functions";
+import { backfillInpsViaFirecrawl } from "@/lib/inps-firecrawl.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, Download, Rss, ClipboardPaste } from "lucide-react";
+import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame } from "lucide-react";
 import { TeamCard } from "@/components/team-card";
 
 export const Route = createFileRoute("/_appshell/settings")({
@@ -42,6 +43,10 @@ function Settings() {
   const [txtBody, setTxtBody] = useState("");
   const [txting, setTxting] = useState(false);
   const [txtResult, setTxtResult] = useState<string | null>(null);
+  const runBackfill = useServerFn(backfillInpsViaFirecrawl);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<string | null>(null);
+  const [backfillLimit, setBackfillLimit] = useState(100);
 
   return (
     <div className="space-y-6">
@@ -196,8 +201,65 @@ function Settings() {
           </div>
         </Card>
 
+        {/* Firecrawl backfill */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <Flame className="h-4 w-4 text-primary" /> Backfill INPS via Firecrawl
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Scopre via Firecrawl gli URL di circolari e messaggi pubblicati su inps.it,
+                filtra gli ultimi 24 mesi e li importa con dedup automatico (gli atti già presenti
+                in DB vengono saltati prima dello scraping per non consumare crediti).
+                Eseguilo una sola volta; poi il cron giornaliero terrà il corpus aggiornato.
+              </p>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="bf-limit" className="text-xs">Max atti</Label>
+                <Input
+                  id="bf-limit"
+                  type="number"
+                  min={1}
+                  max={400}
+                  value={backfillLimit}
+                  onChange={(e) => setBackfillLimit(Math.max(1, Math.min(400, Number(e.target.value) || 100)))}
+                  className="w-24"
+                />
+              </div>
+              <Button
+                size="sm"
+                disabled={backfilling}
+                onClick={async () => {
+                  setBackfilling(true);
+                  setBackfillResult(null);
+                  try {
+                    const r = await runBackfill({ data: { limit: backfillLimit, kinds: ["circolare", "messaggio"] } });
+                    setBackfillResult(
+                      `Scoperti ${r.discovered} URL · ${r.eligible} idonei · processati ${r.processed} · nuovi ${r.created} · già presenti ${r.skipped}${r.errors.length ? ` · ${r.errors.length} errori` : ""}. Ora clicca "Aggiorna indice".`,
+                    );
+                  } catch (e) {
+                    setBackfillResult(`Errore: ${(e as Error).message}`);
+                  } finally {
+                    setBackfilling(false);
+                  }
+                }}
+                className="gap-1.5"
+              >
+                {backfilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flame className="h-4 w-4" />}
+                {backfilling ? "Backfill in corso…" : "Esegui backfill"}
+              </Button>
+            </div>
+          </div>
+          {backfillResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{backfillResult}</div>
+          )}
+        </Card>
+
         {/* RSS pull (best effort) */}
         <Card className="p-6 lg:col-span-2">
+
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 font-display text-base font-semibold">
