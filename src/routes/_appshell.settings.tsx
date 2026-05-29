@@ -96,6 +96,93 @@ function Settings() {
           </div>
         </Card>
 
+        {/* Import from URL */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex items-center gap-2 font-display text-base font-semibold">
+            <Download className="h-4 w-4 text-primary" /> Importa atto da URL ufficiale
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Incolla un link a una circolare, messaggio o decreto su <code>inps.it</code> o <code>gazzettaufficiale.it</code>.
+            Verranno estratti automaticamente titolo, numero, data e testo. Lancia poi "Aggiorna indice" per renderlo cercabile.
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Input
+              placeholder="https://www.inps.it/it/it/dettaglio-atto.circolare-numero-14-del-30-01-2026.html"
+              value={importUrl}
+              onChange={(e) => setImportUrl(e.target.value)}
+            />
+            <Button
+              size="sm"
+              disabled={importing || !importUrl}
+              onClick={async () => {
+                setImporting(true);
+                setImportResult(null);
+                try {
+                  const r = await runImportUrl({ data: { url: importUrl } });
+                  setImportResult(
+                    `Importato: ${r.source.title} · tipo ${r.detected.sourceType} · n. ${r.detected.number ?? "—"} · ${r.detected.date}`,
+                  );
+                  setImportUrl("");
+                } catch (e) {
+                  setImportResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setImporting(false);
+                }
+              }}
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Importa"}
+            </Button>
+          </div>
+          {importResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{importResult}</div>
+          )}
+        </Card>
+
+        {/* RSS pull (best effort) */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <Rss className="h-4 w-4 text-primary" /> Aggiornamento automatico (sperimentale)
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Tenta di scaricare gli ultimi atti pubblicati dal feed RSS INPS. Funzione best-effort:
+                se il feed non è raggiungibile o il formato cambia, usa l'import da URL singolo.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={rssing}
+              onClick={async () => {
+                setRssing(true);
+                setRssResult(null);
+                try {
+                  const r = await runImportRss();
+                  if (!r.ok) {
+                    setRssResult(r.message ?? "Nessun atto importato.");
+                  } else {
+                    setRssResult(
+                      `Importati ${r.imported} su ${r.found} trovati${r.errors && r.errors.length ? ` · ${r.errors.length} errori` : ""}`,
+                    );
+                  }
+                } catch (e) {
+                  setRssResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setRssing(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {rssing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rss className="h-4 w-4" />}
+              {rssing ? "Scaricamento…" : "Scarica ultimi"}
+            </Button>
+          </div>
+          {rssResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{rssResult}</div>
+          )}
+        </Card>
+
         {/* AI Index */}
         <Card className="p-6 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
