@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ingestEmbeddings } from "@/lib/search.functions";
-import { importFromUrl, importInpsLatest } from "@/lib/import.functions";
+import { importFromUrl, importInpsLatest, importFromText } from "@/lib/import.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Sparkles, Loader2, Download, Rss } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Sparkles, Loader2, Download, Rss, ClipboardPaste } from "lucide-react";
 import {
   Select,
   SelectContent,
