@@ -1,5 +1,7 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
 import {
   Search,
   ShieldCheck,
@@ -9,12 +11,14 @@ import {
   ExternalLink,
   Sparkles,
   ListFilter,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { SOURCES } from "@/lib/mock-data";
+import { groundedSearch } from "@/lib/search.functions";
 
 export const Route = createFileRoute("/_appshell/search")({
   head: () => ({ meta: [{ title: "Ricerca · INPS Copilot" }] }),
@@ -29,10 +33,67 @@ const EXAMPLES = [
   "Contributi UniEmens nuovi codici",
 ];
 
+type SearchResult = Awaited<ReturnType<typeof groundedSearch>>;
+
+function renderAnswer(text: string) {
+  // Minimal markdown-ish rendering: bold **x**, citations [n] -> sup, sections "## "
+  const lines = text.split("\n");
+  return lines.map((line, i) => {
+    if (!line.trim()) return <div key={i} className="h-2" />;
+    if (/^#{2,3}\s/.test(line)) {
+      return (
+        <div key={i} className="mt-5 mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
+          {line.replace(/^#+\s*/, "")}
+        </div>
+      );
+    }
+    return (
+      <p key={i} className="leading-relaxed text-foreground/90">
+        {renderInline(line)}
+      </p>
+    );
+  });
+}
+
+function renderInline(line: string) {
+  // Split by [n] and **bold**
+  const parts: (string | JSX.Element)[] = [];
+  const regex = /(\*\*[^*]+\*\*|\[\d+\])/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let k = 0;
+  while ((m = regex.exec(line)) !== null) {
+    if (m.index > last) parts.push(line.slice(last, m.index));
+    const tok = m[0];
+    if (tok.startsWith("**")) {
+      parts.push(<strong key={k++}>{tok.slice(2, -2)}</strong>);
+    } else {
+      parts.push(
+        <sup key={k++} className="ml-0.5 rounded bg-primary/10 px-1 text-[10px] font-medium text-primary">
+          {tok}
+        </sup>,
+      );
+    }
+    last = m.index + tok.length;
+  }
+  if (last < line.length) parts.push(line.slice(last));
+  return parts;
+}
+
 function SearchPage() {
   const [q, setQ] = useState("Nuove regole ADI 2026 per nuclei con minori");
-  const [submitted, setSubmitted] = useState(true);
-  const cited = SOURCES.filter((s) => s.topic_tags.includes("ADI") || s.topic_tags.includes("ISEE")).slice(0, 3);
+  const runSearch = useServerFn(groundedSearch);
+  const mutation = useMutation<SearchResult, Error, string>({
+    mutationFn: (query: string) => runSearch({ data: { query } }),
+  });
+
+  const submit = (query: string) => {
+    if (query.trim().length < 2) return;
+    mutation.mutate(query);
+  };
+
+  const result = mutation.data;
+  const sources = result?.sources ?? [];
 
   return (
     <div className="space-y-6">
@@ -48,7 +109,7 @@ function SearchPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            setSubmitted(true);
+            submit(q);
           }}
           className="flex items-center gap-2"
         >
@@ -59,25 +120,24 @@ function SearchPage() {
             placeholder="es. requisiti ADI 2026 per nuclei con minori"
             className="h-11 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
           />
-          <Button variant="ghost" size="sm" className="gap-1.5">
+          <Button variant="ghost" size="sm" className="gap-1.5" type="button">
             <ListFilter className="h-4 w-4" /> Filtri
           </Button>
-          <Button type="submit" className="gap-1.5">
-            <Sparkles className="h-4 w-4" /> Cerca
+          <Button type="submit" className="gap-1.5" disabled={mutation.isPending}>
+            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Cerca
           </Button>
         </form>
       </Card>
 
       <div className="flex flex-wrap gap-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Esempi
-        </span>
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Esempi</span>
         {EXAMPLES.map((e) => (
           <button
             key={e}
             onClick={() => {
               setQ(e);
-              setSubmitted(true);
+              submit(e);
             }}
             className="rounded-full border bg-surface px-3 py-1 text-xs hover:border-primary/40 hover:text-foreground"
           >
@@ -86,7 +146,29 @@ function SearchPage() {
         ))}
       </div>
 
-      {submitted && (
+      {mutation.isPending && (
+        <Card className="flex items-center gap-3 p-8 text-sm text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          Sto cercando nel corpus INPS e generando una risposta citata…
+        </Card>
+      )}
+
+      {mutation.isError && (
+        <Card className="flex items-start gap-3 border-destructive/30 bg-destructive/5 p-5 text-sm">
+          <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
+          <div>
+            <div className="font-medium text-destructive">Errore di ricerca</div>
+            <div className="text-muted-foreground">{mutation.error.message}</div>
+            {mutation.error.message.includes("match_chunks") && (
+              <div className="mt-2 text-xs">
+                Suggerimento: vai in <strong>Impostazioni → Indice AI</strong> ed esegui "Aggiorna indice".
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {result && !mutation.isPending && (
         <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
           {/* Answer */}
           <Card className="p-6">
@@ -94,9 +176,13 @@ function SearchPage() {
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="gap-1.5 border-primary/30 bg-primary/5 text-primary">
                   <ShieldCheck className="h-3 w-3" />
-                  Basato su 3 fonti ufficiali INPS
+                  Basato su {sources.length} font{sources.length === 1 ? "e" : "i"} ufficial{sources.length === 1 ? "e" : "i"} INPS
                 </Badge>
-                <Badge variant="secondary" className="gap-1">Copertura fonti 92%</Badge>
+                {sources[0]?.similarity != null && (
+                  <Badge variant="secondary" className="gap-1">
+                    Top match {(sources[0].similarity * 100).toFixed(0)}%
+                  </Badge>
+                )}
               </div>
               <div className="flex gap-1.5">
                 <Button variant="outline" size="sm" className="gap-1.5">
@@ -111,39 +197,8 @@ function SearchPage() {
               </div>
             </div>
 
-            <h2 className="mt-5 font-display text-xl font-semibold">Sintesi</h2>
-            <p className="mt-2 leading-relaxed text-foreground/90">
-              A decorrere dal <strong>1° giugno 2026</strong> il valore ISEE per l'accesso all'Assegno di Inclusione è
-              elevato a <strong>10.140 €</strong><Sup n={1} />. Il rinnovo è subordinato alla sottoscrizione del{" "}
-              <strong>Patto di Attivazione Digitale (PAD)</strong> entro 120 giorni dalla scadenza del primo periodo
-              <Sup n={1} />. Per i nuclei con minori restano validi i parametri della scala di equivalenza, con
-              maggiorazione per ogni minore a carico.
-            </p>
-
-            <Section title="Cosa è cambiato">
-              <ul className="space-y-1.5 text-sm">
-                <li>• Soglia ISEE elevata da 9.360 € a 10.140 €<Sup n={1} />.</li>
-                <li>• Introdotto il rinnovo telematico con sottoscrizione PAD obbligatoria<Sup n={2} />.</li>
-                <li>• Sospensione automatica del beneficio in caso di mancata sottoscrizione PAD<Sup n={2} />.</li>
-              </ul>
-            </Section>
-
-            <Section title="Chi è coinvolto">
-              <p className="text-sm text-foreground/90">
-                Nuclei familiari con almeno un componente minore di 18 anni, persona con disabilità o ultrasessantenne,
-                in possesso dei requisiti reddituali aggiornati. Esclusi i nuclei già percettori di altre prestazioni
-                incompatibili.
-              </p>
-            </Section>
-
-            <Section title="Note operative per il CAF">
-              <ul className="space-y-1.5 text-sm">
-                <li>1. Verificare DSU aggiornata prima del rinnovo.</li>
-                <li>2. Accompagnare l'utente alla sottoscrizione del PAD entro 120 giorni.</li>
-                <li>3. Monitorare settimanalmente i nuclei in scadenza<Sup n={2} />.</li>
-                <li>4. Per i nuclei con minori, ricalcolare la maggiorazione su scala di equivalenza.</li>
-              </ul>
-            </Section>
+            <h2 className="mt-5 font-display text-xl font-semibold">Risposta</h2>
+            <div className="mt-2 space-y-1">{renderAnswer(result.answer)}</div>
 
             <div className="mt-6 rounded-md border-l-2 border-primary bg-surface-muted p-4 text-sm">
               <div className="font-medium">Avvertenza</div>
@@ -159,35 +214,34 @@ function SearchPage() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <div className="font-display text-base font-semibold">Fonti citate</div>
-                <p className="text-xs text-muted-foreground">3 atti ufficiali INPS</p>
+                <p className="text-xs text-muted-foreground">{sources.length} atti ufficiali INPS</p>
               </div>
-              <Badge variant="outline" className="text-xs">Ordine per pertinenza</Badge>
+              <Badge variant="outline" className="text-xs">
+                Ordine per pertinenza
+              </Badge>
             </div>
             <div className="space-y-3">
-              {cited.map((s, i) => (
-                <div key={s.id} className="rounded-md border bg-surface p-4">
+              {sources.map((s) => (
+                <div key={s.chunk_id} className="rounded-md border bg-surface p-4">
                   <div className="flex items-center gap-2 text-xs">
-                    <Badge className="bg-primary text-primary-foreground rounded-sm">[{i + 1}]</Badge>
-                    <Badge variant="secondary" className="rounded-sm">{s.source_type}</Badge>
+                    <Badge className="rounded-sm bg-primary text-primary-foreground">[{s.n}]</Badge>
+                    <Badge variant="secondary" className="rounded-sm capitalize">
+                      {s.source_type}
+                    </Badge>
                     <span className="font-mono text-muted-foreground">{s.document_number}</span>
                   </div>
-                  <Link
-                    to="/source/$id"
-                    params={{ id: s.id }}
-                    className="mt-2 block text-sm font-medium hover:text-primary"
-                  >
-                    {s.title}
-                  </Link>
+                  <div className="mt-2 text-sm font-medium">{s.title}</div>
                   <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">"{s.excerpt}"</p>
                   <Separator className="my-3" />
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>
-                      Pubblicato il{" "}
-                      {new Date(s.publication_date).toLocaleDateString("it-IT", {
-                        day: "2-digit",
-                        month: "long",
-                        year: "numeric",
-                      })}
+                      {s.publication_date
+                        ? new Date(s.publication_date).toLocaleDateString("it-IT", {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                          })
+                        : ""}
                     </span>
                     <a
                       href={s.official_url}
@@ -200,25 +254,15 @@ function SearchPage() {
                   </div>
                 </div>
               ))}
+              {sources.length === 0 && (
+                <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  Nessuna fonte trovata. Prova a riformulare la domanda o aggiorna l'indice AI.
+                </div>
+              )}
             </div>
           </Card>
         </div>
       )}
     </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mt-6">
-      <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function Sup({ n }: { n: number }) {
-  return (
-    <sup className="ml-0.5 rounded bg-primary/10 px-1 text-[10px] font-medium text-primary">[{n}]</sup>
   );
 }
