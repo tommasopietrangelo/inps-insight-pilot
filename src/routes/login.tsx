@@ -14,11 +14,15 @@ import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Accedi · INPS Copilot" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    redirect: typeof s.redirect === "string" ? s.redirect : undefined,
+  }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const { user, loading } = useAuth();
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -27,8 +31,10 @@ function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/dashboard", replace: true });
-  }, [loading, user, navigate]);
+    if (!loading && user) {
+      navigate({ to: redirect ?? "/dashboard", replace: true });
+    }
+  }, [loading, user, navigate, redirect]);
 
   const onSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
