@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Download, Rss } from "lucide-react";
 import {
   Select,
   SelectContent,
