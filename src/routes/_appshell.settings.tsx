@@ -12,13 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Loader2, Download, Rss, ClipboardPaste } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { TeamCard } from "@/components/team-card";
 
 export const Route = createFileRoute("/_appshell/settings")({
