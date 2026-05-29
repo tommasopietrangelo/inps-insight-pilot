@@ -208,16 +208,28 @@ function SearchPage() {
                 )}
               </div>
               <div className="flex gap-1.5">
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Bookmark className="h-3.5 w-3.5" /> Salva
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => saveMut.mutate()}
+                  disabled={saveMut.isPending || !mutation.data}
+                >
+                  {saveMut.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Bookmark className="h-3.5 w-3.5" />
+                  )}
+                  Salva
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5">
+                <Button variant="outline" size="sm" className="gap-1.5" disabled>
                   <Download className="h-3.5 w-3.5" /> Esporta
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5">
+                <Button variant="outline" size="sm" className="gap-1.5" disabled>
                   <PenSquare className="h-3.5 w-3.5" /> A nota
                 </Button>
               </div>
+
             </div>
 
             <h2 className="mt-5 font-display text-xl font-semibold">Risposta</h2>
