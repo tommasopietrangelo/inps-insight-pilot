@@ -2,7 +2,7 @@ import type React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   ShieldCheck,
@@ -20,6 +20,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { groundedSearch } from "@/lib/search.functions";
+import { createSavedSearch } from "@/lib/saved-searches.functions";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_appshell/search")({
   head: () => ({ meta: [{ title: "Ricerca · INPS Copilot" }] }),
