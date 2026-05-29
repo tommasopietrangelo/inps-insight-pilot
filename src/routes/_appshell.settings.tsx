@@ -88,6 +88,46 @@ function Settings() {
           </div>
         </Card>
 
+        {/* AI Index */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <Sparkles className="h-4 w-4 text-primary" /> Indice AI del corpus
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Genera gli embedding vettoriali delle fonti ufficiali per abilitare la ricerca grounded.
+                Eseguilo dopo ogni nuovo import di circolari o messaggi.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              disabled={ingesting}
+              onClick={async () => {
+                setIngesting(true);
+                setIngestResult(null);
+                try {
+                  const r = await runIngest();
+                  setIngestResult(
+                    `Indicizzati ${r.processed} nuovi atti · totali ${r.total} · già indicizzati ${r.skipped}`,
+                  );
+                } catch (e) {
+                  setIngestResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setIngesting(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {ingesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {ingesting ? "Indicizzazione…" : "Aggiorna indice"}
+            </Button>
+          </div>
+          {ingestResult && (
+            <div className="mt-4 rounded-md border bg-surface px-4 py-3 text-sm">{ingestResult}</div>
+          )}
+        </Card>
+
         {/* Notifications */}
         <Card className="p-6 lg:col-span-2">
           <div className="font-display text-base font-semibold">Notifiche</div>
