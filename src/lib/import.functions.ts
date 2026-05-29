@@ -8,6 +8,12 @@ function stripHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+    .replace(/<header[\s\S]*?<\/header>/gi, " ")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+    .replace(/<aside[\s\S]*?<\/aside>/gi, " ")
+    .replace(/<form[\s\S]*?<\/form>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
@@ -17,6 +23,16 @@ function stripHtml(html: string): string {
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function extractMain(html: string): string {
+  const main = html.match(/<main[\s\S]*?<\/main>/i);
+  if (main) return main[0];
+  const article = html.match(/<article[\s\S]*?<\/article>/i);
+  if (article) return article[0];
+  const idContent = html.match(/<div[^>]+id=["'](?:content|main-content|contenuto|main)["'][\s\S]*?<\/div>/i);
+  if (idContent) return idContent[0];
+  return html;
 }
 
 function pickMeta(html: string, name: string): string | null {
