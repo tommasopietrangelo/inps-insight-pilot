@@ -57,7 +57,7 @@ function renderAnswer(text: string) {
 
 function renderInline(line: string) {
   // Split by [n] and **bold**
-  const parts: (string | JSX.Element)[] = [];
+  const parts: React.ReactNode[] = [];
   const regex = /(\*\*[^*]+\*\*|\[\d+\])/g;
   let last = 0;
   let m: RegExpExecArray | null;
