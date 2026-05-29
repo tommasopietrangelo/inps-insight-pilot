@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { ingestEmbeddings } from "@/lib/search.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Sparkles, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -41,6 +44,9 @@ function Settings() {
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [inAppAlerts, setInAppAlerts] = useState(true);
   const [weekly, setWeekly] = useState(false);
+  const runIngest = useServerFn(ingestEmbeddings);
+  const [ingesting, setIngesting] = useState(false);
+  const [ingestResult, setIngestResult] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -80,6 +86,46 @@ function Settings() {
               }}
             />
           </div>
+        </Card>
+
+        {/* AI Index */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <Sparkles className="h-4 w-4 text-primary" /> Indice AI del corpus
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Genera gli embedding vettoriali delle fonti ufficiali per abilitare la ricerca grounded.
+                Eseguilo dopo ogni nuovo import di circolari o messaggi.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              disabled={ingesting}
+              onClick={async () => {
+                setIngesting(true);
+                setIngestResult(null);
+                try {
+                  const r = await runIngest();
+                  setIngestResult(
+                    `Indicizzati ${r.processed} nuovi atti · totali ${r.total} · già indicizzati ${r.skipped}`,
+                  );
+                } catch (e) {
+                  setIngestResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setIngesting(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {ingesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {ingesting ? "Indicizzazione…" : "Aggiorna indice"}
+            </Button>
+          </div>
+          {ingestResult && (
+            <div className="mt-4 rounded-md border bg-surface px-4 py-3 text-sm">{ingestResult}</div>
+          )}
         </Card>
 
         {/* Notifications */}
