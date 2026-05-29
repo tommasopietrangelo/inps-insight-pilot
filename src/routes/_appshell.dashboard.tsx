@@ -14,7 +14,8 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SOURCES, TOPICS, SAVED_SEARCHES, NOTES } from "@/lib/mock-data";
+import { SAVED_SEARCHES, NOTES } from "@/lib/mock-data";
+import { useSources, useTopics, useCorpusStats } from "@/lib/data";
 
 export const Route = createFileRoute("/_appshell/dashboard")({
   head: () => ({ meta: [{ title: "Cruscotto · INPS Copilot" }] }),
@@ -22,8 +23,12 @@ export const Route = createFileRoute("/_appshell/dashboard")({
 });
 
 function Dashboard() {
+  const { data: sources = [] } = useSources(6);
+  const { data: topics = [] } = useTopics();
+  const { data: stats } = useCorpusStats();
+
   const kpis = [
-    { label: "Nuovi atti questa settimana", value: 12, hint: "+3 vs settimana scorsa", icon: FileText },
+    { label: "Nuovi atti questa settimana", value: stats?.lastWeek ?? 0, hint: `${stats?.total ?? 0} atti in archivio`, icon: FileText },
     { label: "Fonti salvate", value: 84, hint: "in 9 raccolte", icon: Bookmark },
     { label: "Avvisi attivi", value: 5, hint: "2 ad alta priorità", icon: Bell },
     { label: "Note interne non lette", value: 3, hint: "ultima oggi alle 09:41", icon: StickyNote },
@@ -97,7 +102,7 @@ function Dashboard() {
             </Button>
           </div>
           <div className="divide-y">
-            {SOURCES.slice(0, 6).map((s) => (
+            {sources.map((s) => (
               <Link
                 key={s.id}
                 to="/source/$id"
@@ -138,7 +143,7 @@ function Dashboard() {
             <div className="font-display text-base font-semibold">Topic in evidenza</div>
           </div>
           <div className="space-y-3">
-            {TOPICS.slice(0, 5).map((t) => (
+            {topics.slice(0, 5).map((t) => (
               <div
                 key={t.id}
                 className="flex items-center justify-between rounded-md border bg-surface px-3 py-2.5"

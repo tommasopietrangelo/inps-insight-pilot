@@ -7,26 +7,47 @@ import {
   CalendarDays,
   Hash,
   Tag,
+  Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { getSource, SOURCES, NOTES } from "@/lib/mock-data";
+import { NOTES } from "@/lib/mock-data";
+import { useSourceBySlug, useSources } from "@/lib/data";
 
 export const Route = createFileRoute("/_appshell/source/$id")({
-  head: ({ params }) => {
-    const s = getSource(params.id);
-    return { meta: [{ title: s ? `${s.document_number} · INPS Copilot` : "Fonte · INPS Copilot" }] };
-  },
+  head: () => ({ meta: [{ title: "Fonte · INPS Copilot" }] }),
   component: SourceDetail,
 });
 
 function SourceDetail() {
   const { id } = Route.useParams();
-  const src = getSource(id) ?? SOURCES[0];
-  const related = SOURCES.filter((s) => src.related_documents.includes(s.id) || (s.id !== src.id && s.topic_tags.some((t) => src.topic_tags.includes(t)))).slice(0, 4);
+  const { data: src, isLoading } = useSourceBySlug(id);
+  const { data: allSources = [] } = useSources();
+
+  if (isLoading) {
+    return (
+      <Card className="flex items-center justify-center gap-2 p-12 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Caricamento atto…
+      </Card>
+    );
+  }
+  if (!src) {
+    return (
+      <Card className="p-8 text-sm">
+        <p className="text-muted-foreground">Atto non trovato.</p>
+        <Button variant="link" asChild className="mt-2 px-0">
+          <Link to="/sources">Torna all'archivio</Link>
+        </Button>
+      </Card>
+    );
+  }
+
+  const related = allSources
+    .filter((s) => s.id !== src.id && s.topic_tags.some((t) => src.topic_tags.includes(t)))
+    .slice(0, 4);
   const noteForSource = NOTES.find((n) => n.linked_source === src.id);
 
   return (
@@ -107,7 +128,7 @@ function SourceDetail() {
             <TabsContent value="text" className="mt-4">
               <Card className="p-6">
                 <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
-                  {src.full_text}
+                  {src.full_text || src.excerpt}
                 </pre>
               </Card>
             </TabsContent>
