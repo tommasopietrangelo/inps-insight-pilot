@@ -21,6 +21,7 @@ import { Route as AppshellSearchRouteImport } from './routes/_appshell.search'
 import { Route as AppshellDashboardRouteImport } from './routes/_appshell.dashboard'
 import { Route as AppshellAlertsRouteImport } from './routes/_appshell.alerts'
 import { Route as AppshellSourceIdRouteImport } from './routes/_appshell.source.$id'
+import { Route as ApiPublicHooksIngestInpsRouteImport } from './routes/api/public/hooks/ingest-inps'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -81,6 +82,12 @@ const AppshellSourceIdRoute = AppshellSourceIdRouteImport.update({
   path: '/source/$id',
   getParentRoute: () => AppshellRoute,
 } as any)
+const ApiPublicHooksIngestInpsRoute =
+  ApiPublicHooksIngestInpsRouteImport.update({
+    id: '/api/public/hooks/ingest-inps',
+    path: '/api/public/hooks/ingest-inps',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/sources': typeof AppshellSourcesRoute
   '/workspace': typeof AppshellWorkspaceRoute
   '/source/$id': typeof AppshellSourceIdRoute
+  '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,6 +115,7 @@ export interface FileRoutesByTo {
   '/sources': typeof AppshellSourcesRoute
   '/workspace': typeof AppshellWorkspaceRoute
   '/source/$id': typeof AppshellSourceIdRoute
+  '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +131,7 @@ export interface FileRoutesById {
   '/_appshell/sources': typeof AppshellSourcesRoute
   '/_appshell/workspace': typeof AppshellWorkspaceRoute
   '/_appshell/source/$id': typeof AppshellSourceIdRoute
+  '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/sources'
     | '/workspace'
     | '/source/$id'
+    | '/api/public/hooks/ingest-inps'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/sources'
     | '/workspace'
     | '/source/$id'
+    | '/api/public/hooks/ingest-inps'
   id:
     | '__root__'
     | '/'
@@ -164,6 +176,7 @@ export interface FileRouteTypes {
     | '/_appshell/sources'
     | '/_appshell/workspace'
     | '/_appshell/source/$id'
+    | '/api/public/hooks/ingest-inps'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -172,6 +185,7 @@ export interface RootRouteChildren {
   AcceptInviteRoute: typeof AcceptInviteRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
+  ApiPublicHooksIngestInpsRoute: typeof ApiPublicHooksIngestInpsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -260,6 +274,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppshellSourceIdRouteImport
       parentRoute: typeof AppshellRoute
     }
+    '/api/public/hooks/ingest-inps': {
+      id: '/api/public/hooks/ingest-inps'
+      path: '/api/public/hooks/ingest-inps'
+      fullPath: '/api/public/hooks/ingest-inps'
+      preLoaderRoute: typeof ApiPublicHooksIngestInpsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -293,6 +314,7 @@ const rootRouteChildren: RootRouteChildren = {
   AcceptInviteRoute: AcceptInviteRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
+  ApiPublicHooksIngestInpsRoute: ApiPublicHooksIngestInpsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
