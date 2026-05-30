@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ingestEmbeddings } from "@/lib/search.functions";
 import { importFromUrl, importInpsLatest, importFromText } from "@/lib/import.functions";
 import { backfillInpsViaFirecrawl } from "@/lib/inps-firecrawl.functions";
+import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
