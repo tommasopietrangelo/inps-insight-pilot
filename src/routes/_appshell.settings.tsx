@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame } from "lucide-react";
+import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame, BookMarked } from "lucide-react";
 import { TeamCard } from "@/components/team-card";
 
 export const Route = createFileRoute("/_appshell/settings")({
