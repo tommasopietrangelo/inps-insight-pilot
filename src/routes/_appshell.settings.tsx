@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ingestEmbeddings } from "@/lib/search.functions";
 import { importFromUrl, importInpsLatest, importFromText } from "@/lib/import.functions";
 import { backfillInpsViaFirecrawl } from "@/lib/inps-firecrawl.functions";
+import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame } from "lucide-react";
+import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame, BookMarked } from "lucide-react";
 import { TeamCard } from "@/components/team-card";
 
 export const Route = createFileRoute("/_appshell/settings")({
@@ -47,6 +48,9 @@ function Settings() {
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<string | null>(null);
   const [backfillLimit, setBackfillLimit] = useState(100);
+  const runNormative = useServerFn(ingestNormativeCardine);
+  const [normLoading, setNormLoading] = useState(false);
+  const [normResult, setNormResult] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
@@ -254,6 +258,49 @@ function Settings() {
           </div>
           {backfillResult && (
             <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{backfillResult}</div>
+          )}
+        </Card>
+
+        {/* Normative cardine */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <BookMarked className="h-4 w-4 text-primary" /> Normative cardine
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Carica nel corpus le ~14 norme cardine ancora vigenti (DL 48/2023 ADI/SFL,
+                D.Lgs. 22/2015 NASpI, DPCM 159/2013 ISEE, D.Lgs. 230/2021 Assegno Unico,
+                Leggi di Bilancio 2022-2025, riforme pensioni, TU maternità, L. 104).
+                Ogni voce ha un riassunto operativo curato; il testo integrale viene
+                scaricato da Normattiva via Firecrawl quando possibile. Dedup automatico.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              disabled={normLoading}
+              onClick={async () => {
+                setNormLoading(true);
+                setNormResult(null);
+                try {
+                  const r = await runNormative();
+                  setNormResult(
+                    `Totale ${r.total} · nuove ${r.created} · aggiornate ${r.updated} · già presenti ${r.skipped}${r.errors.length ? ` · ${r.errors.length} errori` : ""}. Ora clicca "Aggiorna indice".`,
+                  );
+                } catch (e) {
+                  setNormResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setNormLoading(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {normLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookMarked className="h-4 w-4" />}
+              {normLoading ? "Caricamento…" : "Carica normative"}
+            </Button>
+          </div>
+          {normResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{normResult}</div>
           )}
         </Card>
 
