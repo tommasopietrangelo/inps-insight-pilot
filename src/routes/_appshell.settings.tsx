@@ -48,6 +48,9 @@ function Settings() {
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<string | null>(null);
   const [backfillLimit, setBackfillLimit] = useState(100);
+  const runNormative = useServerFn(ingestNormativeCardine);
+  const [normLoading, setNormLoading] = useState(false);
+  const [normResult, setNormResult] = useState<string | null>(null);
 
   return (
     <div className="space-y-6">
