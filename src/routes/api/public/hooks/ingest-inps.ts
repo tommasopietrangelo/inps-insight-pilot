@@ -10,8 +10,24 @@ import { ingestEmbeddings } from "@/lib/search.functions";
 export const Route = createFileRoute("/api/public/hooks/ingest-inps")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
         try {
+          // Il cron è schedulato a 04:00 e 05:00 UTC per coprire ora legale (CEST=04 UTC)
+          // e ora solare (CET=05 UTC) di Roma → in entrambi i casi sono le 06:00 a Roma.
+          // Lasciamo passare solo l'esecuzione in cui a Roma sono effettivamente le 6.
+          // Bypass via header ?force=1 per esecuzioni manuali.
+          const url = new URL(request.url);
+          const force = url.searchParams.get("force") === "1";
+          const romeHour = Number(
+            new Intl.DateTimeFormat("en-GB", {
+              timeZone: "Europe/Rome",
+              hour: "2-digit",
+              hour12: false,
+            }).format(new Date()),
+          );
+          if (!force && romeHour !== 6) {
+            return Response.json({ ok: true, skipped: true, romeHour });
+          }
           const ingest = await ingestInpsDaily();
           let index: { processed: number; total: number; skipped: number } | null = null;
           let indexError: string | null = null;
