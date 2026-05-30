@@ -261,6 +261,49 @@ function Settings() {
           )}
         </Card>
 
+        {/* Normative cardine */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <BookMarked className="h-4 w-4 text-primary" /> Normative cardine
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Carica nel corpus le ~14 norme cardine ancora vigenti (DL 48/2023 ADI/SFL,
+                D.Lgs. 22/2015 NASpI, DPCM 159/2013 ISEE, D.Lgs. 230/2021 Assegno Unico,
+                Leggi di Bilancio 2022-2025, riforme pensioni, TU maternità, L. 104).
+                Ogni voce ha un riassunto operativo curato; il testo integrale viene
+                scaricato da Normattiva via Firecrawl quando possibile. Dedup automatico.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              disabled={normLoading}
+              onClick={async () => {
+                setNormLoading(true);
+                setNormResult(null);
+                try {
+                  const r = await runNormative();
+                  setNormResult(
+                    `Totale ${r.total} · nuove ${r.created} · aggiornate ${r.updated} · già presenti ${r.skipped}${r.errors.length ? ` · ${r.errors.length} errori` : ""}. Ora clicca "Aggiorna indice".`,
+                  );
+                } catch (e) {
+                  setNormResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setNormLoading(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {normLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookMarked className="h-4 w-4" />}
+              {normLoading ? "Caricamento…" : "Carica normative"}
+            </Button>
+          </div>
+          {normResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{normResult}</div>
+          )}
+        </Card>
+
         {/* RSS pull (best effort) */}
         <Card className="p-6 lg:col-span-2">
 
