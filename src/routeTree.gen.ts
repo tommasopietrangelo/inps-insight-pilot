@@ -19,6 +19,7 @@ import { Route as AppshellSourcesRouteImport } from './routes/_appshell.sources'
 import { Route as AppshellSettingsRouteImport } from './routes/_appshell.settings'
 import { Route as AppshellSearchRouteImport } from './routes/_appshell.search'
 import { Route as AppshellDashboardRouteImport } from './routes/_appshell.dashboard'
+import { Route as AppshellCompareRouteImport } from './routes/_appshell.compare'
 import { Route as AppshellAlertsRouteImport } from './routes/_appshell.alerts'
 import { Route as AppshellSourceIdRouteImport } from './routes/_appshell.source.$id'
 import { Route as ApiPublicHooksIngestInpsRouteImport } from './routes/api/public/hooks/ingest-inps'
@@ -72,6 +73,11 @@ const AppshellDashboardRoute = AppshellDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppshellRoute,
 } as any)
+const AppshellCompareRoute = AppshellCompareRouteImport.update({
+  id: '/compare',
+  path: '/compare',
+  getParentRoute: () => AppshellRoute,
+} as any)
 const AppshellAlertsRoute = AppshellAlertsRouteImport.update({
   id: '/alerts',
   path: '/alerts',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/alerts': typeof AppshellAlertsRoute
+  '/compare': typeof AppshellCompareRoute
   '/dashboard': typeof AppshellDashboardRoute
   '/search': typeof AppshellSearchRoute
   '/settings': typeof AppshellSettingsRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/alerts': typeof AppshellAlertsRoute
+  '/compare': typeof AppshellCompareRoute
   '/dashboard': typeof AppshellDashboardRoute
   '/search': typeof AppshellSearchRoute
   '/settings': typeof AppshellSettingsRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/_appshell/alerts': typeof AppshellAlertsRoute
+  '/_appshell/compare': typeof AppshellCompareRoute
   '/_appshell/dashboard': typeof AppshellDashboardRoute
   '/_appshell/search': typeof AppshellSearchRoute
   '/_appshell/settings': typeof AppshellSettingsRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/alerts'
+    | '/compare'
     | '/dashboard'
     | '/search'
     | '/settings'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/alerts'
+    | '/compare'
     | '/dashboard'
     | '/search'
     | '/settings'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboarding'
     | '/_appshell/alerts'
+    | '/_appshell/compare'
     | '/_appshell/dashboard'
     | '/_appshell/search'
     | '/_appshell/settings'
@@ -260,6 +272,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppshellDashboardRouteImport
       parentRoute: typeof AppshellRoute
     }
+    '/_appshell/compare': {
+      id: '/_appshell/compare'
+      path: '/compare'
+      fullPath: '/compare'
+      preLoaderRoute: typeof AppshellCompareRouteImport
+      parentRoute: typeof AppshellRoute
+    }
     '/_appshell/alerts': {
       id: '/_appshell/alerts'
       path: '/alerts'
@@ -286,6 +305,7 @@ declare module '@tanstack/react-router' {
 
 interface AppshellRouteChildren {
   AppshellAlertsRoute: typeof AppshellAlertsRoute
+  AppshellCompareRoute: typeof AppshellCompareRoute
   AppshellDashboardRoute: typeof AppshellDashboardRoute
   AppshellSearchRoute: typeof AppshellSearchRoute
   AppshellSettingsRoute: typeof AppshellSettingsRoute
@@ -296,6 +316,7 @@ interface AppshellRouteChildren {
 
 const AppshellRouteChildren: AppshellRouteChildren = {
   AppshellAlertsRoute: AppshellAlertsRoute,
+  AppshellCompareRoute: AppshellCompareRoute,
   AppshellDashboardRoute: AppshellDashboardRoute,
   AppshellSearchRoute: AppshellSearchRoute,
   AppshellSettingsRoute: AppshellSettingsRoute,
