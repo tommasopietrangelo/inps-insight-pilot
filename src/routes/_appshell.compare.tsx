@@ -204,7 +204,7 @@ function DiffPanel({
   older,
   newer,
 }: {
-  query: ReturnType<typeof useQuery<CompareDiff, Error>>;
+  query: UseQueryResult<CompareDiff, Error>;
   older: UISource;
   newer: UISource;
 }) {
