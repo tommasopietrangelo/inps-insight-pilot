@@ -283,5 +283,3 @@ function DiffList({
     </div>
   );
 }
-
-void useEffect;
