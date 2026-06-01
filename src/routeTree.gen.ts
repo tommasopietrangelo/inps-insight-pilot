@@ -59,11 +59,6 @@ const AppshellSummarizeRoute = AppshellSummarizeRouteImport.update({
   path: '/summarize',
   getParentRoute: () => AppshellRoute,
 } as any)
-const AppshellSummarizeRoute = AppshellSummarizeRouteImport.update({
-  id: '/summarize',
-  path: '/summarize',
-  getParentRoute: () => AppshellRoute,
-} as any)
 const AppshellSourcesRoute = AppshellSourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
