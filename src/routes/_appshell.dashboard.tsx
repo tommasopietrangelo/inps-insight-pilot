@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SAVED_SEARCHES, NOTES } from "@/lib/mock-data";
 import { useSources, useTopics, useCorpusStats } from "@/lib/data";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_appshell/dashboard")({
   head: () => ({ meta: [{ title: "Cruscotto · INPS Copilot" }] }),
@@ -24,6 +25,12 @@ export const Route = createFileRoute("/_appshell/dashboard")({
 });
 
 function Dashboard() {
+  const { user } = useAuth();
+  const displayName =
+    (user?.user_metadata?.display_name as string | undefined) ??
+    user?.email?.split("@")[0] ??
+    "Utente";
+
   const { data: sources = [] } = useSources(6);
   const { data: topics = [] } = useTopics();
   const { data: stats } = useCorpusStats();
@@ -40,7 +47,7 @@ function Dashboard() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Cruscotto</p>
-          <h1 className="font-display text-2xl font-semibold">Buongiorno, Giulia.</h1>
+          <h1 className="font-display text-2xl font-semibold">Buongiorno, {displayName}.</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             12 nuovi atti pubblicati questa settimana · 4 riguardano i tuoi topic.
           </p>
