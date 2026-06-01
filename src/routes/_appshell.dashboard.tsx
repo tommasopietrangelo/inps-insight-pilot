@@ -74,10 +74,10 @@ function Dashboard() {
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { t: "Cerca una fonte", i: Search, to: "/search" },
-            { t: "Confronta due atti", i: GitCompareArrows, to: "/search" },
-            { t: "Riassumi una circolare", i: FileSignature, to: "/search" },
-            { t: "Crea nota interna", i: PenSquare, to: "/workspace" },
+            { t: "Cerca una fonte", i: Search, to: "/search" as const },
+            { t: "Confronta due atti", i: GitCompareArrows, to: "/compare" as const },
+            { t: "Riassumi una circolare", i: FileSignature, to: "/summarize" as const },
+            { t: "Crea nota interna", i: PenSquare, to: "/workspace" as const },
           ].map((a) => (
             <Button key={a.t} variant="outline" className="h-auto justify-start gap-3 px-4 py-3" asChild>
               <Link to={a.to}>
