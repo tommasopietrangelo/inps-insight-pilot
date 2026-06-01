@@ -7,6 +7,7 @@ import {
   Briefcase,
   Settings,
   ShieldCheck,
+  FileSearch,
 } from "lucide-react";
 import {
   Sidebar,
@@ -24,6 +25,7 @@ import {
 const nav = [
   { title: "Cruscotto", url: "/dashboard", icon: LayoutDashboard },
   { title: "Ricerca", url: "/search", icon: Search },
+  { title: "Analizza documento", url: "/analyze", icon: FileSearch },
   { title: "Fonti", url: "/sources", icon: FileText },
   { title: "Avvisi", url: "/alerts", icon: Bell },
   { title: "Spazio di lavoro", url: "/workspace", icon: Briefcase },

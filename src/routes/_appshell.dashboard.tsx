@@ -8,6 +8,7 @@ import {
   Search,
   GitCompareArrows,
   FileSignature,
+  FileSearch,
   PenSquare,
   ArrowUpRight,
 } from "lucide-react";
@@ -72,9 +73,10 @@ function Dashboard() {
         <div className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Azioni rapide
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {[
             { t: "Cerca una fonte", i: Search, to: "/search" as const },
+            { t: "Analizza un documento", i: FileSearch, to: "/analyze" as const },
             { t: "Confronta due atti", i: GitCompareArrows, to: "/compare" as const },
             { t: "Riassumi una circolare", i: FileSignature, to: "/summarize" as const },
             { t: "Crea nota interna", i: PenSquare, to: "/workspace" as const },
