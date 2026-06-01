@@ -58,14 +58,18 @@ export function useSources(limit?: number) {
   });
 }
 
-export function useSourceBySlug(slug: string) {
+export function useSourceBySlug(slugOrId: string) {
   return useQuery({
-    queryKey: ["source", slug],
+    queryKey: ["source", slugOrId],
     queryFn: async (): Promise<UISource | null> => {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId);
+      const filter = isUuid
+        ? `id.eq.${slugOrId},external_id.eq.${slugOrId}`
+        : `external_id.eq.${slugOrId}`;
       const { data, error } = await supabase
         .from("sources")
         .select("*")
-        .eq("external_id", slug)
+        .or(filter)
         .maybeSingle();
       if (error) throw error;
       return data ? toUI(data) : null;
