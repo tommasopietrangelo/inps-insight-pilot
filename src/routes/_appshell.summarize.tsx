@@ -233,4 +233,3 @@ function Section({ icon, title, items }: { icon: React.ReactNode; title: string;
 }
 
 // Avoid unused-import warning if XCircle not used elsewhere
-void XCircle;
