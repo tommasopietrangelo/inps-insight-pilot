@@ -290,16 +290,22 @@ function SearchPage() {
             </div>
             <div className="space-y-3">
               {sources.map((s) => (
-                <div key={s.chunk_id} className="rounded-md border bg-surface p-4">
-                  <div className="flex items-center gap-2 text-xs">
-                    <Badge className="rounded-sm bg-primary text-primary-foreground">[{s.n}]</Badge>
-                    <Badge variant="secondary" className="rounded-sm capitalize">
-                      {s.source_type}
-                    </Badge>
-                    <span className="font-mono text-muted-foreground">{s.document_number}</span>
-                  </div>
-                  <div className="mt-2 text-sm font-medium">{s.title}</div>
-                  <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">"{s.excerpt}"</p>
+                <div key={s.chunk_id} className="rounded-md border bg-surface p-4 transition-colors hover:border-primary/40">
+                  <Link
+                    to="/source/$id"
+                    params={{ id: s.source_id }}
+                    className="block"
+                  >
+                    <div className="flex items-center gap-2 text-xs">
+                      <Badge className="rounded-sm bg-primary text-primary-foreground">[{s.n}]</Badge>
+                      <Badge variant="secondary" className="rounded-sm capitalize">
+                        {s.source_type}
+                      </Badge>
+                      <span className="font-mono text-muted-foreground">{s.document_number}</span>
+                    </div>
+                    <div className="mt-2 text-sm font-medium hover:text-primary">{s.title}</div>
+                    <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">"{s.excerpt}"</p>
+                  </Link>
                   <Separator className="my-3" />
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>
@@ -311,17 +317,29 @@ function SearchPage() {
                           })
                         : ""}
                     </span>
-                    <a
-                      href={s.official_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 hover:text-primary"
-                    >
-                      INPS.it <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        to="/source/$id"
+                        params={{ id: s.source_id }}
+                        className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                      >
+                        Vai al documento
+                      </Link>
+                      {s.official_url && (
+                        <a
+                          href={s.official_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 hover:text-primary"
+                        >
+                          INPS.it <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
+
               {sources.length === 0 && (
                 <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
                   Nessuna fonte trovata. Prova a riformulare la domanda o aggiorna l'indice AI.
