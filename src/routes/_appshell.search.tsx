@@ -266,7 +266,7 @@ function SearchPage() {
             </div>
 
             <h2 className="mt-5 font-display text-xl font-semibold">Risposta</h2>
-            <div className="mt-2 space-y-1">{renderAnswer(result.answer)}</div>
+            <div className="mt-2 space-y-1">{renderAnswer(result.answer, sources)}</div>
 
             <div className="mt-6 rounded-md border-l-2 border-primary bg-surface-muted p-4 text-sm">
               <div className="font-medium">Avvertenza</div>
