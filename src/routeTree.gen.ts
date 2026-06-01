@@ -16,7 +16,6 @@ import { Route as AppshellRouteImport } from './routes/_appshell'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppshellWorkspaceRouteImport } from './routes/_appshell.workspace'
 import { Route as AppshellSummarizeRouteImport } from './routes/_appshell.summarize'
-import { Route as AppshellSummarizeRouteImport } from './routes/_appshell.summarize'
 import { Route as AppshellSourcesRouteImport } from './routes/_appshell.sources'
 import { Route as AppshellSettingsRouteImport } from './routes/_appshell.settings'
 import { Route as AppshellSearchRouteImport } from './routes/_appshell.search'
@@ -53,6 +52,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppshellWorkspaceRoute = AppshellWorkspaceRouteImport.update({
   id: '/workspace',
   path: '/workspace',
+  getParentRoute: () => AppshellRoute,
+} as any)
+const AppshellSummarizeRoute = AppshellSummarizeRouteImport.update({
+  id: '/summarize',
+  path: '/summarize',
   getParentRoute: () => AppshellRoute,
 } as any)
 const AppshellSummarizeRoute = AppshellSummarizeRouteImport.update({
