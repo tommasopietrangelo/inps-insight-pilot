@@ -15,6 +15,7 @@ import { Route as AcceptInviteRouteImport } from './routes/accept-invite'
 import { Route as AppshellRouteImport } from './routes/_appshell'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppshellWorkspaceRouteImport } from './routes/_appshell.workspace'
+import { Route as AppshellSummarizeRouteImport } from './routes/_appshell.summarize'
 import { Route as AppshellSourcesRouteImport } from './routes/_appshell.sources'
 import { Route as AppshellSettingsRouteImport } from './routes/_appshell.settings'
 import { Route as AppshellSearchRouteImport } from './routes/_appshell.search'
@@ -51,6 +52,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppshellWorkspaceRoute = AppshellWorkspaceRouteImport.update({
   id: '/workspace',
   path: '/workspace',
+  getParentRoute: () => AppshellRoute,
+} as any)
+const AppshellSummarizeRoute = AppshellSummarizeRouteImport.update({
+  id: '/summarize',
+  path: '/summarize',
   getParentRoute: () => AppshellRoute,
 } as any)
 const AppshellSourcesRoute = AppshellSourcesRouteImport.update({
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof AppshellSearchRoute
   '/settings': typeof AppshellSettingsRoute
   '/sources': typeof AppshellSourcesRoute
+  '/summarize': typeof AppshellSummarizeRoute
   '/workspace': typeof AppshellWorkspaceRoute
   '/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/search': typeof AppshellSearchRoute
   '/settings': typeof AppshellSettingsRoute
   '/sources': typeof AppshellSourcesRoute
+  '/summarize': typeof AppshellSummarizeRoute
   '/workspace': typeof AppshellWorkspaceRoute
   '/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/_appshell/search': typeof AppshellSearchRoute
   '/_appshell/settings': typeof AppshellSettingsRoute
   '/_appshell/sources': typeof AppshellSourcesRoute
+  '/_appshell/summarize': typeof AppshellSummarizeRoute
   '/_appshell/workspace': typeof AppshellWorkspaceRoute
   '/_appshell/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/sources'
+    | '/summarize'
     | '/workspace'
     | '/source/$id'
     | '/api/public/hooks/ingest-inps'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/sources'
+    | '/summarize'
     | '/workspace'
     | '/source/$id'
     | '/api/public/hooks/ingest-inps'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/_appshell/search'
     | '/_appshell/settings'
     | '/_appshell/sources'
+    | '/_appshell/summarize'
     | '/_appshell/workspace'
     | '/_appshell/source/$id'
     | '/api/public/hooks/ingest-inps'
@@ -242,6 +254,13 @@ declare module '@tanstack/react-router' {
       path: '/workspace'
       fullPath: '/workspace'
       preLoaderRoute: typeof AppshellWorkspaceRouteImport
+      parentRoute: typeof AppshellRoute
+    }
+    '/_appshell/summarize': {
+      id: '/_appshell/summarize'
+      path: '/summarize'
+      fullPath: '/summarize'
+      preLoaderRoute: typeof AppshellSummarizeRouteImport
       parentRoute: typeof AppshellRoute
     }
     '/_appshell/sources': {
@@ -310,6 +329,7 @@ interface AppshellRouteChildren {
   AppshellSearchRoute: typeof AppshellSearchRoute
   AppshellSettingsRoute: typeof AppshellSettingsRoute
   AppshellSourcesRoute: typeof AppshellSourcesRoute
+  AppshellSummarizeRoute: typeof AppshellSummarizeRoute
   AppshellWorkspaceRoute: typeof AppshellWorkspaceRoute
   AppshellSourceIdRoute: typeof AppshellSourceIdRoute
 }
@@ -321,6 +341,7 @@ const AppshellRouteChildren: AppshellRouteChildren = {
   AppshellSearchRoute: AppshellSearchRoute,
   AppshellSettingsRoute: AppshellSettingsRoute,
   AppshellSourcesRoute: AppshellSourcesRoute,
+  AppshellSummarizeRoute: AppshellSummarizeRoute,
   AppshellWorkspaceRoute: AppshellWorkspaceRoute,
   AppshellSourceIdRoute: AppshellSourceIdRoute,
 }
