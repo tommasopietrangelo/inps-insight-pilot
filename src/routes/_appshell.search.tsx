@@ -1,5 +1,5 @@
 import type React from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -39,8 +39,36 @@ const EXAMPLES = [
 
 type SearchResult = Awaited<ReturnType<typeof groundedSearch>>;
 
-function renderAnswer(text: string) {
-  // Minimal markdown-ish rendering: bold **x**, citations [n] -> sup, sections "## "
+type SourceItem = SearchResult["sources"][number];
+
+function shortLabel(s: SourceItem): string {
+  const type = (s.source_type ?? "").toLowerCase();
+  const typeShort =
+    type.startsWith("circ") ? "Circ."
+      : type.startsWith("mess") ? "Msg"
+      : type.startsWith("norm") ? "Norm."
+      : s.source_type ?? "Fonte";
+  const num = s.document_number?.trim();
+  const base = num ? `${typeShort} ${num}` : `${typeShort} — ${s.title ?? ""}`;
+  return base.length > 48 ? base.slice(0, 47) + "…" : base;
+}
+
+function CitationChip({ s }: { s: SourceItem }) {
+  return (
+    <Link
+      to="/source/$id"
+      params={{ id: s.source_id }}
+      className="mx-0.5 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary align-baseline hover:bg-primary/10 hover:border-primary/50 transition-colors"
+      title={s.title}
+    >
+      <span className="rounded bg-primary/15 px-1 text-[10px] leading-none py-0.5">[{s.n}]</span>
+      <span className="leading-none">{shortLabel(s)}</span>
+    </Link>
+  );
+}
+
+function renderAnswer(text: string, sources: SourceItem[]) {
+  const byN = new Map(sources.map((s) => [s.n, s]));
   const lines = text.split("\n");
   return lines.map((line, i) => {
     if (!line.trim()) return <div key={i} className="h-2" />;
@@ -53,14 +81,13 @@ function renderAnswer(text: string) {
     }
     return (
       <p key={i} className="leading-relaxed text-foreground/90">
-        {renderInline(line)}
+        {renderInline(line, byN)}
       </p>
     );
   });
 }
 
-function renderInline(line: string) {
-  // Split by [n] and **bold**
+function renderInline(line: string, byN: Map<number, SourceItem>) {
   const parts: React.ReactNode[] = [];
   const regex = /(\*\*[^*]+\*\*|\[\d+\])/g;
   let last = 0;
@@ -72,11 +99,17 @@ function renderInline(line: string) {
     if (tok.startsWith("**")) {
       parts.push(<strong key={k++}>{tok.slice(2, -2)}</strong>);
     } else {
-      parts.push(
-        <sup key={k++} className="ml-0.5 rounded bg-primary/10 px-1 text-[10px] font-medium text-primary">
-          {tok}
-        </sup>,
-      );
+      const n = parseInt(tok.slice(1, -1), 10);
+      const src = byN.get(n);
+      if (src) {
+        parts.push(<CitationChip key={k++} s={src} />);
+      } else {
+        parts.push(
+          <sup key={k++} className="ml-0.5 rounded bg-primary/10 px-1 text-[10px] font-medium text-primary">
+            {tok}
+          </sup>,
+        );
+      }
     }
     last = m.index + tok.length;
   }
@@ -233,7 +266,7 @@ function SearchPage() {
             </div>
 
             <h2 className="mt-5 font-display text-xl font-semibold">Risposta</h2>
-            <div className="mt-2 space-y-1">{renderAnswer(result.answer)}</div>
+            <div className="mt-2 space-y-1">{renderAnswer(result.answer, sources)}</div>
 
             <div className="mt-6 rounded-md border-l-2 border-primary bg-surface-muted p-4 text-sm">
               <div className="font-medium">Avvertenza</div>
@@ -257,16 +290,22 @@ function SearchPage() {
             </div>
             <div className="space-y-3">
               {sources.map((s) => (
-                <div key={s.chunk_id} className="rounded-md border bg-surface p-4">
-                  <div className="flex items-center gap-2 text-xs">
-                    <Badge className="rounded-sm bg-primary text-primary-foreground">[{s.n}]</Badge>
-                    <Badge variant="secondary" className="rounded-sm capitalize">
-                      {s.source_type}
-                    </Badge>
-                    <span className="font-mono text-muted-foreground">{s.document_number}</span>
-                  </div>
-                  <div className="mt-2 text-sm font-medium">{s.title}</div>
-                  <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">"{s.excerpt}"</p>
+                <div key={s.chunk_id} className="rounded-md border bg-surface p-4 transition-colors hover:border-primary/40">
+                  <Link
+                    to="/source/$id"
+                    params={{ id: s.source_id }}
+                    className="block"
+                  >
+                    <div className="flex items-center gap-2 text-xs">
+                      <Badge className="rounded-sm bg-primary text-primary-foreground">[{s.n}]</Badge>
+                      <Badge variant="secondary" className="rounded-sm capitalize">
+                        {s.source_type}
+                      </Badge>
+                      <span className="font-mono text-muted-foreground">{s.document_number}</span>
+                    </div>
+                    <div className="mt-2 text-sm font-medium hover:text-primary">{s.title}</div>
+                    <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">"{s.excerpt}"</p>
+                  </Link>
                   <Separator className="my-3" />
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>
@@ -278,17 +317,29 @@ function SearchPage() {
                           })
                         : ""}
                     </span>
-                    <a
-                      href={s.official_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 hover:text-primary"
-                    >
-                      INPS.it <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        to="/source/$id"
+                        params={{ id: s.source_id }}
+                        className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                      >
+                        Vai al documento
+                      </Link>
+                      {s.official_url && (
+                        <a
+                          href={s.official_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 hover:text-primary"
+                        >
+                          INPS.it <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
+
               {sources.length === 0 && (
                 <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
                   Nessuna fonte trovata. Prova a riformulare la domanda o aggiorna l'indice AI.
