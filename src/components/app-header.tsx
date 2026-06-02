@@ -67,7 +67,9 @@ export function AppHeader() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          navigate({ to: "/search", search: { q } as never });
+          const query = q.trim();
+          if (query.length < 2) return;
+          navigate({ to: "/search", search: { q: query } });
         }}
         className="ml-2 hidden flex-1 max-w-xl md:block"
       >
