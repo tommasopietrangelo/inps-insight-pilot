@@ -121,7 +121,8 @@ function renderInline(line: string, byN: Map<number, SourceItem>) {
 }
 
 function SearchPage() {
-  const [q, setQ] = useState("Nuove regole ADI 2026 per nuclei con minori");
+  const { q: urlQ } = Route.useSearch();
+  const [q, setQ] = useState(urlQ ?? "Nuove regole ADI 2026 per nuclei con minori");
   const { current } = useWorkspace();
   const qc = useQueryClient();
   const runSearch = useServerFn(groundedSearch);
@@ -129,6 +130,16 @@ function SearchPage() {
   const mutation = useMutation<SearchResult, Error, string>({
     mutationFn: (query: string) => runSearch({ data: { query } }),
   });
+  const lastRunRef = useRef<string | null>(null);
+  useEffect(() => {
+    const trimmed = (urlQ ?? "").trim();
+    if (trimmed.length >= 2 && lastRunRef.current !== trimmed) {
+      lastRunRef.current = trimmed;
+      setQ(urlQ ?? "");
+      mutation.mutate(trimmed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlQ]);
   const saveMut = useMutation({
     mutationFn: () =>
       saveFn({
