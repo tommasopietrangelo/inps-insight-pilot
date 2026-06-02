@@ -10,6 +10,7 @@ import {
   Quote,
   Layers,
   Sparkles,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -246,6 +247,65 @@ function Landing() {
                 {t}
               </Badge>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison */}
+      <section className="border-b">
+        <div className="mx-auto max-w-7xl px-6 py-20">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="font-display text-3xl font-semibold tracking-tight md:text-5xl">
+              Non una chat generalista. L'AI per il mondo INPS.
+            </h2>
+            <p className="mt-4 text-muted-foreground md:text-lg">
+              Le AI generiche inventano, confondono, espongono i tuoi dati. INPS Copilot no.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-5 md:grid-cols-2">
+            <Card className="rounded-2xl border-border/70 bg-surface-muted p-8">
+              <div className="font-display text-xl font-semibold">Chat AI generica</div>
+              <ul className="mt-6 divide-y divide-border/60">
+                {[
+                  "Inventa circolari e numeri di protocollo",
+                  "I tuoi dati addestrano il modello",
+                  "Nessuna certificazione e niente sicurezza",
+                  "Risposte generiche, senza citazioni",
+                  "Nessuna memoria condivisa dello studio",
+                ].map((t) => (
+                  <li key={t} className="flex items-center gap-3 py-4 text-sm">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                      <X className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                    <span className="text-foreground/80">{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+
+            <Card className="rounded-2xl border-primary bg-primary p-8 text-primary-foreground">
+              <div className="flex items-center gap-2 font-display text-2xl font-bold tracking-tight">
+                <ShieldCheck className="h-6 w-6" />
+                INPS COPILOT
+              </div>
+              <ul className="mt-6 divide-y divide-primary-foreground/20">
+                {[
+                  "Fonti ufficiali INPS, sempre citate",
+                  "Zero training. Zero retention dei tuoi dati",
+                  "Conforme GDPR · AI Act",
+                  "Progettata per CAF, patronati e consulenti",
+                  "Workspace condiviso integrato nel tuo flusso",
+                ].map((t) => (
+                  <li key={t} className="flex items-center gap-3 py-4 text-sm">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-foreground/15">
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
           </div>
         </div>
       </section>
