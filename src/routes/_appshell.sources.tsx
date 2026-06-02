@@ -1,5 +1,6 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { FileText, Loader2, GitCompareArrows, Landmark, FileStack } from "lucide-react";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { FileText, Loader2, GitCompareArrows, Landmark, FileStack, Search, X } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,14 +9,52 @@ import { useSources, type UISource } from "@/lib/data";
 
 export const Route = createFileRoute("/_appshell/sources")({
   head: () => ({ meta: [{ title: "Fonti · INPS Copilot" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    q: typeof search.q === "string" ? search.q : undefined,
+  }),
   component: SourcesPage,
 });
 
-function SourcesPage() {
-  const { data: sources, isLoading, error } = useSources();
+function normalize(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
 
-  const inps = (sources ?? []).filter((s) => s.source_type !== "Normativa");
-  const normative = (sources ?? []).filter((s) => s.source_type === "Normativa");
+function filterSources(items: UISource[], query: string): UISource[] {
+  const q = normalize(query.trim());
+  if (!q) return items;
+  // Numeric search: match document_number like "23", "23/2022", "n. 23"
+  const numMatch = q.match(/\d+/);
+  const numToken = numMatch?.[0];
+  return items.filter((s) => {
+    const hay = normalize(
+      [s.title, s.document_number, s.source_type, s.summary, s.excerpt, ...(s.topic_tags ?? [])]
+        .filter(Boolean)
+        .join(" "),
+    );
+    if (hay.includes(q)) return true;
+    if (numToken && s.document_number && normalize(s.document_number).includes(numToken)) return true;
+    return false;
+  });
+}
+
+function SourcesPage() {
+  const { q: urlQ } = Route.useSearch();
+  const navigate = useNavigate();
+  const { data: sources, isLoading, error } = useSources();
+  const [query, setQuery] = useState(urlQ ?? "");
+
+  useEffect(() => {
+    setQuery(urlQ ?? "");
+  }, [urlQ]);
+
+  const filtered = useMemo(() => filterSources(sources ?? [], query), [sources, query]);
+  const inps = filtered.filter((s) => s.source_type !== "Normativa");
+  const normative = filtered.filter((s) => s.source_type === "Normativa");
+
+  const submit = (value: string) => {
+    const v = value.trim();
+    navigate({ to: "/sources", search: v ? { q: v } : {} });
+  };
 
   return (
     <div className="space-y-5">
@@ -34,6 +73,49 @@ function SourcesPage() {
           </Link>
         </Button>
       </div>
+
+      <Card className="p-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit(query);
+          }}
+          className="flex items-center gap-2"
+        >
+          <Search className="ml-3 h-4 w-4 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Cerca per tema (es. ADI, Assegno Unico) o per numero (es. 23/2022)"
+            className="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+          {query && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1"
+              onClick={() => {
+                setQuery("");
+                navigate({ to: "/sources", search: {} });
+              }}
+            >
+              <X className="h-3.5 w-3.5" /> Pulisci
+            </Button>
+          )}
+          <Button type="submit" size="sm">Cerca</Button>
+        </form>
+      </Card>
+
+      {urlQ && (
+        <div className="text-xs text-muted-foreground">
+          {filtered.length} risultat{filtered.length === 1 ? "o" : "i"} per <strong className="text-foreground">"{urlQ}"</strong>
+          {" · "}
+          <Link to="/search" search={{ q: urlQ }} className="text-primary hover:underline">
+            Chiedi all'AI invece
+          </Link>
+        </div>
+      )}
 
       {isLoading && (
         <Card className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
@@ -59,14 +141,14 @@ function SourcesPage() {
             <p className="mb-2 text-xs text-muted-foreground">
               Circolari, messaggi, decreti e pagine servizio INPS in ordine cronologico (più recenti in alto).
             </p>
-            <SourceList items={inps} empty="Nessun atto INPS nel corpus." />
+            <SourceList items={inps} empty={urlQ ? `Nessun atto INPS corrisponde a "${urlQ}".` : "Nessun atto INPS nel corpus."} />
           </TabsContent>
 
           <TabsContent value="normativa" className="mt-4">
             <p className="mb-2 text-xs text-muted-foreground">
               Solo normativa cardine (leggi, decreti legge, decreti legislativi) per data di pubblicazione.
             </p>
-            <SourceList items={normative} empty="Nessuna normativa cardine indicizzata." />
+            <SourceList items={normative} empty={urlQ ? `Nessuna normativa corrisponde a "${urlQ}".` : "Nessuna normativa cardine indicizzata."} />
           </TabsContent>
         </Tabs>
       )}
