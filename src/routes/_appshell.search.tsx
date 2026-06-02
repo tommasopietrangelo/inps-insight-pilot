@@ -1,6 +1,6 @@
 import type React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -26,6 +26,9 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_appshell/search")({
   head: () => ({ meta: [{ title: "Ricerca · INPS Copilot" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    q: typeof search.q === "string" ? search.q : undefined,
+  }),
   component: SearchPage,
 });
 
