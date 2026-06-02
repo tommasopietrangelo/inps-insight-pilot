@@ -69,7 +69,7 @@ export function AppHeader() {
           e.preventDefault();
           const query = q.trim();
           if (query.length < 2) return;
-          navigate({ to: "/search", search: { q: query } });
+          navigate({ to: "/sources", search: { q: query } });
         }}
         className="ml-2 hidden flex-1 max-w-xl md:block"
       >
