@@ -379,6 +379,69 @@ function SearchPage() {
                 ufficiale prima di un atto formale.
               </p>
             </div>
+
+            {useMemory && isPro && (
+              <div className="mt-4 rounded-lg border border-orange-500/40 bg-orange-500/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+                      <Brain className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-orange-700 dark:text-orange-400">
+                        Memoria applicata
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Questa risposta tiene conto di 3 ricerche recenti e 2 pratiche correlate.
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className="gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] text-white hover:from-amber-500 hover:to-orange-500">
+                    <Sparkles className="h-3 w-3" /> PRO
+                  </Badge>
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Correlati dal tuo studio
+                  </div>
+                  <div className="mt-2 space-y-1.5">
+                    {memorySuggestions.map((s) => (
+                      <Link
+                        key={s.label}
+                        to={s.to}
+                        className="group flex items-center justify-between rounded-md border border-orange-500/20 bg-background/60 px-3 py-2 text-sm hover:border-orange-500/50"
+                      >
+                        <span className="text-foreground/90">{s.label}</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-orange-500" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 border-orange-500/40 text-orange-700 hover:bg-orange-500/10 hover:text-orange-700 dark:text-orange-400"
+                    onClick={() => {
+                      setUseMemory(false);
+                      submit(q);
+                    }}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Rifai risposta senza memoria
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1.5 text-orange-700 hover:bg-orange-500/10 hover:text-orange-700 dark:text-orange-400"
+                    onClick={() => toast.info("Memoria: 3 ricerche e 2 pratiche correlate utilizzate")}
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Vedi cosa ha usato
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* Sources */}
