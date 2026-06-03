@@ -10,6 +10,7 @@ import {
   FileSearch,
   ClipboardCheck,
   Brain,
+  Sparkles,
 } from "lucide-react";
 import {
   Sidebar,
@@ -22,22 +23,26 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 
 const nav = [
   { title: "Cruscotto", url: "/dashboard", icon: LayoutDashboard },
   { title: "Ricerca", url: "/search", icon: Search },
   { title: "Analizza documento", url: "/analyze", icon: FileSearch },
   { title: "Checklist pratica", url: "/checklist", icon: ClipboardCheck },
-  { title: "Memoria AI", url: "/memory", icon: Brain },
   { title: "Fonti", url: "/sources", icon: FileText },
   { title: "Avvisi", url: "/alerts", icon: Bell },
   { title: "Spazio di lavoro", url: "/workspace", icon: Briefcase },
+  { title: "Memoria AI", url: "/memory", icon: Brain, badge: "PRO" },
 ];
 
 const settings = [{ title: "Impostazioni", url: "/settings", icon: Settings }];
 
+
 export function AppSidebar() {
+  const { state } = useSidebar();
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (p: string) =>
     p === "/dashboard" ? currentPath === p : currentPath.startsWith(p);
@@ -65,9 +70,14 @@ export function AppSidebar() {
               {nav.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <Link to={item.url}>
-                      <item.icon className="h-4 w-4" />
+                    <Link to={item.url} className="flex items-center gap-2">
+                      <item.icon className="h-4 w-4 shrink-0" />
                       <span>{item.title}</span>
+                      {item.badge && state !== "collapsed" && (
+                        <Badge className="ml-auto gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] text-white hover:from-amber-500 hover:to-orange-500">
+                          <Sparkles className="h-3 w-3" /> PRO
+                        </Badge>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
