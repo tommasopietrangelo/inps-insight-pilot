@@ -14,11 +14,26 @@ import {
   ListFilter,
   Loader2,
   AlertCircle,
+  Brain,
+  Lock,
+  RotateCcw,
+  Eye,
+  ArrowRight,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { groundedSearch } from "@/lib/search.functions";
 import { createSavedSearch } from "@/lib/saved-searches.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
