@@ -8,6 +8,7 @@ import {
   Settings,
   ShieldCheck,
   FileSearch,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -26,6 +27,7 @@ const nav = [
   { title: "Cruscotto", url: "/dashboard", icon: LayoutDashboard },
   { title: "Ricerca", url: "/search", icon: Search },
   { title: "Analizza documento", url: "/analyze", icon: FileSearch },
+  { title: "Checklist pratica", url: "/checklist", icon: ClipboardCheck },
   { title: "Fonti", url: "/sources", icon: FileText },
   { title: "Avvisi", url: "/alerts", icon: Bell },
   { title: "Spazio di lavoro", url: "/workspace", icon: Briefcase },

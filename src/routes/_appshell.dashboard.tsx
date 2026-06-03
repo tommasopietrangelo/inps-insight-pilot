@@ -11,6 +11,7 @@ import {
   FileSearch,
   PenSquare,
   ArrowUpRight,
+  ClipboardCheck,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,10 +84,10 @@ function Dashboard() {
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {[
             { t: "Cerca una fonte", i: Search, to: "/search" as const },
+            { t: "Crea checklist pratica", i: ClipboardCheck, to: "/checklist" as const },
             { t: "Analizza un documento", i: FileSearch, to: "/analyze" as const },
             { t: "Confronta due atti", i: GitCompareArrows, to: "/compare" as const },
             { t: "Riassumi una circolare", i: FileSignature, to: "/summarize" as const },
-            { t: "Crea nota interna", i: PenSquare, to: "/workspace" as const },
           ].map((a) => (
             <Button key={a.t} variant="outline" className="h-auto justify-start gap-3 px-4 py-3" asChild>
               <Link to={a.to}>
