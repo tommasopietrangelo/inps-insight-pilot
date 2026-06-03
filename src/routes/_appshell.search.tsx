@@ -213,7 +213,72 @@ function SearchPage() {
             Cerca
           </Button>
         </form>
+        <div className="mt-1 flex items-center justify-between border-t px-3 py-2">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isPro) {
+                      setUpgradeOpen(true);
+                      return;
+                    }
+                    setUseMemory((v) => !v);
+                  }}
+                  className="group flex items-center gap-2 rounded-md px-1 py-0.5 text-sm"
+                >
+                  <Brain
+                    className={`h-4 w-4 ${useMemory && isPro ? "text-orange-500" : "text-muted-foreground"}`}
+                  />
+                  <span className="font-medium text-foreground">Usa Memoria AI</span>
+                  <Badge className="gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] text-white hover:from-amber-500 hover:to-orange-500">
+                    {!isPro && <Lock className="h-3 w-3" />}
+                    {isPro && <Sparkles className="h-3 w-3" />} PRO
+                  </Badge>
+                  {isPro && (
+                    <Switch
+                      checked={useMemory}
+                      onCheckedChange={setUseMemory}
+                      onClick={(e) => e.stopPropagation()}
+                      className="ml-1 data-[state=checked]:bg-orange-500"
+                    />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                Ricalibra la risposta in base alle tue pratiche, ricerche e documenti già analizzati.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {useMemory && isPro && (
+            <span className="text-xs text-muted-foreground">Memoria AI attiva su questa ricerca</span>
+          )}
+        </div>
       </Card>
+
+      <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-orange-500" />
+              Memoria AI è una funzione PRO
+            </DialogTitle>
+            <DialogDescription>
+              Passa al piano PRO per consentire al Copilot di ricalibrare ogni risposta in base alle
+              pratiche, ricerche e documenti del tuo studio.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUpgradeOpen(false)}>
+              Non ora
+            </Button>
+            <Button className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90">
+              Scopri il piano PRO
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex flex-wrap gap-2">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Esempi</span>
