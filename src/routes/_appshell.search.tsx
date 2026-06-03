@@ -14,11 +14,26 @@ import {
   ListFilter,
   Loader2,
   AlertCircle,
+  Brain,
+  Lock,
+  RotateCcw,
+  Eye,
+  ArrowRight,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { groundedSearch } from "@/lib/search.functions";
 import { createSavedSearch } from "@/lib/saved-searches.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
@@ -165,6 +180,16 @@ function SearchPage() {
   const result = mutation.data;
   const sources = result?.sources ?? [];
 
+  // Memoria AI (mock UI only)
+  const isPro = true; // toggle to false to preview the locked state
+  const [useMemory, setUseMemory] = useState<boolean>(false);
+  const [upgradeOpen, setUpgradeOpen] = useState<boolean>(false);
+  const memorySuggestions = [
+    { label: "Pratica NASpI · sig. Bianchi (apr. 2026)", to: "/workspace" },
+    { label: "Ricerca recente: rivalutazione pensioni 2026", to: "/search?q=Rivalutazione+pensioni+2026" },
+    { label: "Documento analizzato: ISEE nucleo Rossi.pdf", to: "/analyze" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -198,7 +223,72 @@ function SearchPage() {
             Cerca
           </Button>
         </form>
+        <div className="mt-1 flex items-center justify-between border-t px-3 py-2">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isPro) {
+                      setUpgradeOpen(true);
+                      return;
+                    }
+                    setUseMemory((v) => !v);
+                  }}
+                  className="group flex items-center gap-2 rounded-md px-1 py-0.5 text-sm"
+                >
+                  <Brain
+                    className={`h-4 w-4 ${useMemory && isPro ? "text-orange-500" : "text-muted-foreground"}`}
+                  />
+                  <span className="font-medium text-foreground">Usa Memoria AI</span>
+                  <Badge className="gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] text-white hover:from-amber-500 hover:to-orange-500">
+                    {!isPro && <Lock className="h-3 w-3" />}
+                    {isPro && <Sparkles className="h-3 w-3" />} PRO
+                  </Badge>
+                  {isPro && (
+                    <Switch
+                      checked={useMemory}
+                      onCheckedChange={setUseMemory}
+                      onClick={(e) => e.stopPropagation()}
+                      className="ml-1 data-[state=checked]:bg-orange-500"
+                    />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                Ricalibra la risposta in base alle tue pratiche, ricerche e documenti già analizzati.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {useMemory && isPro && (
+            <span className="text-xs text-muted-foreground">Memoria AI attiva su questa ricerca</span>
+          )}
+        </div>
       </Card>
+
+      <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-orange-500" />
+              Memoria AI è una funzione PRO
+            </DialogTitle>
+            <DialogDescription>
+              Passa al piano PRO per consentire al Copilot di ricalibrare ogni risposta in base alle
+              pratiche, ricerche e documenti del tuo studio.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUpgradeOpen(false)}>
+              Non ora
+            </Button>
+            <Button className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90">
+              Scopri il piano PRO
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex flex-wrap gap-2">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Esempi</span>
@@ -289,6 +379,69 @@ function SearchPage() {
                 ufficiale prima di un atto formale.
               </p>
             </div>
+
+            {useMemory && isPro && (
+              <div className="mt-4 rounded-lg border border-orange-500/40 bg-orange-500/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-orange-500 text-white">
+                      <Brain className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-orange-700 dark:text-orange-400">
+                        Memoria applicata
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Questa risposta tiene conto di 3 ricerche recenti e 2 pratiche correlate.
+                      </p>
+                    </div>
+                  </div>
+                  <Badge className="gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] text-white hover:from-amber-500 hover:to-orange-500">
+                    <Sparkles className="h-3 w-3" /> PRO
+                  </Badge>
+                </div>
+
+                <div className="mt-3">
+                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Correlati dal tuo studio
+                  </div>
+                  <div className="mt-2 space-y-1.5">
+                    {memorySuggestions.map((s) => (
+                      <Link
+                        key={s.label}
+                        to={s.to}
+                        className="group flex items-center justify-between rounded-md border border-orange-500/20 bg-background/60 px-3 py-2 text-sm hover:border-orange-500/50"
+                      >
+                        <span className="text-foreground/90">{s.label}</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-orange-500" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 border-orange-500/40 text-orange-700 hover:bg-orange-500/10 hover:text-orange-700 dark:text-orange-400"
+                    onClick={() => {
+                      setUseMemory(false);
+                      submit(q);
+                    }}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" /> Rifai risposta senza memoria
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1.5 text-orange-700 hover:bg-orange-500/10 hover:text-orange-700 dark:text-orange-400"
+                    onClick={() => toast.info("Memoria: 3 ricerche e 2 pratiche correlate utilizzate")}
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Vedi cosa ha usato
+                  </Button>
+                </div>
+              </div>
+            )}
           </Card>
 
           {/* Sources */}
