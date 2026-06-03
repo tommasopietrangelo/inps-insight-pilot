@@ -29,6 +29,7 @@ const nav = [
   { title: "Ricerca", url: "/search", icon: Search },
   { title: "Analizza documento", url: "/analyze", icon: FileSearch },
   { title: "Checklist pratica", url: "/checklist", icon: ClipboardCheck },
+  { title: "Memoria AI", url: "/memory", icon: Brain },
   { title: "Fonti", url: "/sources", icon: FileText },
   { title: "Avvisi", url: "/alerts", icon: Bell },
   { title: "Spazio di lavoro", url: "/workspace", icon: Briefcase },
