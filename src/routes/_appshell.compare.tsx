@@ -2,22 +2,27 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowLeftRight,
   CalendarDays,
   CheckCircle2,
+  ChevronsUpDown,
   ExternalLink,
   HelpCircle,
   Loader2,
+  Search,
   Sparkles,
   XCircle,
   PlusCircle,
+  Check,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
