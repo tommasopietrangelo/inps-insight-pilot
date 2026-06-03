@@ -288,3 +288,108 @@ export const ingestInpsDaily = createServerFn({ method: "POST" })
     }
     return { checked: candidates.length, created, skipped, errors: errors.slice(0, 5) };
   });
+
+// ---------- Cron giornaliero: backfill "a ritroso" ----------
+//
+// Trova la pubblicazione più vecchia già nel corpus e cerca su INPS atti
+// ancora più datati, ingestendone fino a `target` nuovi (default 5).
+// Procede per anni decrescenti finché non raggiunge la quota o esaurisce
+// i candidati antecedenti.
+
+const BackfillOlderInput = z.object({
+  target: z.number().int().min(1).max(20).default(5),
+  yearsBack: z.number().int().min(1).max(15).default(10),
+});
+
+export const backfillInpsOlder = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => BackfillOlderInput.parse(data ?? {}))
+  .handler(async ({ data }) => {
+    // 1) trova la data più vecchia già nel corpus (solo atti INPS)
+    const { data: oldestRows, error: oldestErr } = await supabaseAdmin
+      .from("sources")
+      .select("publication_date")
+      .in("source_type", ["circolare", "messaggio"])
+      .order("publication_date", { ascending: true })
+      .limit(1);
+    if (oldestErr) throw new Error(oldestErr.message);
+
+    const oldestDate = oldestRows?.[0]?.publication_date
+      ? new Date(oldestRows[0].publication_date as string)
+      : new Date(); // fallback: oggi (cercherà comunque tutto il passato)
+    const oldestYear = oldestDate.getFullYear();
+
+    // 2) URL già nel DB (per dedup veloce senza scrape)
+    const { data: existingRows } = await supabaseAdmin
+      .from("sources")
+      .select("external_id")
+      .in("source_type", ["circolare", "messaggio"]);
+    const knownIds = new Set((existingRows ?? []).map((r) => r.external_id).filter(Boolean) as string[]);
+
+    // 3) scopri candidati anno per anno, dal più recente "minore di oldestYear"
+    //    a ritroso, includendo anche l'anno corrente di oldestDate per
+    //    intercettare atti dello stesso anno ma con data precedente.
+    const target = data.target;
+    const created: Array<{ url: string; external_id: string; title: string }> = [];
+    const errors: string[] = [];
+    let totalDiscovered = 0;
+    let totalEligible = 0;
+
+    for (let year = oldestYear; year >= oldestYear - data.yearsBack && created.length < target; year--) {
+      const links = new Set<string>();
+      for (const term of [`circolare numero del ${year}`, `messaggio numero del ${year}`]) {
+        try {
+          const found = await firecrawlMap("https://www.inps.it", term, 200);
+          for (const l of found) {
+            if (/inps\.it\/.+(circolare|messaggio).*\d/i.test(l)) {
+              links.add(l.split("#")[0].split("?")[0]);
+            }
+          }
+        } catch (e) {
+          console.error(`map ${term} failed`, e);
+        }
+      }
+      totalDiscovered += links.size;
+
+      // tieni solo URL dell'anno e con data precedente a oldestDate; salta i già noti
+      const candidates: Array<{ url: string; date: Date }> = [];
+      for (const url of links) {
+        const meta = parseInpsUrl(url);
+        if (meta.year !== year) continue;
+        if (!meta.date) continue;
+        const d = new Date(meta.date);
+        if (isNaN(d.getTime())) continue;
+        if (d >= oldestDate) continue;
+        const extId = buildExternalId(meta, url);
+        if (knownIds.has(extId)) continue;
+        candidates.push({ url, date: d });
+      }
+      totalEligible += candidates.length;
+
+      // ordina dal più recente al più vecchio (riempie il "buco" appena prima di oldestDate)
+      candidates.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+      for (const c of candidates) {
+        if (created.length >= target) break;
+        try {
+          const r = await ingestSingleInps(c.url);
+          if (r.ok && r.created) {
+            created.push({ url: c.url, external_id: r.external_id, title: r.title });
+            knownIds.add(r.external_id);
+          } else if (!r.ok) {
+            errors.push(`${c.url}: ${r.reason}`);
+          }
+        } catch (e) {
+          errors.push(`${c.url}: ${(e as Error).message}`);
+        }
+      }
+    }
+
+    return {
+      oldestBefore: oldestDate.toISOString().slice(0, 10),
+      discovered: totalDiscovered,
+      eligible: totalEligible,
+      created: created.length,
+      createdItems: created,
+      errors: errors.slice(0, 10),
+    };
+  });
