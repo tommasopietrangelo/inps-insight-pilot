@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   FileSearch,
   ClipboardCheck,
+  Brain,
 } from "lucide-react";
 import {
   Sidebar,
