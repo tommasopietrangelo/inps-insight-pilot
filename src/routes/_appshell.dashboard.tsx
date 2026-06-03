@@ -222,6 +222,41 @@ function Dashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Premium: Memoria AI */}
+      <Link
+        to="/memory"
+        className="group relative block overflow-hidden rounded-xl border border-primary/30 bg-gradient-to-br from-primary/10 via-background to-background p-6 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
+      >
+        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-primary/15 blur-3xl transition-all group-hover:bg-primary/25" />
+        <div className="absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-amber-500/10 blur-3xl" />
+        <div className="relative flex flex-wrap items-center justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/60 text-primary-foreground shadow-lg shadow-primary/30">
+              <Brain className="h-7 w-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge className="gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-500 hover:to-orange-500">
+                  <Sparkles className="h-3 w-3" /> PREMIUM
+                </Badge>
+                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Nuovo
+                </span>
+              </div>
+              <h2 className="mt-1.5 font-display text-xl font-semibold">Memoria AI</h2>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                Apprende dal lavoro del tuo studio e costruisce conoscenza nel tempo: normative,
+                pratiche, casi particolari e procedure interne.
+              </p>
+            </div>
+          </div>
+          <Button className="gap-1.5 bg-gradient-to-r from-primary to-primary/80 shadow-md shadow-primary/20">
+            Apri Memoria <ArrowUpRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </Link>
     </div>
   );
 }
+
