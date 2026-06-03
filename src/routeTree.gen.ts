@@ -21,6 +21,7 @@ import { Route as AppshellSettingsRouteImport } from './routes/_appshell.setting
 import { Route as AppshellSearchRouteImport } from './routes/_appshell.search'
 import { Route as AppshellDashboardRouteImport } from './routes/_appshell.dashboard'
 import { Route as AppshellCompareRouteImport } from './routes/_appshell.compare'
+import { Route as AppshellChecklistRouteImport } from './routes/_appshell.checklist'
 import { Route as AppshellAnalyzeRouteImport } from './routes/_appshell.analyze'
 import { Route as AppshellAlertsRouteImport } from './routes/_appshell.alerts'
 import { Route as AppshellSourceIdRouteImport } from './routes/_appshell.source.$id'
@@ -86,6 +87,11 @@ const AppshellCompareRoute = AppshellCompareRouteImport.update({
   path: '/compare',
   getParentRoute: () => AppshellRoute,
 } as any)
+const AppshellChecklistRoute = AppshellChecklistRouteImport.update({
+  id: '/checklist',
+  path: '/checklist',
+  getParentRoute: () => AppshellRoute,
+} as any)
 const AppshellAnalyzeRoute = AppshellAnalyzeRouteImport.update({
   id: '/analyze',
   path: '/analyze',
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/alerts': typeof AppshellAlertsRoute
   '/analyze': typeof AppshellAnalyzeRoute
+  '/checklist': typeof AppshellChecklistRoute
   '/compare': typeof AppshellCompareRoute
   '/dashboard': typeof AppshellDashboardRoute
   '/search': typeof AppshellSearchRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/alerts': typeof AppshellAlertsRoute
   '/analyze': typeof AppshellAnalyzeRoute
+  '/checklist': typeof AppshellChecklistRoute
   '/compare': typeof AppshellCompareRoute
   '/dashboard': typeof AppshellDashboardRoute
   '/search': typeof AppshellSearchRoute
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/_appshell/alerts': typeof AppshellAlertsRoute
   '/_appshell/analyze': typeof AppshellAnalyzeRoute
+  '/_appshell/checklist': typeof AppshellChecklistRoute
   '/_appshell/compare': typeof AppshellCompareRoute
   '/_appshell/dashboard': typeof AppshellDashboardRoute
   '/_appshell/search': typeof AppshellSearchRoute
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/alerts'
     | '/analyze'
+    | '/checklist'
     | '/compare'
     | '/dashboard'
     | '/search'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/alerts'
     | '/analyze'
+    | '/checklist'
     | '/compare'
     | '/dashboard'
     | '/search'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/_appshell/alerts'
     | '/_appshell/analyze'
+    | '/_appshell/checklist'
     | '/_appshell/compare'
     | '/_appshell/dashboard'
     | '/_appshell/search'
@@ -324,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppshellCompareRouteImport
       parentRoute: typeof AppshellRoute
     }
+    '/_appshell/checklist': {
+      id: '/_appshell/checklist'
+      path: '/checklist'
+      fullPath: '/checklist'
+      preLoaderRoute: typeof AppshellChecklistRouteImport
+      parentRoute: typeof AppshellRoute
+    }
     '/_appshell/analyze': {
       id: '/_appshell/analyze'
       path: '/analyze'
@@ -365,6 +384,7 @@ declare module '@tanstack/react-router' {
 interface AppshellRouteChildren {
   AppshellAlertsRoute: typeof AppshellAlertsRoute
   AppshellAnalyzeRoute: typeof AppshellAnalyzeRoute
+  AppshellChecklistRoute: typeof AppshellChecklistRoute
   AppshellCompareRoute: typeof AppshellCompareRoute
   AppshellDashboardRoute: typeof AppshellDashboardRoute
   AppshellSearchRoute: typeof AppshellSearchRoute
@@ -378,6 +398,7 @@ interface AppshellRouteChildren {
 const AppshellRouteChildren: AppshellRouteChildren = {
   AppshellAlertsRoute: AppshellAlertsRoute,
   AppshellAnalyzeRoute: AppshellAnalyzeRoute,
+  AppshellChecklistRoute: AppshellChecklistRoute,
   AppshellCompareRoute: AppshellCompareRoute,
   AppshellDashboardRoute: AppshellDashboardRoute,
   AppshellSearchRoute: AppshellSearchRoute,
