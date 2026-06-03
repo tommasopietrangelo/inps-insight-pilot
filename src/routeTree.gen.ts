@@ -19,6 +19,7 @@ import { Route as AppshellSummarizeRouteImport } from './routes/_appshell.summar
 import { Route as AppshellSourcesRouteImport } from './routes/_appshell.sources'
 import { Route as AppshellSettingsRouteImport } from './routes/_appshell.settings'
 import { Route as AppshellSearchRouteImport } from './routes/_appshell.search'
+import { Route as AppshellMemoryRouteImport } from './routes/_appshell.memory'
 import { Route as AppshellDashboardRouteImport } from './routes/_appshell.dashboard'
 import { Route as AppshellCompareRouteImport } from './routes/_appshell.compare'
 import { Route as AppshellChecklistRouteImport } from './routes/_appshell.checklist'
@@ -77,6 +78,11 @@ const AppshellSearchRoute = AppshellSearchRouteImport.update({
   path: '/search',
   getParentRoute: () => AppshellRoute,
 } as any)
+const AppshellMemoryRoute = AppshellMemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
+  getParentRoute: () => AppshellRoute,
+} as any)
 const AppshellDashboardRoute = AppshellDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/checklist': typeof AppshellChecklistRoute
   '/compare': typeof AppshellCompareRoute
   '/dashboard': typeof AppshellDashboardRoute
+  '/memory': typeof AppshellMemoryRoute
   '/search': typeof AppshellSearchRoute
   '/settings': typeof AppshellSettingsRoute
   '/sources': typeof AppshellSourcesRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByTo {
   '/checklist': typeof AppshellChecklistRoute
   '/compare': typeof AppshellCompareRoute
   '/dashboard': typeof AppshellDashboardRoute
+  '/memory': typeof AppshellMemoryRoute
   '/search': typeof AppshellSearchRoute
   '/settings': typeof AppshellSettingsRoute
   '/sources': typeof AppshellSourcesRoute
@@ -170,6 +178,7 @@ export interface FileRoutesById {
   '/_appshell/checklist': typeof AppshellChecklistRoute
   '/_appshell/compare': typeof AppshellCompareRoute
   '/_appshell/dashboard': typeof AppshellDashboardRoute
+  '/_appshell/memory': typeof AppshellMemoryRoute
   '/_appshell/search': typeof AppshellSearchRoute
   '/_appshell/settings': typeof AppshellSettingsRoute
   '/_appshell/sources': typeof AppshellSourcesRoute
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
     | '/checklist'
     | '/compare'
     | '/dashboard'
+    | '/memory'
     | '/search'
     | '/settings'
     | '/sources'
@@ -210,6 +220,7 @@ export interface FileRouteTypes {
     | '/checklist'
     | '/compare'
     | '/dashboard'
+    | '/memory'
     | '/search'
     | '/settings'
     | '/sources'
@@ -230,6 +241,7 @@ export interface FileRouteTypes {
     | '/_appshell/checklist'
     | '/_appshell/compare'
     | '/_appshell/dashboard'
+    | '/_appshell/memory'
     | '/_appshell/search'
     | '/_appshell/settings'
     | '/_appshell/sources'
@@ -322,6 +334,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppshellSearchRouteImport
       parentRoute: typeof AppshellRoute
     }
+    '/_appshell/memory': {
+      id: '/_appshell/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof AppshellMemoryRouteImport
+      parentRoute: typeof AppshellRoute
+    }
     '/_appshell/dashboard': {
       id: '/_appshell/dashboard'
       path: '/dashboard'
@@ -387,6 +406,7 @@ interface AppshellRouteChildren {
   AppshellChecklistRoute: typeof AppshellChecklistRoute
   AppshellCompareRoute: typeof AppshellCompareRoute
   AppshellDashboardRoute: typeof AppshellDashboardRoute
+  AppshellMemoryRoute: typeof AppshellMemoryRoute
   AppshellSearchRoute: typeof AppshellSearchRoute
   AppshellSettingsRoute: typeof AppshellSettingsRoute
   AppshellSourcesRoute: typeof AppshellSourcesRoute
@@ -401,6 +421,7 @@ const AppshellRouteChildren: AppshellRouteChildren = {
   AppshellChecklistRoute: AppshellChecklistRoute,
   AppshellCompareRoute: AppshellCompareRoute,
   AppshellDashboardRoute: AppshellDashboardRoute,
+  AppshellMemoryRoute: AppshellMemoryRoute,
   AppshellSearchRoute: AppshellSearchRoute,
   AppshellSettingsRoute: AppshellSettingsRoute,
   AppshellSourcesRoute: AppshellSourcesRoute,
