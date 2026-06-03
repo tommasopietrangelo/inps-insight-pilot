@@ -180,6 +180,16 @@ function SearchPage() {
   const result = mutation.data;
   const sources = result?.sources ?? [];
 
+  // Memoria AI (mock UI only)
+  const isPro = true; // toggle to false to preview the locked state
+  const [useMemory, setUseMemory] = useState<boolean>(false);
+  const [upgradeOpen, setUpgradeOpen] = useState<boolean>(false);
+  const memorySuggestions = [
+    { label: "Pratica NASpI · sig. Bianchi (apr. 2026)", to: "/workspace" },
+    { label: "Ricerca recente: rivalutazione pensioni 2026", to: "/search?q=Rivalutazione+pensioni+2026" },
+    { label: "Documento analizzato: ISEE nucleo Rossi.pdf", to: "/analyze" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
