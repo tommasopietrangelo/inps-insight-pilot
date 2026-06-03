@@ -2,30 +2,28 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowLeftRight,
   CalendarDays,
   CheckCircle2,
+  ChevronsUpDown,
   ExternalLink,
   HelpCircle,
   Loader2,
+  Search,
   Sparkles,
   XCircle,
   PlusCircle,
+  Check,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useSources, type UISource } from "@/lib/data";
 import { compareSources, type CompareDiff } from "@/lib/compare.functions";
 
@@ -135,27 +133,111 @@ function PickerCard({
   loading: boolean;
   excludeId?: string;
 }) {
-  const options = sources.filter((s) => s.id !== excludeId);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selected = sources.find((s) => s.id === selectedId);
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const options = useMemo(() => {
+    const base = sources.filter((s) => s.id !== excludeId);
+    const q = norm(query.trim());
+    if (!q) return base.slice(0, 100);
+    const numToken = q.match(/\d+/)?.[0];
+    return base
+      .filter((s) => {
+        const hay = norm(
+          [s.title, s.document_number, s.source_type, s.summary, ...(s.topic_tags ?? [])]
+            .filter(Boolean)
+            .join(" "),
+        );
+        if (hay.includes(q)) return true;
+        if (numToken && s.document_number && norm(s.document_number).includes(numToken)) return true;
+        return false;
+      })
+      .slice(0, 100);
+  }, [sources, excludeId, query]);
+
   return (
     <Card className="p-4">
       <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
-      <Select value={selectedId} onValueChange={onChange} disabled={loading}>
-        <SelectTrigger>
-          <SelectValue placeholder={loading ? "Caricamento…" : "Scegli un atto…"} />
-        </SelectTrigger>
-        <SelectContent className="max-h-96">
-          {options.map((s) => (
-            <SelectItem key={s.id} value={s.id}>
-              <span className="font-mono text-xs text-muted-foreground">
-                {s.publication_date.slice(0, 10)}
-              </span>{" "}
-              · {s.source_type} {s.document_number} — {s.title.slice(0, 70)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            disabled={loading}
+            className="w-full justify-between font-normal"
+          >
+            <span className={cn("truncate text-left", !selected && "text-muted-foreground")}>
+              {loading
+                ? "Caricamento…"
+                : selected
+                  ? `${selected.source_type} ${selected.document_number} — ${selected.title}`
+                  : "Cerca o scegli un atto…"}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-[--radix-popover-trigger-width] p-0"
+          align="start"
+        >
+          <div className="flex items-center gap-2 border-b px-3">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cerca per tema o numero (es. ADI, 23/2022)"
+              className="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          <div className="max-h-80 overflow-auto py-1">
+            {options.length === 0 ? (
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                Nessun atto trovato.
+              </div>
+            ) : (
+              options.map((s) => {
+                const isSel = s.id === selectedId;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(s.id);
+                      setOpen(false);
+                      setQuery("");
+                    }}
+                    className={cn(
+                      "flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-surface-muted/60",
+                      isSel && "bg-surface-muted/40",
+                    )}
+                  >
+                    <Check className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", isSel ? "opacity-100 text-primary" : "opacity-0")} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Badge variant="secondary" className="rounded-sm px-1.5 py-0 text-[10px]">
+                          {s.source_type}
+                        </Badge>
+                        <span className="font-mono">{s.document_number}</span>
+                        <span>·</span>
+                        <span>{s.publication_date.slice(0, 10)}</span>
+                      </div>
+                      <div className="mt-0.5 line-clamp-2 text-sm leading-snug">{s.title}</div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">
+            {options.length} risultat{options.length === 1 ? "o" : "i"}
+            {options.length === 100 ? " (primi 100)" : ""}
+          </div>
+        </PopoverContent>
+      </Popover>
     </Card>
   );
 }
