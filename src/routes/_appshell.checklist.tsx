@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
@@ -33,6 +33,8 @@ import {
   type ChecklistStatus,
 } from "@/lib/checklist.functions";
 import { extractTextFromFile, downloadAsPdf } from "@/lib/doc-io";
+import { listPractices, savePractice, deletePractice } from "@/lib/practices.functions";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/checklist")({
   head: () => ({ meta: [{ title: "Crea checklist pratica · INPS Copilot" }] }),
