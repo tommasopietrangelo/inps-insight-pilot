@@ -108,17 +108,80 @@ function AlertsPage() {
     },
   });
 
-  const alerts = alertsQ.data ?? [];
+  const deliveries = deliveriesQ.data ?? [];
+  const unread = deliveries.filter((d) => !d.read_at).length;
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Avvisi</p>
-        <h1 className="font-display text-2xl font-semibold">Monitoraggio per topic</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Ricevi una notifica ogni volta che INPS pubblica un nuovo atto sui topic che segui.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Avvisi</p>
+          <h1 className="font-display text-2xl font-semibold">Monitoraggio per topic</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ricevi una notifica ogni volta che INPS pubblica un nuovo atto sui topic che segui.
+            Il matching gira automaticamente ogni ora.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => runNowM.mutate()} disabled={runNowM.isPending}>
+          {runNowM.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+          Esegui ora
+        </Button>
       </div>
+
+      <Card className="p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-primary" />
+            <div className="font-display text-base font-semibold">Notifiche recenti</div>
+            {unread > 0 && <Badge className="rounded-sm">{unread} nuove</Badge>}
+          </div>
+        </div>
+        {deliveriesQ.isLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Caricamento…
+          </div>
+        ) : deliveries.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            Nessuna notifica ancora. Premi "Esegui ora" per forzare un controllo manuale.
+          </div>
+        ) : (
+          <ul className="divide-y">
+            {deliveries.map((d) => {
+              const s = d.sources as { external_id: string | null; title: string; source_type: string; publication_date: string } | null;
+              return (
+                <li key={d.id} className="flex items-start justify-between gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="capitalize">{d.alert?.name ?? "Avviso"}</span>
+                      <span>·</span>
+                      <span className="capitalize">{s?.source_type}</span>
+                      <span>·</span>
+                      <span>{s?.publication_date}</span>
+                      {!d.read_at && <Badge variant="outline" className="ml-1 rounded-sm border-primary/30 text-primary">nuovo</Badge>}
+                    </div>
+                    <div className="mt-0.5 truncate text-sm font-medium">{s?.title}</div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    {s?.external_id && (
+                      <Button asChild variant="ghost" size="sm">
+                        <Link to="/source/$id" params={{ id: s.external_id }}>
+                          <ExternalLink className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    )}
+                    {!d.read_at && (
+                      <Button variant="ghost" size="sm" onClick={() => markReadM.mutate(d.id)}>
+                        <CheckCircle2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+
 
       {alertsQ.isLoading ? (
         <Card className="flex items-center gap-2 p-8 text-sm text-muted-foreground">
