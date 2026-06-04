@@ -293,14 +293,26 @@ function DiffPanel({
 }) {
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-primary" />
-        <h2 className="font-display text-lg font-semibold">Analisi delle differenze</h2>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <h2 className="font-display text-lg font-semibold">Analisi delle differenze</h2>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Più recente: <span className="font-medium text-foreground">{newer.source_type} {newer.document_number}</span>
+            {" · "}Precedente: <span className="font-medium text-foreground">{older.source_type} {older.document_number}</span>
+          </p>
+        </div>
+        {query.data && (
+          <SavePracticeButton
+            kind="compare"
+            title={`${older.source_type} ${older.document_number} vs ${newer.source_type} ${newer.document_number}`}
+            input={{ olderId: older.uuid, newerId: newer.uuid, olderTitle: older.title, newerTitle: newer.title }}
+            result={query.data}
+          />
+        )}
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Più recente: <span className="font-medium text-foreground">{newer.source_type} {newer.document_number}</span>
-        {" · "}Precedente: <span className="font-medium text-foreground">{older.source_type} {older.document_number}</span>
-      </p>
       <Separator className="my-4" />
 
       {query.isLoading && (
