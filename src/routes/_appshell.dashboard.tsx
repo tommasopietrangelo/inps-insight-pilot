@@ -206,19 +206,39 @@ function Dashboard() {
             </Button>
           </div>
           <div className="space-y-2">
-            {SAVED_SEARCHES.map((s) => (
+            {savedQuery.isLoading ? (
+              <div className="rounded-md border bg-surface px-3 py-2.5 text-xs text-muted-foreground">
+                Carico ricerche…
+              </div>
+            ) : savedSearches.length === 0 ? (
               <Link
-                key={s.id}
                 to="/search"
-                className="flex items-center justify-between rounded-md border bg-surface px-3 py-2.5 hover:border-primary/40"
+                className="flex items-center justify-between rounded-md border border-dashed bg-surface px-3 py-2.5 text-sm text-muted-foreground hover:border-primary/40"
               >
-                <div className="flex items-center gap-2">
+                <span className="flex items-center gap-2">
                   <Search className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-sm">{s.query}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">{s.results_count} risultati</span>
+                  Nessuna ricerca salvata. Salvane una dalla pagina Ricerca.
+                </span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
-            ))}
+            ) : (
+              savedSearches.slice(0, 5).map((s) => (
+                <Link
+                  key={s.id}
+                  to="/search"
+                  search={{ q: s.query }}
+                  className="flex items-center justify-between rounded-md border bg-surface px-3 py-2.5 hover:border-primary/40"
+                >
+                  <div className="flex items-center gap-2">
+                    <Search className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-sm">{s.query}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {s.results_count != null ? `${s.results_count} risultati` : "—"}
+                  </span>
+                </Link>
+              ))
+            )}
           </div>
         </Card>
 
