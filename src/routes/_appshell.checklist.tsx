@@ -95,7 +95,22 @@ function ChecklistPage() {
   const [extractError, setExtractError] = useState("");
   const [result, setResult] = useState<ChecklistResult | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [saved, setSaved] = useState<SavedPratica[]>(() => loadSaved());
+  const [currentId, setCurrentId] = useState<string | null>(null);
+
+  const { current: workspace } = useWorkspace();
+  const wsId = workspace?.id ?? "";
+  const qc = useQueryClient();
+
+  const listFn = useServerFn(listPractices);
+  const saveFn = useServerFn(savePractice);
+  const delFn = useServerFn(deletePractice);
+
+  const savedQuery = useQuery({
+    queryKey: ["practices", wsId, "checklist"],
+    queryFn: () => listFn({ data: { workspaceId: wsId, kind: "checklist" } }),
+    enabled: !!wsId,
+  });
+  const saved = savedQuery.data ?? [];
 
   const callGenerate = useServerFn(generateChecklist);
   const generate = useMutation({
@@ -104,6 +119,7 @@ function ChecklistPage() {
     onSuccess: (res) => {
       setResult(res);
       setChecked(new Set());
+      setCurrentId(null);
     },
   });
 
@@ -158,35 +174,56 @@ function ChecklistPage() {
       else next.add(id);
       return next;
     });
+    if (currentId) {
+      // persist check state in background
+      saveMutation.mutate({ silent: true });
+    }
   };
 
-  const savePratica = () => {
-    if (!result) return;
-    const entry: SavedPratica = {
-      id: `${Date.now()}`,
-      savedAt: new Date().toISOString(),
-      query: query.trim(),
-      fileNames: files.map((f) => f.name),
-      result,
-      checked: Array.from(checked),
-    };
-    const next = [entry, ...saved].slice(0, 50);
-    setSaved(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    toast.success("Pratica salvata localmente");
+  const saveMutation = useMutation({
+    mutationFn: async (opts: { silent?: boolean } = {}) => {
+      if (!result || !wsId) throw new Error("Workspace o risultato mancante");
+      const row = await saveFn({
+        data: {
+          id: currentId ?? undefined,
+          workspaceId: wsId,
+          kind: "checklist",
+          title: result.practiceType || query.trim() || "Checklist senza titolo",
+          input: { query: query.trim(), fileNames: files.map((f) => f.name) },
+          result,
+          checked: Array.from(checked),
+        },
+      });
+      return { row, silent: !!opts.silent };
+    },
+    onSuccess: ({ row, silent }) => {
+      setCurrentId(row.id);
+      qc.invalidateQueries({ queryKey: ["practices", wsId, "checklist"] });
+      if (!silent) toast.success("Pratica salvata nel workspace");
+    },
+    onError: (err) => toast.error(`Errore salvataggio: ${(err as Error).message}`),
+  });
+
+  const savePratica = () => saveMutation.mutate({});
+
+  const deleteSaved = async (id: string) => {
+    try {
+      await delFn({ data: { id } });
+      if (currentId === id) setCurrentId(null);
+      qc.invalidateQueries({ queryKey: ["practices", wsId, "checklist"] });
+      toast.success("Pratica eliminata");
+    } catch (e) {
+      toast.error(`Errore: ${(e as Error).message}`);
+    }
   };
 
-  const deleteSaved = (id: string) => {
-    const next = saved.filter((s) => s.id !== id);
-    setSaved(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  };
-
-  const loadSavedPratica = (s: SavedPratica) => {
-    setQuery(s.query);
+  const loadSavedPratica = (s: (typeof saved)[number]) => {
+    const input = (s.input ?? {}) as { query?: string };
+    setQuery(input.query ?? "");
     setFiles([]);
-    setResult(s.result);
-    setChecked(new Set(s.checked));
+    setResult(s.result as unknown as ChecklistResult);
+    setChecked(new Set((s.checked ?? []) as string[]));
+    setCurrentId(s.id);
     toast.info("Pratica caricata");
   };
 
