@@ -34,6 +34,8 @@ import {
   type ChatMessage,
 } from "@/lib/analyze.functions";
 import { extractTextFromFile, downloadAsPdf, downloadAsDocx } from "@/lib/doc-io";
+import { SavePracticeButton } from "@/components/save-practice-button";
+import type { AnalysisResult as AnalysisResultT } from "@/lib/analyze.functions";
 
 export const Route = createFileRoute("/_appshell/analyze")({
   head: () => ({ meta: [{ title: "Analizza un documento · INPS Copilot" }] }),
