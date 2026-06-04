@@ -68,25 +68,6 @@ const STATUS_META: Record<
   },
 };
 
-const STORAGE_KEY = "inpscopilot.savedPratiche";
-
-type SavedPratica = {
-  id: string;
-  savedAt: string;
-  query: string;
-  fileNames: string[];
-  result: ChecklistResult;
-  checked: string[];
-};
-
-function loadSaved(): SavedPratica[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
 
 function ChecklistPage() {
   const [query, setQuery] = useState("");
