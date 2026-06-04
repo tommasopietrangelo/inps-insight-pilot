@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Bell, Plus, Mail, Trash2, Loader2 } from "lucide-react";
+import { Bell, Plus, Mail, Trash2, Loader2, Play, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TOPICS } from "@/lib/mock-data";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { listAlerts, createAlert, deleteAlert } from "@/lib/alerts.functions";
+import {
+  listAlerts,
+  createAlert,
+  deleteAlert,
+  listAlertDeliveries,
+  markDeliveryRead,
+  runAlertsNow,
+} from "@/lib/alerts.functions";
 
 export const Route = createFileRoute("/_appshell/alerts")({
   head: () => ({ meta: [{ title: "Avvisi · INPS Copilot" }] }),
