@@ -82,3 +82,53 @@ export const deleteAlert = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const listAlertDeliveries = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { workspaceId: string; limit?: number }) =>
+    z.object({ workspaceId: z.string().uuid(), limit: z.number().int().min(1).max(100).optional() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: alertRows } = await supabase
+      .from("alerts")
+      .select("id, name, priority")
+      .eq("workspace_id", data.workspaceId);
+    const ids = (alertRows ?? []).map((a) => a.id);
+    if (ids.length === 0) return [];
+    const { data: rows, error } = await supabase
+      .from("alert_deliveries")
+      .select("id, alert_id, source_id, delivered_at, read_at, sources(id, external_id, title, source_type, publication_date)")
+      .in("alert_id", ids)
+      .order("delivered_at", { ascending: false })
+      .limit(data.limit ?? 50);
+    if (error) throw new Error(error.message);
+    const byId = new Map(alertRows!.map((a) => [a.id, a]));
+    return (rows ?? []).map((r) => ({ ...r, alert: byId.get(r.alert_id) ?? null }));
+  });
+
+export const markDeliveryRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { error } = await supabase
+      .from("alert_deliveries")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Esegue il matching adesso (manual trigger dalla UI). Chiama l'endpoint pubblico
+// con ?force=1 così bypassa l'intervallo minimo per ogni frequenza.
+export const runAlertsNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const base =
+      process.env.PUBLIC_APP_URL ||
+      "https://project--a1e945c3-ebbe-431d-a805-2a88f4b444cc.lovable.app";
+    const res = await fetch(`${base}/api/public/hooks/run-alerts?force=1`, { method: "POST" });
+    if (!res.ok) throw new Error(`run-alerts http ${res.status}`);
+    return (await res.json()) as { ok: boolean; total: number; results: unknown[] };
+  });
