@@ -18,9 +18,13 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SAVED_SEARCHES, NOTES } from "@/lib/mock-data";
 import { useSources, useTopics, useCorpusStats } from "@/lib/data";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { listSavedSearches } from "@/lib/saved-searches.functions";
+import { listNotes } from "@/lib/notes.functions";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/dashboard")({
   head: () => ({ meta: [{ title: "Cruscotto · INPS Copilot" }] }),
