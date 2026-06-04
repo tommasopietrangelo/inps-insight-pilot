@@ -14,6 +14,7 @@ import {
   FileText,
   ListChecks,
   BookOpenCheck,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,19 +32,21 @@ type Msg = {
 };
 
 type Mode = "docked" | "floating";
+type Pos = { x: number; y: number } | null;
 
-const STORAGE_KEY = "copilot-floating-state-v1";
+const STORAGE_KEY = "copilot-floating-state-v2";
 
 type Persisted = {
   open: boolean;
   minimized: boolean;
   mode: Mode;
   messages: Msg[];
+  pos: Pos;
 };
 
 function loadState(): Persisted {
   if (typeof window === "undefined") {
-    return { open: false, minimized: false, mode: "docked", messages: [] };
+    return { open: false, minimized: false, mode: "floating", messages: [], pos: null };
   }
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -51,7 +54,7 @@ function loadState(): Persisted {
   } catch {
     /* ignore */
   }
-  return { open: false, minimized: false, mode: "docked", messages: [] };
+  return { open: false, minimized: false, mode: "floating", messages: [], pos: null };
 }
 
 const QUICK_ACTIONS: { label: string; icon: typeof FileText; prompt: string }[] = [
@@ -60,6 +63,9 @@ const QUICK_ACTIONS: { label: string; icon: typeof FileText; prompt: string }[] 
   { label: "Crea checklist pratica", icon: ListChecks, prompt: "Crea una checklist operativa per gestire questa pratica." },
 ];
 
+const PANEL_W = 380;
+const PANEL_H = 560;
+
 export function FloatingCopilot() {
   const isMobile = useIsMobile();
   const initial = useRef<Persisted>(loadState());
@@ -67,9 +73,12 @@ export function FloatingCopilot() {
   const [minimized, setMinimized] = useState(initial.current.minimized);
   const [mode, setMode] = useState<Mode>(initial.current.mode);
   const [messages, setMessages] = useState<Msg[]>(initial.current.messages);
+  const [pos, setPos] = useState<Pos>(initial.current.pos);
   const [input, setInput] = useState("");
   const [unread, setUnread] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const dragOffset = useRef<{ dx: number; dy: number } | null>(null);
 
   const runSearch = useServerFn(groundedSearch);
   const mutation = useMutation({
@@ -105,12 +114,12 @@ export function FloatingCopilot() {
     try {
       sessionStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ open, minimized, mode, messages } satisfies Persisted),
+        JSON.stringify({ open, minimized, mode, messages, pos } satisfies Persisted),
       );
     } catch {
       /* ignore */
     }
-  }, [open, minimized, mode, messages]);
+  }, [open, minimized, mode, messages, pos]);
 
   useEffect(() => {
     if (open && !minimized) setUnread(0);
@@ -121,6 +130,40 @@ export function FloatingCopilot() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, mutation.isPending, open, minimized]);
+
+  // Drag handlers
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: PointerEvent) => {
+      if (!dragOffset.current) return;
+      const w = PANEL_W;
+      const h = PANEL_H;
+      const maxX = window.innerWidth - w - 4;
+      const maxY = window.innerHeight - h - 4;
+      const x = Math.min(Math.max(4, e.clientX - dragOffset.current.dx), Math.max(4, maxX));
+      const y = Math.min(Math.max(4, e.clientY - dragOffset.current.dy), Math.max(4, maxY));
+      setPos({ x, y });
+    };
+    const onUp = () => {
+      setDragging(false);
+      dragOffset.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [dragging]);
+
+  const startDrag = (e: React.PointerEvent) => {
+    if (isMobile || mode !== "floating") return;
+    const rect = (e.currentTarget as HTMLElement).closest("[data-copilot-panel]")?.getBoundingClientRect();
+    if (!rect) return;
+    dragOffset.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    setPos({ x: rect.left, y: rect.top });
+    setDragging(true);
+  };
 
   const send = (text: string) => {
     const q = text.trim();
@@ -140,7 +183,7 @@ export function FloatingCopilot() {
           setMinimized(false);
         }}
         aria-label="Apri Copilot"
-        className="fixed bottom-5 right-5 z-50 group flex items-center gap-2 rounded-full border border-border bg-background/85 px-4 py-2.5 text-sm font-medium text-foreground shadow-lg backdrop-blur-md transition hover:bg-background hover:shadow-xl"
+        className="fixed bottom-5 right-5 z-50 group flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-4 py-2.5 text-sm font-medium text-foreground shadow-lg backdrop-blur-xl transition hover:bg-background/80 hover:shadow-xl"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <MessageSquare className="h-4 w-4" />
@@ -164,7 +207,7 @@ export function FloatingCopilot() {
           setMinimized(false);
           setUnread(0);
         }}
-        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full border border-border bg-background/90 px-3.5 py-2 text-sm shadow-lg backdrop-blur-md hover:bg-background"
+        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3.5 py-2 text-sm shadow-lg backdrop-blur-xl hover:bg-background/80"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <MessageSquare className="h-3.5 w-3.5" />
@@ -180,23 +223,45 @@ export function FloatingCopilot() {
   }
 
   // ---------- Panel ----------
+  const isFreelyPositioned = !isMobile && mode === "floating" && pos !== null;
+
   const panelClass = isMobile
     ? "fixed inset-x-0 bottom-0 z-50 h-[85vh] rounded-t-xl border-t"
     : mode === "docked"
       ? "fixed right-4 bottom-4 top-20 z-50 w-[400px] rounded-xl border"
-      : "fixed bottom-5 right-5 z-50 h-[560px] w-[380px] rounded-xl border";
+      : isFreelyPositioned
+        ? "fixed z-50 rounded-xl border"
+        : "fixed bottom-5 right-5 z-50 rounded-xl border";
+
+  const inlineStyle: React.CSSProperties = isFreelyPositioned
+    ? { left: pos!.x, top: pos!.y, width: PANEL_W, height: PANEL_H }
+    : !isMobile && mode === "floating"
+      ? { width: PANEL_W, height: PANEL_H }
+      : {};
 
   return (
     <div
+      data-copilot-panel
+      style={inlineStyle}
       className={cn(
         panelClass,
-        "flex flex-col bg-background/95 shadow-2xl backdrop-blur-xl",
+        "flex flex-col bg-background/55 shadow-2xl backdrop-blur-2xl border-border/50 ring-1 ring-white/10",
+        dragging && "select-none cursor-grabbing",
       )}
       role="dialog"
       aria-label="Copilot INPS"
     >
-      {/* Header */}
-      <div className="flex items-center gap-2 border-b px-3 py-2.5">
+      {/* Header (drag handle in floating mode) */}
+      <div
+        onPointerDown={mode === "floating" && !isMobile ? startDrag : undefined}
+        className={cn(
+          "flex items-center gap-2 border-b border-border/40 px-3 py-2.5",
+          mode === "floating" && !isMobile && "cursor-grab active:cursor-grabbing",
+        )}
+      >
+        {mode === "floating" && !isMobile && (
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60" />
+        )}
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <ShieldCheck className="h-4 w-4" />
         </div>
@@ -210,26 +275,32 @@ export function FloatingCopilot() {
         {!isMobile && (
           <button
             type="button"
-            onClick={() => setMode((m) => (m === "docked" ? "floating" : "docked"))}
-            title={mode === "docked" ? "Finestra compatta" : "Aggancia a destra"}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => {
+              setMode((m) => (m === "docked" ? "floating" : "docked"));
+              if (mode === "floating") setPos(null);
+            }}
+            title={mode === "docked" ? "Finestra libera" : "Aggancia a destra"}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
           >
             {mode === "docked" ? <PictureInPicture2 className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
           </button>
         )}
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setMinimized(true)}
           title="Riduci"
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
         >
           <Minus className="h-4 w-4" />
         </button>
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setOpen(false)}
           title="Chiudi"
-          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="rounded-md p-1.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -255,14 +326,14 @@ export function FloatingCopilot() {
 
       {/* Quick actions */}
       {messages.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 border-t px-3 py-2">
+        <div className="flex flex-wrap gap-1.5 border-t border-border/40 px-3 py-2">
           {QUICK_ACTIONS.map((a) => (
             <button
               key={a.label}
               type="button"
               onClick={() => send(a.prompt)}
               disabled={mutation.isPending}
-              className="inline-flex items-center gap-1 rounded-full border bg-surface px-2.5 py-1 text-[11px] text-muted-foreground hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-background/40 px-2.5 py-1 text-[11px] text-muted-foreground backdrop-blur hover:border-primary/40 hover:text-foreground disabled:opacity-50"
             >
               <a.icon className="h-3 w-3" />
               {a.label}
@@ -277,7 +348,7 @@ export function FloatingCopilot() {
           e.preventDefault();
           send(input);
         }}
-        className="flex items-end gap-2 border-t p-2.5"
+        className="flex items-end gap-2 border-t border-border/40 p-2.5"
       >
         <textarea
           value={input}
@@ -290,7 +361,7 @@ export function FloatingCopilot() {
           }}
           rows={1}
           placeholder="Scrivi una domanda su norme, circolari, messaggi o pratiche INPS"
-          className="max-h-28 min-h-[38px] flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring"
+          className="max-h-28 min-h-[38px] flex-1 resize-none rounded-md border border-input/60 bg-background/40 px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring"
         />
         <Button type="submit" size="icon" disabled={mutation.isPending || input.trim().length < 2}>
           {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -316,7 +387,7 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
             key={a.label}
             type="button"
             onClick={() => onPick(a.prompt)}
-            className="flex items-center gap-2 rounded-md border bg-surface px-3 py-2 text-left text-xs hover:border-primary/40"
+            className="flex items-center gap-2 rounded-md border border-border/50 bg-background/40 px-3 py-2 text-left text-xs backdrop-blur hover:border-primary/40"
           >
             <a.icon className="h-3.5 w-3.5 text-primary" />
             <span className="text-foreground">{a.label}</span>
@@ -331,7 +402,7 @@ function MessageBubble({ m }: { m: Msg }) {
   if (m.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground">
+        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary/90 px-3 py-2 text-sm text-primary-foreground backdrop-blur">
           {m.content}
         </div>
       </div>
@@ -339,7 +410,7 @@ function MessageBubble({ m }: { m: Msg }) {
   }
   return (
     <div className="flex justify-start">
-      <div className="max-w-[90%] space-y-2 rounded-2xl rounded-bl-sm border bg-surface px-3 py-2 text-sm text-foreground">
+      <div className="max-w-[90%] space-y-2 rounded-2xl rounded-bl-sm border border-border/40 bg-background/50 px-3 py-2 text-sm text-foreground backdrop-blur">
         <FormattedAnswer text={m.content} />
         {m.sources && m.sources.length > 0 && (
           <div className="flex flex-wrap gap-1 pt-1">
@@ -372,7 +443,6 @@ function FormattedAnswer({ text }: { text: string }) {
       );
       return;
     }
-    // strip bold markers, citation refs handled as superscript
     const parts: ReactNode[] = [];
     const regex = /(\*\*[^*]+\*\*|\[\d+\])/g;
     let last = 0;
