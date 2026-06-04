@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
@@ -33,6 +33,8 @@ import {
   type ChecklistStatus,
 } from "@/lib/checklist.functions";
 import { extractTextFromFile, downloadAsPdf } from "@/lib/doc-io";
+import { listPractices, savePractice, deletePractice } from "@/lib/practices.functions";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/checklist")({
   head: () => ({ meta: [{ title: "Crea checklist pratica · INPS Copilot" }] }),
@@ -66,25 +68,6 @@ const STATUS_META: Record<
   },
 };
 
-const STORAGE_KEY = "inpscopilot.savedPratiche";
-
-type SavedPratica = {
-  id: string;
-  savedAt: string;
-  query: string;
-  fileNames: string[];
-  result: ChecklistResult;
-  checked: string[];
-};
-
-function loadSaved(): SavedPratica[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
 
 function ChecklistPage() {
   const [query, setQuery] = useState("");
@@ -93,7 +76,22 @@ function ChecklistPage() {
   const [extractError, setExtractError] = useState("");
   const [result, setResult] = useState<ChecklistResult | null>(null);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [saved, setSaved] = useState<SavedPratica[]>(() => loadSaved());
+  const [currentId, setCurrentId] = useState<string | null>(null);
+
+  const { current: workspace } = useWorkspace();
+  const wsId = workspace?.id ?? "";
+  const qc = useQueryClient();
+
+  const listFn = useServerFn(listPractices);
+  const saveFn = useServerFn(savePractice);
+  const delFn = useServerFn(deletePractice);
+
+  const savedQuery = useQuery({
+    queryKey: ["practices", wsId, "checklist"],
+    queryFn: () => listFn({ data: { workspaceId: wsId, kind: "checklist" } }),
+    enabled: !!wsId,
+  });
+  const saved = savedQuery.data ?? [];
 
   const callGenerate = useServerFn(generateChecklist);
   const generate = useMutation({
@@ -102,6 +100,7 @@ function ChecklistPage() {
     onSuccess: (res) => {
       setResult(res);
       setChecked(new Set());
+      setCurrentId(null);
     },
   });
 
@@ -156,35 +155,56 @@ function ChecklistPage() {
       else next.add(id);
       return next;
     });
+    if (currentId) {
+      // persist check state in background
+      saveMutation.mutate({ silent: true });
+    }
   };
 
-  const savePratica = () => {
-    if (!result) return;
-    const entry: SavedPratica = {
-      id: `${Date.now()}`,
-      savedAt: new Date().toISOString(),
-      query: query.trim(),
-      fileNames: files.map((f) => f.name),
-      result,
-      checked: Array.from(checked),
-    };
-    const next = [entry, ...saved].slice(0, 50);
-    setSaved(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    toast.success("Pratica salvata localmente");
+  const saveMutation = useMutation({
+    mutationFn: async (opts: { silent?: boolean } = {}) => {
+      if (!result || !wsId) throw new Error("Workspace o risultato mancante");
+      const row = await saveFn({
+        data: {
+          id: currentId ?? undefined,
+          workspaceId: wsId,
+          kind: "checklist",
+          title: result.practiceType || query.trim() || "Checklist senza titolo",
+          input: { query: query.trim(), fileNames: files.map((f) => f.name) },
+          result,
+          checked: Array.from(checked),
+        },
+      });
+      return { row, silent: !!opts.silent };
+    },
+    onSuccess: ({ row, silent }) => {
+      setCurrentId(row.id);
+      qc.invalidateQueries({ queryKey: ["practices", wsId, "checklist"] });
+      if (!silent) toast.success("Pratica salvata nel workspace");
+    },
+    onError: (err) => toast.error(`Errore salvataggio: ${(err as Error).message}`),
+  });
+
+  const savePratica = () => saveMutation.mutate({});
+
+  const deleteSaved = async (id: string) => {
+    try {
+      await delFn({ data: { id } });
+      if (currentId === id) setCurrentId(null);
+      qc.invalidateQueries({ queryKey: ["practices", wsId, "checklist"] });
+      toast.success("Pratica eliminata");
+    } catch (e) {
+      toast.error(`Errore: ${(e as Error).message}`);
+    }
   };
 
-  const deleteSaved = (id: string) => {
-    const next = saved.filter((s) => s.id !== id);
-    setSaved(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  };
-
-  const loadSavedPratica = (s: SavedPratica) => {
-    setQuery(s.query);
+  const loadSavedPratica = (s: (typeof saved)[number]) => {
+    const input = (s.input ?? {}) as { query?: string };
+    setQuery(input.query ?? "");
     setFiles([]);
-    setResult(s.result);
-    setChecked(new Set(s.checked));
+    setResult(s.result as unknown as ChecklistResult);
+    setChecked(new Set((s.checked ?? []) as string[]));
+    setCurrentId(s.id);
     toast.info("Pratica caricata");
   };
 
@@ -332,28 +352,33 @@ function ChecklistPage() {
             <div>
               <div className="font-display text-base font-semibold">Pratiche salvate</div>
               <p className="text-xs text-muted-foreground">
-                Salvate localmente in questo dispositivo.
+                Condivise con il workspace {workspace?.name ?? ""}.
               </p>
             </div>
           </div>
           <ul className="divide-y">
-            {saved.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
-                <button
-                  onClick={() => loadSavedPratica(s)}
-                  className="min-w-0 flex-1 text-left hover:underline"
-                >
-                  <div className="truncate text-sm font-medium">{s.result.practiceType}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {new Date(s.savedAt).toLocaleString("it-IT")} · {s.result.items.length} voci ·{" "}
-                    {s.fileNames.length} doc.
-                  </div>
-                </button>
-                <Button size="icon" variant="ghost" onClick={() => deleteSaved(s.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </li>
-            ))}
+            {saved.map((s) => {
+              const res = s.result as unknown as ChecklistResult | null;
+              const input = (s.input ?? {}) as { fileNames?: string[] };
+              const items = res?.items?.length ?? 0;
+              const docs = input.fileNames?.length ?? 0;
+              return (
+                <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <button
+                    onClick={() => loadSavedPratica(s)}
+                    className="min-w-0 flex-1 text-left hover:underline"
+                  >
+                    <div className="truncate text-sm font-medium">{s.title}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {new Date(s.updated_at).toLocaleString("it-IT")} · {items} voci · {docs} doc.
+                    </div>
+                  </button>
+                  <Button size="icon" variant="ghost" onClick={() => deleteSaved(s.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
         </Card>
       )}

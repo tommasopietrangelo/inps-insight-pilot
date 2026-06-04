@@ -24,6 +24,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listSavedSearches } from "@/lib/saved-searches.functions";
 import { listNotes } from "@/lib/notes.functions";
+import { listAlerts } from "@/lib/alerts.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/dashboard")({
@@ -43,6 +44,7 @@ function Dashboard() {
 
   const listSavedFn = useServerFn(listSavedSearches);
   const listNotesFn = useServerFn(listNotes);
+  const listAlertsFn = useServerFn(listAlerts);
 
   const savedQuery = useQuery({
     queryKey: ["saved-searches"],
@@ -53,9 +55,17 @@ function Dashboard() {
     queryFn: () => listNotesFn({ data: { workspaceId: wsId } }),
     enabled: !!wsId,
   });
+  const alertsQuery = useQuery({
+    queryKey: ["alerts", wsId],
+    queryFn: () => listAlertsFn({ data: { workspaceId: wsId } }),
+    enabled: !!wsId,
+  });
 
   const savedSearches = savedQuery.data ?? [];
   const notes = notesQuery.data ?? [];
+  const alerts = alertsQuery.data ?? [];
+  const activeAlerts = alerts.filter((a) => a.is_active);
+  const highPriorityAlerts = activeAlerts.filter((a) => a.priority === "alta");
 
   const { data: sources = [] } = useSources(6);
   const { data: topics = [] } = useTopics();
@@ -64,7 +74,7 @@ function Dashboard() {
   const kpis = [
     { label: "Nuovi atti questa settimana", value: stats?.lastWeek ?? 0, hint: `${stats?.total ?? 0} atti in archivio`, icon: FileText },
     { label: "Ricerche salvate", value: savedSearches.length, hint: savedSearches.length ? "nel tuo workspace" : "nessuna ancora", icon: Bookmark },
-    { label: "Avvisi attivi", value: 5, hint: "2 ad alta priorità", icon: Bell },
+    { label: "Avvisi attivi", value: activeAlerts.length, hint: highPriorityAlerts.length ? `${highPriorityAlerts.length} ad alta priorità` : "nessuno ad alta priorità", icon: Bell },
     { label: "Note interne", value: notes.length, hint: notes.length ? "ultima aggiornata di recente" : "nessuna ancora", icon: StickyNote },
   ];
 

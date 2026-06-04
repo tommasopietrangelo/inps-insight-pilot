@@ -34,6 +34,7 @@ import {
   type ChatMessage,
 } from "@/lib/analyze.functions";
 import { extractTextFromFile, downloadAsPdf, downloadAsDocx } from "@/lib/doc-io";
+import { SavePracticeButton } from "@/components/save-practice-button";
 
 export const Route = createFileRoute("/_appshell/analyze")({
   head: () => ({ meta: [{ title: "Analizza un documento · INPS Copilot" }] }),
@@ -150,7 +151,11 @@ function AnalyzePage() {
 
           {analyze.data && (
             <TabsContent value="review" className="mt-4">
-              <ReviewPanel result={analyze.data} />
+              <ReviewPanel
+                result={analyze.data}
+                fileName={fileName}
+                docText={docText}
+              />
             </TabsContent>
           )}
 
@@ -210,7 +215,15 @@ function baseName(name: string) {
   return name.replace(/\.[^.]+$/, "");
 }
 
-function ReviewPanel({ result }: { result: AnalysisResult }) {
+function ReviewPanel({
+  result,
+  fileName,
+  docText,
+}: {
+  result: AnalysisResult;
+  fileName: string;
+  docText: string;
+}) {
   const sevColor: Record<string, string> = {
     alta: "bg-destructive/10 text-destructive border-destructive/30",
     media: "bg-amber-500/10 text-amber-700 border-amber-500/30",
@@ -220,15 +233,24 @@ function ReviewPanel({ result }: { result: AnalysisResult }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Card className="p-5 lg:col-span-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="font-display text-base font-semibold">Sintesi della revisione</div>
-          <Badge variant="secondary" className="rounded-full">
-            Punteggio {result.overallScore}/100
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="rounded-full">
+              Punteggio {result.overallScore}/100
+            </Badge>
+            <SavePracticeButton
+              kind="analyze"
+              title={fileName || "Analisi documento"}
+              input={{ fileName, docText }}
+              result={result}
+            />
+          </div>
         </div>
         <p className="mt-2 rounded-md border bg-surface-muted/40 p-3 text-sm leading-relaxed">
           {result.summary || "Nessuna sintesi disponibile."}
         </p>
+
 
         <Separator className="my-4" />
 
