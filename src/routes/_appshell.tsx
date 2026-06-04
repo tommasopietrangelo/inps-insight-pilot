@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
+import { FloatingCopilot } from "@/components/floating-copilot";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { listMyWorkspaces } from "@/lib/workspace.functions";
@@ -58,6 +59,7 @@ function AppShell() {
             <Outlet />
           </main>
         </SidebarInset>
+        <FloatingCopilot />
       </div>
     </SidebarProvider>
   );
