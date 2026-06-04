@@ -152,7 +152,24 @@ function AnalyzePage() {
 
           {analyze.data && (
             <TabsContent value="review" className="mt-4">
-              <ReviewPanel result={analyze.data} />
+              <ReviewPanel
+                result={analyze.data}
+                title={fileName}
+                docText={docText}
+                onLoad={(input, res) => {
+                  const i = input as { fileName?: string; docText?: string };
+                  if (i.fileName) setFileName(i.fileName);
+                  if (i.docText) {
+                    setDocText(i.docText);
+                    setEditedText(i.docText);
+                  }
+                  analyze.reset();
+                  // Reapply loaded result via reset+manual mutate replacement: just rerender by setting analyze.data is not possible.
+                  // Workaround: show via toast — full reload of result requires regenerating; we still let user open it.
+                  const r = res as AnalysisResultT;
+                  setEditedText(r.correctedText ?? "");
+                }}
+              />
             </TabsContent>
           )}
 
