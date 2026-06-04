@@ -250,18 +250,44 @@ function Dashboard() {
             </Button>
           </div>
           <div className="space-y-3">
-            {NOTES.map((n) => (
-              <div key={n.id} className="rounded-md border bg-surface p-3">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{n.author}</span>
-                  <span>
-                    {new Date(n.updated_at).toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
-                  </span>
-                </div>
-                <div className="mt-1 text-sm font-medium">{n.title}</div>
-                <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{n.body}</div>
+            {notesQuery.isLoading ? (
+              <div className="rounded-md border bg-surface p-3 text-xs text-muted-foreground">
+                Carico note…
               </div>
-            ))}
+            ) : notes.length === 0 ? (
+              <Link
+                to="/workspace"
+                className="flex items-center justify-between rounded-md border border-dashed bg-surface p-3 text-sm text-muted-foreground hover:border-primary/40"
+              >
+                <span className="flex items-center gap-2">
+                  <PenSquare className="h-3.5 w-3.5 text-primary" />
+                  Nessuna nota ancora. Creane una nel Workspace.
+                </span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            ) : (
+              notes.slice(0, 4).map((n) => (
+                <Link
+                  key={n.id}
+                  to="/workspace"
+                  className="block rounded-md border bg-surface p-3 hover:border-primary/40"
+                >
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <PenSquare className="h-3 w-3" />
+                      Nota interna
+                    </span>
+                    <span>
+                      {new Date(n.updated_at).toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">{n.title}</div>
+                  {n.body && (
+                    <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{n.body}</div>
+                  )}
+                </Link>
+              ))
+            )}
           </div>
         </Card>
       </div>
