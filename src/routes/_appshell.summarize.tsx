@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { useSources } from "@/lib/data";
 import { summarizeSource, type SummaryResult } from "@/lib/summarize.functions";
+import { SavePracticeButton } from "@/components/save-practice-button";
 
 const SearchSchema = z.object({ id: z.string().optional() });
 
