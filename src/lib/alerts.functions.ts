@@ -129,6 +129,6 @@ export const runAlertsNow = createServerFn({ method: "POST" })
       process.env.PUBLIC_APP_URL ||
       "https://project--a1e945c3-ebbe-431d-a805-2a88f4b444cc.lovable.app";
     const res = await fetch(`${base}/api/public/hooks/run-alerts?force=1`, { method: "POST" });
-    if (!res.ok) throw new Error(`run-alerts http ${res.status}`);
-    return (await res.json()) as { ok: boolean; total: number; results: unknown[] };
+    const json = (await res.json()) as { ok: boolean; total: number };
+    return { ok: json.ok, total: json.total };
   });
