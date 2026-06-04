@@ -371,28 +371,33 @@ function ChecklistPage() {
             <div>
               <div className="font-display text-base font-semibold">Pratiche salvate</div>
               <p className="text-xs text-muted-foreground">
-                Salvate localmente in questo dispositivo.
+                Condivise con il workspace {workspace?.name ?? ""}.
               </p>
             </div>
           </div>
           <ul className="divide-y">
-            {saved.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
-                <button
-                  onClick={() => loadSavedPratica(s)}
-                  className="min-w-0 flex-1 text-left hover:underline"
-                >
-                  <div className="truncate text-sm font-medium">{s.result.practiceType}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {new Date(s.savedAt).toLocaleString("it-IT")} · {s.result.items.length} voci ·{" "}
-                    {s.fileNames.length} doc.
-                  </div>
-                </button>
-                <Button size="icon" variant="ghost" onClick={() => deleteSaved(s.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </li>
-            ))}
+            {saved.map((s) => {
+              const res = s.result as unknown as ChecklistResult | null;
+              const input = (s.input ?? {}) as { fileNames?: string[] };
+              const items = res?.items?.length ?? 0;
+              const docs = input.fileNames?.length ?? 0;
+              return (
+                <li key={s.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <button
+                    onClick={() => loadSavedPratica(s)}
+                    className="min-w-0 flex-1 text-left hover:underline"
+                  >
+                    <div className="truncate text-sm font-medium">{s.title}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {new Date(s.updated_at).toLocaleString("it-IT")} · {items} voci · {docs} doc.
+                    </div>
+                  </button>
+                  <Button size="icon" variant="ghost" onClick={() => deleteSaved(s.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </li>
+              );
+            })}
           </ul>
         </Card>
       )}
