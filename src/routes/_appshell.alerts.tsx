@@ -108,6 +108,7 @@ function AlertsPage() {
     },
   });
 
+  const alerts = alertsQ.data ?? [];
   const deliveries = deliveriesQ.data ?? [];
   const unread = deliveries.filter((d) => !d.read_at).length;
 
