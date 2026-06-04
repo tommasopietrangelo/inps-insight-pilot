@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { useSources, type UISource } from "@/lib/data";
 import { compareSources, type CompareDiff } from "@/lib/compare.functions";
+import { SavePracticeButton } from "@/components/save-practice-button";
 
 const SearchSchema = z.object({
   a: z.string().optional(),
