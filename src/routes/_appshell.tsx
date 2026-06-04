@@ -59,6 +59,7 @@ function AppShell() {
             <Outlet />
           </main>
         </SidebarInset>
+        <FloatingCopilot />
       </div>
     </SidebarProvider>
   );
