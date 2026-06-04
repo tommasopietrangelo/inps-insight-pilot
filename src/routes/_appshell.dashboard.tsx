@@ -18,9 +18,13 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SAVED_SEARCHES, NOTES } from "@/lib/mock-data";
 import { useSources, useTopics, useCorpusStats } from "@/lib/data";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { listSavedSearches } from "@/lib/saved-searches.functions";
+import { listNotes } from "@/lib/notes.functions";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/dashboard")({
   head: () => ({ meta: [{ title: "Cruscotto · INPS Copilot" }] }),
@@ -34,15 +38,34 @@ function Dashboard() {
     user?.email?.split("@")[0] ??
     "Utente";
 
+  const { current } = useWorkspace();
+  const wsId = current?.id ?? "";
+
+  const listSavedFn = useServerFn(listSavedSearches);
+  const listNotesFn = useServerFn(listNotes);
+
+  const savedQuery = useQuery({
+    queryKey: ["saved-searches"],
+    queryFn: () => listSavedFn({}),
+  });
+  const notesQuery = useQuery({
+    queryKey: ["notes", wsId],
+    queryFn: () => listNotesFn({ data: { workspaceId: wsId } }),
+    enabled: !!wsId,
+  });
+
+  const savedSearches = savedQuery.data ?? [];
+  const notes = notesQuery.data ?? [];
+
   const { data: sources = [] } = useSources(6);
   const { data: topics = [] } = useTopics();
   const { data: stats } = useCorpusStats();
 
   const kpis = [
     { label: "Nuovi atti questa settimana", value: stats?.lastWeek ?? 0, hint: `${stats?.total ?? 0} atti in archivio`, icon: FileText },
-    { label: "Fonti salvate", value: 84, hint: "in 9 raccolte", icon: Bookmark },
+    { label: "Ricerche salvate", value: savedSearches.length, hint: savedSearches.length ? "nel tuo workspace" : "nessuna ancora", icon: Bookmark },
     { label: "Avvisi attivi", value: 5, hint: "2 ad alta priorità", icon: Bell },
-    { label: "Note interne non lette", value: 3, hint: "ultima oggi alle 09:41", icon: StickyNote },
+    { label: "Note interne", value: notes.length, hint: notes.length ? "ultima aggiornata di recente" : "nessuna ancora", icon: StickyNote },
   ];
 
   return (
@@ -183,19 +206,39 @@ function Dashboard() {
             </Button>
           </div>
           <div className="space-y-2">
-            {SAVED_SEARCHES.map((s) => (
+            {savedQuery.isLoading ? (
+              <div className="rounded-md border bg-surface px-3 py-2.5 text-xs text-muted-foreground">
+                Carico ricerche…
+              </div>
+            ) : savedSearches.length === 0 ? (
               <Link
-                key={s.id}
                 to="/search"
-                className="flex items-center justify-between rounded-md border bg-surface px-3 py-2.5 hover:border-primary/40"
+                className="flex items-center justify-between rounded-md border border-dashed bg-surface px-3 py-2.5 text-sm text-muted-foreground hover:border-primary/40"
               >
-                <div className="flex items-center gap-2">
+                <span className="flex items-center gap-2">
                   <Search className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-sm">{s.query}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">{s.results_count} risultati</span>
+                  Nessuna ricerca salvata. Salvane una dalla pagina Ricerca.
+                </span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
-            ))}
+            ) : (
+              savedSearches.slice(0, 5).map((s) => (
+                <Link
+                  key={s.id}
+                  to="/search"
+                  search={{ q: s.query }}
+                  className="flex items-center justify-between rounded-md border bg-surface px-3 py-2.5 hover:border-primary/40"
+                >
+                  <div className="flex items-center gap-2">
+                    <Search className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-sm">{s.query}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {s.results_count != null ? `${s.results_count} risultati` : "—"}
+                  </span>
+                </Link>
+              ))
+            )}
           </div>
         </Card>
 
@@ -207,18 +250,44 @@ function Dashboard() {
             </Button>
           </div>
           <div className="space-y-3">
-            {NOTES.map((n) => (
-              <div key={n.id} className="rounded-md border bg-surface p-3">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{n.author}</span>
-                  <span>
-                    {new Date(n.updated_at).toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
-                  </span>
-                </div>
-                <div className="mt-1 text-sm font-medium">{n.title}</div>
-                <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{n.body}</div>
+            {notesQuery.isLoading ? (
+              <div className="rounded-md border bg-surface p-3 text-xs text-muted-foreground">
+                Carico note…
               </div>
-            ))}
+            ) : notes.length === 0 ? (
+              <Link
+                to="/workspace"
+                className="flex items-center justify-between rounded-md border border-dashed bg-surface p-3 text-sm text-muted-foreground hover:border-primary/40"
+              >
+                <span className="flex items-center gap-2">
+                  <PenSquare className="h-3.5 w-3.5 text-primary" />
+                  Nessuna nota ancora. Creane una nel Workspace.
+                </span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            ) : (
+              notes.slice(0, 4).map((n) => (
+                <Link
+                  key={n.id}
+                  to="/workspace"
+                  className="block rounded-md border bg-surface p-3 hover:border-primary/40"
+                >
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <PenSquare className="h-3 w-3" />
+                      Nota interna
+                    </span>
+                    <span>
+                      {new Date(n.updated_at).toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm font-medium text-foreground">{n.title}</div>
+                  {n.body && (
+                    <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{n.body}</div>
+                  )}
+                </Link>
+              ))
+            )}
           </div>
         </Card>
       </div>
