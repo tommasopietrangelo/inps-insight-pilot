@@ -83,12 +83,23 @@ export function useTopics() {
     queryFn: async (): Promise<(TopicRow & { updates_count: number })[]> => {
       const { data: topics, error } = await supabase.from("topics").select("*").order("name");
       if (error) throw error;
-      const { data: sources } = await supabase.from("sources").select("topic_tags");
+      // Conta gli atti pubblicati negli ultimi 60 giorni per topic (case-insensitive)
+      const since = new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const { data: sources } = await supabase
+        .from("sources")
+        .select("topic_tags")
+        .gte("publication_date", since);
       const counts = new Map<string, number>();
       (sources ?? []).forEach((s) =>
-        (s.topic_tags ?? []).forEach((t: string) => counts.set(t, (counts.get(t) ?? 0) + 1)),
+        (s.topic_tags ?? []).forEach((t: string) => {
+          const k = (t ?? "").toLowerCase();
+          if (!k) return;
+          counts.set(k, (counts.get(k) ?? 0) + 1);
+        }),
       );
-      return (topics ?? []).map((t) => ({ ...t, updates_count: counts.get(t.name) ?? 0 }));
+      return (topics ?? [])
+        .map((t) => ({ ...t, updates_count: counts.get(t.name.toLowerCase()) ?? 0 }))
+        .sort((a, b) => b.updates_count - a.updates_count);
     },
   });
 }
