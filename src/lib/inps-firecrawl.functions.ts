@@ -263,7 +263,7 @@ export const backfillInpsViaFirecrawl = createServerFn({ method: "POST" })
 
 export const ingestInpsDaily = createServerFn({ method: "POST" })
   .handler(async () => {
-    // Strategia: prendiamo gli ~30 URL più recenti dalla mappa "search=oggi 2026"
+    // Strategia: prendiamo i 5 URL più recenti dalla mappa
     // e ingest dei nuovi. Dedup interno su external_id evita di rifare quelli noti.
     const links = await firecrawlMap("https://www.inps.it", "circolare messaggio numero del", 80);
     const seen = new Set<string>();
@@ -272,7 +272,7 @@ export const ingestInpsDaily = createServerFn({ method: "POST" })
       .map((l) => l.split("#")[0].split("?")[0])
       .filter((l) => (seen.has(l) ? false : seen.add(l)))
       .sort().reverse()
-      .slice(0, 30);
+      .slice(0, 5);
 
     let created = 0;
     let skipped = 0;
