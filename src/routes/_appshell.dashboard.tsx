@@ -38,15 +38,34 @@ function Dashboard() {
     user?.email?.split("@")[0] ??
     "Utente";
 
+  const { current } = useWorkspace();
+  const wsId = current?.id ?? "";
+
+  const listSavedFn = useServerFn(listSavedSearches);
+  const listNotesFn = useServerFn(listNotes);
+
+  const savedQuery = useQuery({
+    queryKey: ["saved-searches"],
+    queryFn: () => listSavedFn({}),
+  });
+  const notesQuery = useQuery({
+    queryKey: ["notes", wsId],
+    queryFn: () => listNotesFn({ data: { workspaceId: wsId } }),
+    enabled: !!wsId,
+  });
+
+  const savedSearches = savedQuery.data ?? [];
+  const notes = notesQuery.data ?? [];
+
   const { data: sources = [] } = useSources(6);
   const { data: topics = [] } = useTopics();
   const { data: stats } = useCorpusStats();
 
   const kpis = [
     { label: "Nuovi atti questa settimana", value: stats?.lastWeek ?? 0, hint: `${stats?.total ?? 0} atti in archivio`, icon: FileText },
-    { label: "Fonti salvate", value: 84, hint: "in 9 raccolte", icon: Bookmark },
+    { label: "Ricerche salvate", value: savedSearches.length, hint: savedSearches.length ? "nel tuo workspace" : "nessuna ancora", icon: Bookmark },
     { label: "Avvisi attivi", value: 5, hint: "2 ad alta priorità", icon: Bell },
-    { label: "Note interne non lette", value: 3, hint: "ultima oggi alle 09:41", icon: StickyNote },
+    { label: "Note interne", value: notes.length, hint: notes.length ? "ultima aggiornata di recente" : "nessuna ancora", icon: StickyNote },
   ];
 
   return (
