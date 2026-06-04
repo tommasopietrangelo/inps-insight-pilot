@@ -44,6 +44,30 @@ function AlertsPage() {
   const listFn = useServerFn(listAlerts);
   const createFn = useServerFn(createAlert);
   const deleteFn = useServerFn(deleteAlert);
+  const listDeliveriesFn = useServerFn(listAlertDeliveries);
+  const markReadFn = useServerFn(markDeliveryRead);
+  const runNowFn = useServerFn(runAlertsNow);
+
+  const deliveriesQ = useQuery({
+    queryKey: ["alert-deliveries", current?.id],
+    queryFn: () => listDeliveriesFn({ data: { workspaceId: current!.id, limit: 50 } }),
+    enabled: !!current,
+  });
+
+  const runNowM = useMutation({
+    mutationFn: () => runNowFn({}),
+    onSuccess: (r) => {
+      toast.success(`Avvisi eseguiti su ${r.total} regole`);
+      qc.invalidateQueries({ queryKey: ["alert-deliveries", current?.id] });
+      qc.invalidateQueries({ queryKey: ["alerts", current?.id] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Errore"),
+  });
+
+  const markReadM = useMutation({
+    mutationFn: (id: string) => markReadFn({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["alert-deliveries", current?.id] }),
+  });
 
   const [topic, setTopic] = useState(TOPICS[0].name);
   const [name, setName] = useState("");
