@@ -195,9 +195,17 @@ function SummarizePage() {
 function SummaryPanel({ data }: { data: SummaryResult }) {
   return (
     <Card className="p-5">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-primary" />
-        <h2 className="font-display text-lg font-semibold">{data.title}</h2>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+          <h2 className="truncate font-display text-lg font-semibold">{data.title}</h2>
+        </div>
+        <SavePracticeButton
+          kind="summarize"
+          title={data.title}
+          input={{}}
+          result={data}
+        />
       </div>
       <Separator className="my-3" />
       {data.tldr && (
