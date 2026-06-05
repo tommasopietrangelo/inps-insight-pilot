@@ -24,6 +24,14 @@ export const Route = createFileRoute("/_appshell/settings")({
 });
 
 
+const TYPE_LABEL: Record<string, string> = {
+  circolare: "Circolare",
+  messaggio: "Messaggio",
+  decreto: "Decreto",
+  pagina_servizio: "Pagina servizio",
+  normativa: "Normativa",
+};
+
 function Settings() {
   const [name, setName] = useState("Studio Rossi · CAF");
   const [dark, setDark] = useState(false);
