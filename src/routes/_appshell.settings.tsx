@@ -68,6 +68,22 @@ function Settings() {
   const [normLoading, setNormLoading] = useState(false);
   const [normResult, setNormResult] = useState<string | null>(null);
 
+  // Backfill massivo via coda
+  const runDiscover = useServerFn(discoverInpsCorpus);
+  const runBatch = useServerFn(processInpsQueueBatch);
+  const fetchQueueStats = useServerFn(getInpsQueueStats);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverResult, setDiscoverResult] = useState<string | null>(null);
+  const [yearFrom, setYearFrom] = useState(1999);
+  const [yearTo, setYearTo] = useState(new Date().getFullYear());
+  const [batching, setBatching] = useState(false);
+  const [batchResult, setBatchResult] = useState<string | null>(null);
+  const [batchSize, setBatchSize] = useState(200);
+  const { data: queueStats, refetch: refetchQueueStats } = useQuery({
+    queryKey: ["inps-queue-stats"],
+    queryFn: () => fetchQueueStats(),
+  });
+
   const { data: sourcesByIngestion, isLoading: sourcesByIngestionLoading } = useQuery({
     queryKey: ["sources-by-ingestion"],
     queryFn: async () => {
