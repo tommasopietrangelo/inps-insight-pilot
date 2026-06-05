@@ -5,7 +5,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { ingestEmbeddings } from "@/lib/search.functions";
 import { importFromUrl, importInpsLatest, importFromText } from "@/lib/import.functions";
-import { backfillInpsViaFirecrawl } from "@/lib/inps-firecrawl.functions";
+import {
+  backfillInpsViaFirecrawl,
+  discoverInpsCorpus,
+  processInpsQueueBatch,
+  getInpsQueueStats,
+} from "@/lib/inps-firecrawl.functions";
+import { Database as DatabaseIcon } from "lucide-react";
 import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
