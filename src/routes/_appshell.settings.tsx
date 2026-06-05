@@ -54,6 +54,18 @@ function Settings() {
   const [normLoading, setNormLoading] = useState(false);
   const [normResult, setNormResult] = useState<string | null>(null);
 
+  const { data: sourcesByIngestion, isLoading: sourcesByIngestionLoading } = useQuery({
+    queryKey: ["sources-by-ingestion"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sources")
+        .select("id, title, source_type, document_number, publication_date, ingested_at, official_url")
+        .order("ingested_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   return (
     <div className="space-y-6">
       <div>
