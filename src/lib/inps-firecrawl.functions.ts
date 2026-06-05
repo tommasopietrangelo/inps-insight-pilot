@@ -433,3 +433,154 @@ export const backfillInpsOlder = createServerFn({ method: "POST" })
       errors: errors.slice(0, 10),
     };
   });
+
+// ---------------------------------------------------------------------------
+// Backfill MASSIVO progressivo via coda DB
+//
+// L'archivio INPS contiene ~15k atti; non possiamo scoprirli e ingerirli tutti
+// in una run (timeout + crediti Firecrawl). Strategia:
+//   1) "Discovery": chiamate `map` per (kind × anno) → enqueue URL in
+//      `inps_ingest_queue` (status=pending). Idempotente: l'unique constraint
+//      su url scarta i duplicati. Costo: ~2 crediti per anno coperto.
+//   2) "Processing": l'utente avvia batch da 200–500 URL alla volta.
+//      Per ogni URL: dedup PRIMA dello scrape (controllo external_id sulle
+//      sources già in DB, niente credito) → scrape + insert se nuovo →
+//      aggiornamento riga di coda. Costo: 1 credito per atto effettivamente
+//      scaricato (gli skip non costano).
+// ---------------------------------------------------------------------------
+
+type QueueRow = { id: string; url: string; status: string };
+const QUEUE_TABLE = "inps_ingest_queue" as const;
+
+const DiscoverInput = z.object({
+  yearFrom: z.number().int().min(1995).max(2100).default(1999),
+  yearTo: z.number().int().min(1995).max(2100).default(new Date().getFullYear()),
+});
+
+export const discoverInpsCorpus = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => DiscoverInput.parse(data ?? {}))
+  .handler(async ({ data }) => {
+    if (data.yearTo < data.yearFrom) throw new Error("yearTo < yearFrom");
+    const discovered = new Set<string>();
+    const errors: string[] = [];
+
+    for (let year = data.yearTo; year >= data.yearFrom; year--) {
+      for (const term of [`circolare numero del ${year}`, `messaggio numero del ${year}`]) {
+        try {
+          const links = await firecrawlMap("https://www.inps.it", term, 500);
+          for (const l of links) {
+            if (/inps\.it\/.+(circolare|messaggio).*\d/i.test(l)) {
+              const clean = l.split("#")[0].split("?")[0];
+              const meta = parseInpsUrl(clean);
+              // tieni solo URL il cui anno parsato corrisponde (filtra rumore)
+              if (meta.year === year) discovered.add(clean);
+            }
+          }
+        } catch (e) {
+          errors.push(`${term}: ${(e as Error).message}`);
+        }
+      }
+    }
+
+    // Bulk upsert in coda (ignora duplicati grazie all'unique constraint).
+    const rows = Array.from(discovered).map((url) => ({ url, status: "pending" }));
+    let inserted = 0;
+    const chunkSize = 500;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const { data: ins, error } = await (supabaseAdmin as any).from(QUEUE_TABLE)
+        .upsert(chunk, { onConflict: "url", ignoreDuplicates: true })
+        .select("id");
+      if (error) {
+        errors.push(`enqueue chunk ${i}: ${error.message}`);
+      } else {
+        inserted += (ins as unknown as Array<unknown> | null)?.length ?? 0;
+      }
+    }
+
+    return {
+      discovered: discovered.size,
+      enqueued: inserted,
+      yearFrom: data.yearFrom,
+      yearTo: data.yearTo,
+      errors: errors.slice(0, 10),
+    };
+  });
+
+const ProcessBatchInput = z.object({
+  limit: z.number().int().min(1).max(500).default(200),
+});
+
+export const processInpsQueueBatch = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => ProcessBatchInput.parse(data ?? {}))
+  .handler(async ({ data }) => {
+    // Prendi i prossimi N pending; ordiniamo per discovered_at asc così
+    // ogni run consuma sempre dalla "testa" della coda.
+    const { data: pending, error } = await (supabaseAdmin as any).from(QUEUE_TABLE)
+      .select("id, url")
+      .eq("status", "pending")
+      .order("discovered_at", { ascending: true })
+      .limit(data.limit);
+    if (error) throw new Error(error.message);
+    const rows = (pending as QueueRow[] | null) ?? [];
+
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+    for (const row of rows) {
+      try {
+        const r = await ingestSingleInps(row.url);
+        if (r.ok) {
+          await (supabaseAdmin as any).from(QUEUE_TABLE)
+            .update({
+              status: r.created ? "done" : "skipped",
+              external_id: r.external_id,
+              processed_at: new Date().toISOString(),
+              error: null,
+            })
+            .eq("id", row.id);
+          if (r.created) created++; else skipped++;
+        } else {
+          failed++;
+          await (supabaseAdmin as any).from(QUEUE_TABLE)
+            .update({
+              status: "error",
+              error: r.reason.slice(0, 500),
+              processed_at: new Date().toISOString(),
+            })
+            .eq("id", row.id);
+        }
+      } catch (e) {
+        failed++;
+        await (supabaseAdmin as any).from(QUEUE_TABLE)
+          .update({
+            status: "error",
+            error: (e as Error).message.slice(0, 500),
+            processed_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+      }
+    }
+    return { processed: rows.length, created, skipped, failed };
+  });
+
+export const getInpsQueueStats = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const counts: Record<string, number> = { pending: 0, done: 0, skipped: 0, error: 0 };
+    for (const status of Object.keys(counts)) {
+      const { count } = await (supabaseAdmin as any).from(QUEUE_TABLE)
+        .select("id", { count: "exact", head: true })
+        .eq("status", status);
+      counts[status] = count ?? 0;
+    }
+    const total = counts.pending + counts.done + counts.skipped + counts.error;
+    const { count: sourcesCount } = await supabaseAdmin
+      .from("sources")
+      .select("id", { count: "exact", head: true })
+      .in("source_type", ["circolare", "messaggio"]);
+    return {
+      queue: counts,
+      queueTotal: total,
+      sourcesInpsTotal: sourcesCount ?? 0,
+    };
+  });

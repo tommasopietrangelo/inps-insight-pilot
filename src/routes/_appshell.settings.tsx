@@ -5,7 +5,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { ingestEmbeddings } from "@/lib/search.functions";
 import { importFromUrl, importInpsLatest, importFromText } from "@/lib/import.functions";
-import { backfillInpsViaFirecrawl } from "@/lib/inps-firecrawl.functions";
+import {
+  backfillInpsViaFirecrawl,
+  discoverInpsCorpus,
+  processInpsQueueBatch,
+  getInpsQueueStats,
+} from "@/lib/inps-firecrawl.functions";
+import { Database as DatabaseIcon } from "lucide-react";
 import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +67,22 @@ function Settings() {
   const runNormative = useServerFn(ingestNormativeCardine);
   const [normLoading, setNormLoading] = useState(false);
   const [normResult, setNormResult] = useState<string | null>(null);
+
+  // Backfill massivo via coda
+  const runDiscover = useServerFn(discoverInpsCorpus);
+  const runBatch = useServerFn(processInpsQueueBatch);
+  const fetchQueueStats = useServerFn(getInpsQueueStats);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverResult, setDiscoverResult] = useState<string | null>(null);
+  const [yearFrom, setYearFrom] = useState(1999);
+  const [yearTo, setYearTo] = useState(new Date().getFullYear());
+  const [batching, setBatching] = useState(false);
+  const [batchResult, setBatchResult] = useState<string | null>(null);
+  const [batchSize, setBatchSize] = useState(200);
+  const { data: queueStats, refetch: refetchQueueStats } = useQuery({
+    queryKey: ["inps-queue-stats"],
+    queryFn: () => fetchQueueStats(),
+  });
 
   const { data: sourcesByIngestion, isLoading: sourcesByIngestionLoading } = useQuery({
     queryKey: ["sources-by-ingestion"],
@@ -225,6 +247,126 @@ function Settings() {
             </Button>
             {txtResult && <span className="text-sm text-muted-foreground">{txtResult}</span>}
           </div>
+        </Card>
+
+        {/* Backfill massivo via coda */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <DatabaseIcon className="h-4 w-4 text-primary" /> Importazione massiva corpus INPS
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Importa progressivamente l'intero archivio circolari + messaggi (~15.000 atti)
+                pubblicato su inps.it. Funziona in due fasi:
+                <strong> 1) Discovery</strong> — scopre via Firecrawl tutti gli URL per anno e li
+                accoda in DB (costo ~2 crediti/anno, ignora URL già in coda).
+                <strong> 2) Batch</strong> — scarica e indicizza 200–500 atti per run, saltando i
+                duplicati PRIMA dello scraping (zero credito per quelli già nel corpus).
+                Puoi rilanciare il batch più volte fino a esaurimento coda.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+            <div className="rounded-md border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">In coda</div>
+              <div className="font-mono text-lg">{queueStats?.queue.pending ?? "—"}</div>
+            </div>
+            <div className="rounded-md border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">Importate</div>
+              <div className="font-mono text-lg">{queueStats?.queue.done ?? "—"}</div>
+            </div>
+            <div className="rounded-md border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">Già presenti</div>
+              <div className="font-mono text-lg">{queueStats?.queue.skipped ?? "—"}</div>
+            </div>
+            <div className="rounded-md border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">Errori</div>
+              <div className="font-mono text-lg">{queueStats?.queue.error ?? "—"}</div>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            Totale URL accodati: <strong>{queueStats?.queueTotal ?? "—"}</strong> · Atti INPS nel corpus:{" "}
+            <strong>{queueStats?.sourcesInpsTotal ?? "—"}</strong>
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="yf" className="text-xs">Anno da</Label>
+              <Input id="yf" type="number" min={1995} max={yearTo} value={yearFrom}
+                onChange={(e) => setYearFrom(Number(e.target.value) || 1999)} className="w-24" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="yt" className="text-xs">Anno a</Label>
+              <Input id="yt" type="number" min={yearFrom} max={2100} value={yearTo}
+                onChange={(e) => setYearTo(Number(e.target.value) || new Date().getFullYear())} className="w-24" />
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={discovering}
+              onClick={async () => {
+                setDiscovering(true);
+                setDiscoverResult(null);
+                try {
+                  const r = await runDiscover({ data: { yearFrom, yearTo } });
+                  setDiscoverResult(
+                    `Scoperti ${r.discovered} URL · ${r.enqueued} nuovi accodati (anni ${r.yearFrom}–${r.yearTo})${r.errors.length ? ` · ${r.errors.length} errori` : ""}`,
+                  );
+                  await refetchQueueStats();
+                } catch (e) {
+                  setDiscoverResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setDiscovering(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {discovering ? <Loader2 className="h-4 w-4 animate-spin" /> : <DatabaseIcon className="h-4 w-4" />}
+              {discovering ? "Discovery in corso…" : "1) Discovery URL"}
+            </Button>
+
+            <div className="ml-auto flex items-end gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="bs" className="text-xs">Batch</Label>
+                <Input id="bs" type="number" min={1} max={500} value={batchSize}
+                  onChange={(e) => setBatchSize(Math.max(1, Math.min(500, Number(e.target.value) || 200)))} className="w-24" />
+              </div>
+              <Button
+                size="sm"
+                disabled={batching || (queueStats?.queue.pending ?? 0) === 0}
+                onClick={async () => {
+                  setBatching(true);
+                  setBatchResult(null);
+                  try {
+                    const r = await runBatch({ data: { limit: batchSize } });
+                    setBatchResult(
+                      `Batch eseguito: ${r.processed} URL · ${r.created} nuovi · ${r.skipped} già presenti · ${r.failed} errori. Ricorda di lanciare "Aggiorna indice" quando hai finito.`,
+                    );
+                    await refetchQueueStats();
+                  } catch (e) {
+                    setBatchResult(`Errore: ${(e as Error).message}`);
+                  } finally {
+                    setBatching(false);
+                  }
+                }}
+                className="gap-1.5"
+              >
+                {batching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flame className="h-4 w-4" />}
+                {batching ? "Batch in corso…" : "2) Importa prossimo batch"}
+              </Button>
+            </div>
+          </div>
+
+          {discoverResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{discoverResult}</div>
+          )}
+          {batchResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{batchResult}</div>
+          )}
         </Card>
 
         {/* Firecrawl backfill */}
