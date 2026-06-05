@@ -21,17 +21,74 @@ function vecLit(v: number[]) {
   return `[${v.join(",")}]`;
 }
 
+// Massimo numero di atti elaborati per singola chiamata: serve a stare entro
+// il timeout del worker. La UI richiama la funzione finché `remaining` > 0.
+const INGEST_BATCH = 40;
+const PAGE = 1000;
+
+async function fetchAllPaged<T>(
+  loader: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  let from = 0;
+  for (;;) {
+    const to = from + PAGE - 1;
+    const { data, error } = await loader(from, to);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+    from += PAGE;
+  }
+  return out;
+}
+
 export const ingestEmbeddings = createServerFn({ method: "POST" })
   .handler(async () => {
-    const { data: sources, error } = await supabaseAdmin
-      .from("sources")
-      .select("id, title, summary, excerpt, full_text, document_number, topic_tags");
-    if (error) throw new Error(error.message);
+    // 1) Tutti i source_id già indicizzati (paginati per superare il limite 1000 di PostgREST)
+    const existing = await fetchAllPaged<{ source_id: string }>((from, to) =>
+      supabaseAdmin.from("chunks").select("source_id").range(from, to),
+    );
+    const hasChunks = new Set(existing.map((r) => r.source_id));
 
-    // Find sources without chunks
-    const { data: existing } = await supabaseAdmin.from("chunks").select("source_id");
-    const hasChunks = new Set((existing ?? []).map((r) => r.source_id));
-    const todo = (sources ?? []).filter((s) => !hasChunks.has(s.id));
+    // 2) Conteggio totale per reporting
+    const { count: total } = await supabaseAdmin
+      .from("sources")
+      .select("*", { count: "exact", head: true });
+
+    // 3) Scorri le sources a pagine finché non hai raccolto INGEST_BATCH da indicizzare
+    type Src = {
+      id: string;
+      title: string | null;
+      summary: string | null;
+      excerpt: string | null;
+      full_text: string | null;
+      document_number: string | null;
+      topic_tags: string[] | null;
+    };
+    const todo: Src[] = [];
+    let scanned = 0;
+    let remainingTotal = 0;
+    let from = 0;
+    for (;;) {
+      const to = from + PAGE - 1;
+      const { data, error } = await supabaseAdmin
+        .from("sources")
+        .select("id, title, summary, excerpt, full_text, document_number, topic_tags")
+        .order("publication_date", { ascending: false })
+        .range(from, to);
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []) as Src[];
+      if (rows.length === 0) break;
+      scanned += rows.length;
+      for (const s of rows) {
+        if (hasChunks.has(s.id)) continue;
+        remainingTotal++;
+        if (todo.length < INGEST_BATCH) todo.push(s);
+      }
+      if (rows.length < PAGE) break;
+      from += PAGE;
+    }
 
     let processed = 0;
     for (const s of todo) {
@@ -62,7 +119,14 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
         console.error("ingest failed for", s.id, e);
       }
     }
-    return { processed, total: sources?.length ?? 0, skipped: hasChunks.size };
+
+    const remaining = Math.max(0, remainingTotal - processed);
+    return {
+      processed,
+      total: total ?? scanned,
+      skipped: hasChunks.size,
+      remaining,
+    };
   });
 
 const SearchInput = z.object({ query: z.string().min(2).max(500) });
