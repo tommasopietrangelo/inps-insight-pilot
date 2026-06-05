@@ -46,9 +46,10 @@ async function fetchAllPaged<T>(
 export const ingestEmbeddings = createServerFn({ method: "POST" })
   .handler(async () => {
     // 1) Tutti i source_id già indicizzati (paginati per superare il limite 1000 di PostgREST)
-    const existing = await fetchAllPaged<{ source_id: string }>((from, to) =>
-      supabaseAdmin.from("chunks").select("source_id").range(from, to),
-    );
+    const existing = await fetchAllPaged<{ source_id: string }>(async (from, to) => {
+      const res = await supabaseAdmin.from("chunks").select("source_id").range(from, to);
+      return { data: res.data, error: res.error };
+    });
     const hasChunks = new Set(existing.map((r) => r.source_id));
 
     // 2) Conteggio totale per reporting
