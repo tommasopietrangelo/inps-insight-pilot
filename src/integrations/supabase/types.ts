@@ -159,6 +159,39 @@ export type Database = {
           },
         ]
       }
+      inps_ingest_queue: {
+        Row: {
+          attempts: number
+          discovered_at: string
+          error: string | null
+          external_id: string | null
+          id: string
+          processed_at: string | null
+          status: string
+          url: string
+        }
+        Insert: {
+          attempts?: number
+          discovered_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: string
+          url: string
+        }
+        Update: {
+          attempts?: number
+          discovered_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: string
+          url?: string
+        }
+        Relationships: []
+      }
       notes: {
         Row: {
           author_id: string
