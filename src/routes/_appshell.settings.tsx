@@ -404,6 +404,68 @@ function Settings() {
           )}
         </Card>
 
+        {/* Corpus sources list */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-display text-base font-semibold">Fonti nel corpus</div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {sourcesByIngestion?.length ?? 0} fonti ordinate per data di aggiunta (più recente in alto).
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 max-h-96 overflow-auto rounded-md border">
+            {sourcesByIngestionLoading ? (
+              <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Caricamento fonti…
+              </div>
+            ) : !sourcesByIngestion || sourcesByIngestion.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground">Nessuna fonte nel corpus.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-surface sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Titolo</th>
+                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Tipo</th>
+                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">N.</th>
+                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Data atto</th>
+                    <th className="px-4 py-2 text-left font-medium text-muted-foreground">Aggiunto il</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {sourcesByIngestion.map((s) => (
+                    <tr key={s.id} className="hover:bg-surface/50">
+                      <td className="px-4 py-2">
+                        <a
+                          href={s.official_url ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline line-clamp-1"
+                          title={s.title ?? ""}
+                        >
+                          {s.title ?? "—"}
+                        </a>
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">{TYPE_LABEL[s.source_type as keyof typeof TYPE_LABEL] ?? s.source_type}</td>
+                      <td className="px-4 py-2 whitespace-nowrap font-mono text-muted-foreground">{s.document_number ?? "—"}</td>
+                      <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
+                        {s.publication_date
+                          ? new Date(s.publication_date).toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" })
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">
+                        {s.ingested_at
+                          ? new Date(s.ingested_at).toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Card>
+
         {/* Notifications */}
         <Card className="p-6 lg:col-span-2">
           <div className="font-display text-base font-semibold">Notifiche</div>
