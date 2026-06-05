@@ -520,14 +520,15 @@ export const discoverInpsCorpus = createServerFn({ method: "POST" })
   });
 
 const ProcessBatchInput = z.object({
-  limit: z.number().int().min(1).max(500).default(200),
+  // Cap a 25 per stare entro il timeout del proxy Lovable (~60s).
+  // Per importi più grandi il client cicla questa funzione più volte (vedi UI).
+  limit: z.number().int().min(1).max(25).default(20),
+  concurrency: z.number().int().min(1).max(8).default(6),
 });
 
 export const processInpsQueueBatch = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => ProcessBatchInput.parse(data ?? {}))
   .handler(async ({ data }) => {
-    // Prendi i prossimi N pending; ordiniamo per discovered_at asc così
-    // ogni run consuma sempre dalla "testa" della coda.
     const { data: pending, error } = await (supabaseAdmin as any).from(QUEUE_TABLE)
       .select("id, url")
       .eq("status", "pending")
@@ -539,40 +540,52 @@ export const processInpsQueueBatch = createServerFn({ method: "POST" })
     let created = 0;
     let skipped = 0;
     let failed = 0;
-    for (const row of rows) {
-      try {
-        const r = await ingestSingleInps(row.url);
-        if (r.ok) {
-          await (supabaseAdmin as any).from(QUEUE_TABLE)
-            .update({
-              status: r.created ? "done" : "skipped",
-              external_id: r.external_id,
-              processed_at: new Date().toISOString(),
-              error: null,
-            })
-            .eq("id", row.id);
-          if (r.created) created++; else skipped++;
-        } else {
+
+    // Worker pool: N task in parallelo che pescano dalla stessa coda locale.
+    // Riduce drasticamente il tempo totale (Firecrawl scrape ~3-8s/atto).
+    let idx = 0;
+    const worker = async () => {
+      while (true) {
+        const i = idx++;
+        if (i >= rows.length) return;
+        const row = rows[i];
+        try {
+          const r = await ingestSingleInps(row.url);
+          if (r.ok) {
+            await (supabaseAdmin as any).from(QUEUE_TABLE)
+              .update({
+                status: r.created ? "done" : "skipped",
+                external_id: r.external_id,
+                processed_at: new Date().toISOString(),
+                error: null,
+              })
+              .eq("id", row.id);
+            if (r.created) created++; else skipped++;
+          } else {
+            failed++;
+            await (supabaseAdmin as any).from(QUEUE_TABLE)
+              .update({
+                status: "error",
+                error: r.reason.slice(0, 500),
+                processed_at: new Date().toISOString(),
+              })
+              .eq("id", row.id);
+          }
+        } catch (e) {
           failed++;
           await (supabaseAdmin as any).from(QUEUE_TABLE)
             .update({
               status: "error",
-              error: r.reason.slice(0, 500),
+              error: (e as Error).message.slice(0, 500),
               processed_at: new Date().toISOString(),
             })
             .eq("id", row.id);
         }
-      } catch (e) {
-        failed++;
-        await (supabaseAdmin as any).from(QUEUE_TABLE)
-          .update({
-            status: "error",
-            error: (e as Error).message.slice(0, 500),
-            processed_at: new Date().toISOString(),
-          })
-          .eq("id", row.id);
       }
-    }
+    };
+    const poolSize = Math.min(data.concurrency, rows.length);
+    await Promise.all(Array.from({ length: poolSize }, () => worker()));
+
     return { processed: rows.length, created, skipped, failed };
   });
 

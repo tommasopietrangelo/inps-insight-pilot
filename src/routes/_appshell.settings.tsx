@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,6 +79,8 @@ function Settings() {
   const [batching, setBatching] = useState(false);
   const [batchResult, setBatchResult] = useState<string | null>(null);
   const [batchSize, setBatchSize] = useState(200);
+  const [batchProgress, setBatchProgress] = useState<{ processed: number; created: number; skipped: number; failed: number } | null>(null);
+  const stopBatchRef = useRef(false);
   const { data: queueStats, refetch: refetchQueueStats } = useQuery({
     queryKey: ["inps-queue-stats"],
     queryFn: () => fetchQueueStats(),
@@ -331,24 +333,48 @@ function Settings() {
 
             <div className="ml-auto flex items-end gap-2">
               <div className="space-y-1.5">
-                <Label htmlFor="bs" className="text-xs">Batch</Label>
-                <Input id="bs" type="number" min={1} max={500} value={batchSize}
-                  onChange={(e) => setBatchSize(Math.max(1, Math.min(500, Number(e.target.value) || 200)))} className="w-24" />
+                <Label htmlFor="bs" className="text-xs">Batch totale</Label>
+                <Input id="bs" type="number" min={1} max={2000} value={batchSize}
+                  onChange={(e) => setBatchSize(Math.max(1, Math.min(2000, Number(e.target.value) || 200)))} className="w-24" />
               </div>
+              {batching ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { stopBatchRef.current = true; }}
+                  className="gap-1.5"
+                >
+                  Ferma
+                </Button>
+              ) : null}
               <Button
                 size="sm"
                 disabled={batching || (queueStats?.queue.pending ?? 0) === 0}
                 onClick={async () => {
                   setBatching(true);
                   setBatchResult(null);
+                  stopBatchRef.current = false;
+                  const totals = { processed: 0, created: 0, skipped: 0, failed: 0 };
+                  setBatchProgress({ ...totals });
+                  const CHUNK = 20;
                   try {
-                    const r = await runBatch({ data: { limit: batchSize } });
+                    while (totals.processed < batchSize && !stopBatchRef.current) {
+                      const remaining = batchSize - totals.processed;
+                      const limit = Math.min(CHUNK, remaining);
+                      const r = await runBatch({ data: { limit } });
+                      totals.processed += r.processed;
+                      totals.created += r.created;
+                      totals.skipped += r.skipped;
+                      totals.failed += r.failed;
+                      setBatchProgress({ ...totals });
+                      await refetchQueueStats();
+                      if (r.processed === 0) break; // coda vuota
+                    }
                     setBatchResult(
-                      `Batch eseguito: ${r.processed} URL · ${r.created} nuovi · ${r.skipped} già presenti · ${r.failed} errori. Ricorda di lanciare "Aggiorna indice" quando hai finito.`,
+                      `Batch ${stopBatchRef.current ? "fermato" : "completato"}: ${totals.processed} URL · ${totals.created} nuovi · ${totals.skipped} già presenti · ${totals.failed} errori. Ricorda di lanciare "Aggiorna indice" quando hai finito.`,
                     );
-                    await refetchQueueStats();
                   } catch (e) {
-                    setBatchResult(`Errore: ${(e as Error).message}`);
+                    setBatchResult(`Interrotto a ${totals.processed}/${batchSize}. Errore: ${(e as Error).message}`);
                   } finally {
                     setBatching(false);
                   }
@@ -356,7 +382,9 @@ function Settings() {
                 className="gap-1.5"
               >
                 {batching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flame className="h-4 w-4" />}
-                {batching ? "Batch in corso…" : "2) Importa prossimo batch"}
+                {batching
+                  ? `Batch ${batchProgress?.processed ?? 0}/${batchSize}…`
+                  : "2) Importa prossimo batch"}
               </Button>
             </div>
           </div>
