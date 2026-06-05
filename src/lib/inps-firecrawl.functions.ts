@@ -263,30 +263,70 @@ export const backfillInpsViaFirecrawl = createServerFn({ method: "POST" })
 
 export const ingestInpsDaily = createServerFn({ method: "POST" })
   .handler(async () => {
-    // Strategia: prendiamo i 5 URL più recenti dalla mappa
-    // e ingest dei nuovi. Dedup interno su external_id evita di rifare quelli noti.
-    const links = await firecrawlMap("https://www.inps.it", "circolare messaggio numero del", 80);
-    const seen = new Set<string>();
-    const candidates = links
-      .filter((l) => /inps\.it\/.+(circolare|messaggio).*\d/i.test(l))
-      .map((l) => l.split("#")[0].split("?")[0])
-      .filter((l) => (seen.has(l) ? false : seen.add(l)))
-      .sort().reverse()
-      .slice(0, 5);
+    // Strategia: scopriamo gli atti pubblicati negli ultimi 14 giorni
+    // (circolari + messaggi con query separate per non perderne nessuno),
+    // ordiniamo per data REALE estratta dall'URL (più recente prima) e
+    // ingeriamo i primi 20. Dedup su external_id evita lavoro inutile sui
+    // già noti, quindi il costo Firecrawl in regime è basso.
+    const discovered = new Set<string>();
+    for (const term of ["circolare numero del", "messaggio numero del"]) {
+      try {
+        const links = await firecrawlMap("https://www.inps.it", term, 150);
+        for (const l of links) {
+          if (/inps\.it\/.+(circolare|messaggio).*\d/i.test(l)) {
+            discovered.add(l.split("#")[0].split("?")[0]);
+          }
+        }
+      } catch (e) {
+        console.error(`ingestInpsDaily map "${term}" failed`, e);
+      }
+    }
+
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 14);
+
+    const dated: Array<{ url: string; date: Date }> = [];
+    for (const url of discovered) {
+      const meta = parseInpsUrl(url);
+      if (!meta.date) continue;
+      const d = new Date(meta.date);
+      if (isNaN(d.getTime())) continue;
+      if (d < cutoff) continue;
+      dated.push({ url, date: d });
+    }
+    dated.sort((a, b) => b.date.getTime() - a.date.getTime());
+    const candidates = dated.slice(0, 20).map((c) => c.url);
 
     let created = 0;
     let skipped = 0;
     const errors: string[] = [];
+    const createdItems: Array<{ url: string; title: string }> = [];
     for (const url of candidates) {
       try {
         const r = await ingestSingleInps(url);
-        if (r.ok) (r.created ? created++ : skipped++);
-        else errors.push(`${url}: ${r.reason}`);
+        if (r.ok) {
+          if (r.created) {
+            created++;
+            createdItems.push({ url, title: r.title });
+          } else {
+            skipped++;
+          }
+        } else {
+          errors.push(`${url}: ${r.reason}`);
+        }
       } catch (e) {
         errors.push(`${url}: ${(e as Error).message}`);
       }
     }
-    return { checked: candidates.length, created, skipped, errors: errors.slice(0, 5) };
+    return {
+      discovered: discovered.size,
+      eligible: dated.length,
+      checked: candidates.length,
+      created,
+      skipped,
+      createdItems,
+      errors: errors.slice(0, 10),
+    };
   });
 
 // ---------- Cron giornaliero: backfill "a ritroso" ----------
