@@ -49,11 +49,33 @@ export function useSources(limit?: number) {
   return useQuery({
     queryKey: ["sources", limit ?? "all"],
     queryFn: async (): Promise<UISource[]> => {
-      let q = supabase.from("sources").select("*").order("publication_date", { ascending: false });
-      if (limit) q = q.limit(limit);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []).map(toUI);
+      if (limit) {
+        const { data, error } = await supabase
+          .from("sources")
+          .select("*")
+          .order("publication_date", { ascending: false })
+          .limit(limit);
+        if (error) throw error;
+        return (data ?? []).map(toUI);
+      }
+      // Paginazione: PostgREST limita a 1000 righe per chiamata
+      const PAGE = 1000;
+      const all: any[] = [];
+      let from = 0;
+      for (;;) {
+        const to = from + PAGE - 1;
+        const { data, error } = await supabase
+          .from("sources")
+          .select("*")
+          .order("publication_date", { ascending: false })
+          .range(from, to);
+        if (error) throw error;
+        const rows = data ?? [];
+        all.push(...rows);
+        if (rows.length < PAGE) break;
+        from += PAGE;
+      }
+      return all.map(toUI);
     },
   });
 }
