@@ -57,15 +57,27 @@ async function firecrawlScrape(url: string, opts?: { onlyMainContent?: boolean; 
 
 async function firecrawlMap(url: string, search: string, limit = 200): Promise<string[]> {
   const key = requireFirecrawlKey();
-  const res = await fetch(`${FIRECRAWL_BASE}/map`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ url, search, limit, includeSubdomains: false }),
-  });
-  if (!res.ok) throw new Error(`Firecrawl map ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const json = (await res.json()) as { success?: boolean; links?: Array<string | { url: string }>; data?: { links?: Array<string | { url: string }> } };
-  const raw = json.links ?? json.data?.links ?? [];
-  return raw.map((l) => (typeof l === "string" ? l : l.url)).filter(Boolean);
+  // Retry automatico sui 429 (rate limit Firecrawl: 6 req/min sul piano standard).
+  // Rispettiamo il "retry after Ns" indicato nel messaggio di errore.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const res = await fetch(`${FIRECRAWL_BASE}/map`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ url, search, limit, includeSubdomains: false }),
+    });
+    if (res.status === 429) {
+      const text = await res.text();
+      const m = text.match(/retry after (\d+)s/i);
+      const waitMs = (m ? Number(m[1]) : 30) * 1000 + 1000;
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
+    if (!res.ok) throw new Error(`Firecrawl map ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const json = (await res.json()) as { success?: boolean; links?: Array<string | { url: string }>; data?: { links?: Array<string | { url: string }> } };
+    const raw = json.links ?? json.data?.links ?? [];
+    return raw.map((l) => (typeof l === "string" ? l : l.url)).filter(Boolean);
+  }
+  throw new Error("Firecrawl map: rate limit persistente dopo 4 tentativi");
 }
 
 // ---------- URL → external_id ----------
