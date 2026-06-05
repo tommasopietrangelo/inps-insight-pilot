@@ -561,9 +561,21 @@ function Settings() {
                 setIngesting(true);
                 setIngestResult(null);
                 try {
-                  const r = await runIngest();
+                  let totalProcessed = 0;
+                  let lastTotal = 0;
+                  let lastSkipped = 0;
+                  for (let i = 0; i < 200; i++) {
+                    const r = await runIngest();
+                    totalProcessed += r.processed;
+                    lastTotal = r.total;
+                    lastSkipped = r.skipped;
+                    setIngestResult(
+                      `Indicizzazione in corso… ${totalProcessed} nuovi, ${r.remaining} rimanenti (totale corpus ${r.total})`,
+                    );
+                    if (r.processed === 0 || r.remaining === 0) break;
+                  }
                   setIngestResult(
-                    `Indicizzati ${r.processed} nuovi atti · totali ${r.total} · già indicizzati ${r.skipped}`,
+                    `Indicizzati ${totalProcessed} nuovi atti · totali ${lastTotal} · già indicizzati ${lastSkipped}`,
                   );
                 } catch (e) {
                   setIngestResult(`Errore: ${(e as Error).message}`);
