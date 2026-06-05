@@ -488,7 +488,7 @@ export const discoverInpsCorpus = createServerFn({ method: "POST" })
     const chunkSize = 500;
     for (let i = 0; i < rows.length; i += chunkSize) {
       const chunk = rows.slice(i, i + chunkSize);
-      const { data: ins, error } = await (supabaseAdmin.from(QUEUE_TABLE as never) as never)
+      const { data: ins, error } = await (supabaseAdmin as any).from(QUEUE_TABLE)
         .upsert(chunk, { onConflict: "url", ignoreDuplicates: true })
         .select("id");
       if (error) {
@@ -516,7 +516,7 @@ export const processInpsQueueBatch = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     // Prendi i prossimi N pending; ordiniamo per discovered_at asc così
     // ogni run consuma sempre dalla "testa" della coda.
-    const { data: pending, error } = await (supabaseAdmin.from(QUEUE_TABLE as never) as never)
+    const { data: pending, error } = await (supabaseAdmin as any).from(QUEUE_TABLE)
       .select("id, url")
       .eq("status", "pending")
       .order("discovered_at", { ascending: true })
@@ -531,7 +531,7 @@ export const processInpsQueueBatch = createServerFn({ method: "POST" })
       try {
         const r = await ingestSingleInps(row.url);
         if (r.ok) {
-          await (supabaseAdmin.from(QUEUE_TABLE as never) as never)
+          await (supabaseAdmin as any).from(QUEUE_TABLE)
             .update({
               status: r.created ? "done" : "skipped",
               external_id: r.external_id,
@@ -542,7 +542,7 @@ export const processInpsQueueBatch = createServerFn({ method: "POST" })
           if (r.created) created++; else skipped++;
         } else {
           failed++;
-          await (supabaseAdmin.from(QUEUE_TABLE as never) as never)
+          await (supabaseAdmin as any).from(QUEUE_TABLE)
             .update({
               status: "error",
               error: r.reason.slice(0, 500),
@@ -552,7 +552,7 @@ export const processInpsQueueBatch = createServerFn({ method: "POST" })
         }
       } catch (e) {
         failed++;
-        await (supabaseAdmin.from(QUEUE_TABLE as never) as never)
+        await (supabaseAdmin as any).from(QUEUE_TABLE)
           .update({
             status: "error",
             error: (e as Error).message.slice(0, 500),
@@ -568,7 +568,7 @@ export const getInpsQueueStats = createServerFn({ method: "GET" })
   .handler(async () => {
     const counts: Record<string, number> = { pending: 0, done: 0, skipped: 0, error: 0 };
     for (const status of Object.keys(counts)) {
-      const { count } = await (supabaseAdmin.from(QUEUE_TABLE as never) as never)
+      const { count } = await (supabaseAdmin as any).from(QUEUE_TABLE)
         .select("id", { count: "exact", head: true })
         .eq("status", status);
       counts[status] = count ?? 0;
