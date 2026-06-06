@@ -28,7 +28,6 @@ import { Route as AppshellAlertsRouteImport } from './routes/_appshell.alerts'
 import { Route as AppshellSourceIdRouteImport } from './routes/_appshell.source.$id'
 import { Route as ApiPublicHooksRunAlertsRouteImport } from './routes/api/public/hooks/run-alerts'
 import { Route as ApiPublicHooksIngestInpsRouteImport } from './routes/api/public/hooks/ingest-inps'
-import { Route as ApiPublicHooksBackfillInpsOlderRouteImport } from './routes/api/public/hooks/backfill-inps-older'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -125,12 +124,6 @@ const ApiPublicHooksIngestInpsRoute =
     path: '/api/public/hooks/ingest-inps',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksBackfillInpsOlderRoute =
-  ApiPublicHooksBackfillInpsOlderRouteImport.update({
-    id: '/api/public/hooks/backfill-inps-older',
-    path: '/api/public/hooks/backfill-inps-older',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -149,7 +142,6 @@ export interface FileRoutesByFullPath {
   '/summarize': typeof AppshellSummarizeRoute
   '/workspace': typeof AppshellWorkspaceRoute
   '/source/$id': typeof AppshellSourceIdRoute
-  '/api/public/hooks/backfill-inps-older': typeof ApiPublicHooksBackfillInpsOlderRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/run-alerts': typeof ApiPublicHooksRunAlertsRoute
 }
@@ -170,7 +162,6 @@ export interface FileRoutesByTo {
   '/summarize': typeof AppshellSummarizeRoute
   '/workspace': typeof AppshellWorkspaceRoute
   '/source/$id': typeof AppshellSourceIdRoute
-  '/api/public/hooks/backfill-inps-older': typeof ApiPublicHooksBackfillInpsOlderRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/run-alerts': typeof ApiPublicHooksRunAlertsRoute
 }
@@ -193,7 +184,6 @@ export interface FileRoutesById {
   '/_appshell/summarize': typeof AppshellSummarizeRoute
   '/_appshell/workspace': typeof AppshellWorkspaceRoute
   '/_appshell/source/$id': typeof AppshellSourceIdRoute
-  '/api/public/hooks/backfill-inps-older': typeof ApiPublicHooksBackfillInpsOlderRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/run-alerts': typeof ApiPublicHooksRunAlertsRoute
 }
@@ -216,7 +206,6 @@ export interface FileRouteTypes {
     | '/summarize'
     | '/workspace'
     | '/source/$id'
-    | '/api/public/hooks/backfill-inps-older'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/run-alerts'
   fileRoutesByTo: FileRoutesByTo
@@ -237,7 +226,6 @@ export interface FileRouteTypes {
     | '/summarize'
     | '/workspace'
     | '/source/$id'
-    | '/api/public/hooks/backfill-inps-older'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/run-alerts'
   id:
@@ -259,7 +247,6 @@ export interface FileRouteTypes {
     | '/_appshell/summarize'
     | '/_appshell/workspace'
     | '/_appshell/source/$id'
-    | '/api/public/hooks/backfill-inps-older'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/run-alerts'
   fileRoutesById: FileRoutesById
@@ -270,7 +257,6 @@ export interface RootRouteChildren {
   AcceptInviteRoute: typeof AcceptInviteRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
-  ApiPublicHooksBackfillInpsOlderRoute: typeof ApiPublicHooksBackfillInpsOlderRoute
   ApiPublicHooksIngestInpsRoute: typeof ApiPublicHooksIngestInpsRoute
   ApiPublicHooksRunAlertsRoute: typeof ApiPublicHooksRunAlertsRoute
 }
@@ -410,13 +396,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksIngestInpsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/backfill-inps-older': {
-      id: '/api/public/hooks/backfill-inps-older'
-      path: '/api/public/hooks/backfill-inps-older'
-      fullPath: '/api/public/hooks/backfill-inps-older'
-      preLoaderRoute: typeof ApiPublicHooksBackfillInpsOlderRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -460,10 +439,19 @@ const rootRouteChildren: RootRouteChildren = {
   AcceptInviteRoute: AcceptInviteRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
-  ApiPublicHooksBackfillInpsOlderRoute: ApiPublicHooksBackfillInpsOlderRoute,
   ApiPublicHooksIngestInpsRoute: ApiPublicHooksIngestInpsRoute,
   ApiPublicHooksRunAlertsRoute: ApiPublicHooksRunAlertsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
