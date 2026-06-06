@@ -89,12 +89,23 @@ function Settings() {
   const { data: sourcesByIngestion, isLoading: sourcesByIngestionLoading } = useQuery({
     queryKey: ["sources-by-ingestion"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sources")
-        .select("id, title, source_type, document_number, publication_date, ingested_at, official_url")
-        .order("ingested_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
+      const PAGE = 1000;
+      const all: any[] = [];
+      let from = 0;
+      for (;;) {
+        const to = from + PAGE - 1;
+        const { data, error } = await supabase
+          .from("sources")
+          .select("id, title, source_type, document_number, publication_date, ingested_at, official_url")
+          .order("ingested_at", { ascending: false })
+          .range(from, to);
+        if (error) throw error;
+        const rows = data ?? [];
+        all.push(...rows);
+        if (rows.length < PAGE) break;
+        from += PAGE;
+      }
+      return all;
     },
   });
 
