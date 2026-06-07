@@ -469,32 +469,122 @@ const DiscoverInput = z.object({
   yearTo: z.number().int().min(1995).max(2100).default(new Date().getFullYear()),
 });
 
+// ---------------------------------------------------------------------------
+// Discovery via endpoint JSON ufficiale INPS (zero crediti Firecrawl)
+//
+// La pagina elenco di INPS è un client React che chiama:
+//   GET https://www.inps.it/content/scorporati/search/jcr:content
+//       .search.{hex(parentPath)}.{hex(page)}.{hex(limit)}.{hex(orderBy)}
+//       .{hex(orderType)}.{hex(model)}.json
+// I selettori sono hex-encoded come fa il loro JS (vedi clientlib-scorporati-list).
+// Il `counter` analogo restituisce il totale (~15k atti).
+// Da `result.selectors` ricostruiamo l'URL HTML pubblico, lo stesso pattern
+// che `ingestSingleInps` darà poi in pasto a Firecrawl in fase di scrape.
+// Costo: zero crediti Firecrawl per la discovery completa.
+// ---------------------------------------------------------------------------
+
+const INPS_PARENT_PATH = "/content/dam/inps-site/it/scorporati/circolari-e-messaggi";
+const INPS_MODEL = "circolari-e-messaggi";
+const INPS_PAGE_SIZE = 100;
+
+function hexEncode(s: string): string {
+  let r = "";
+  for (let i = 0; i < s.length; i++) r += s.charCodeAt(i).toString(16);
+  return r;
+}
+
+function buildInpsSearchUrl(page: number): string {
+  const selectors = [
+    INPS_PARENT_PATH,
+    String(page),
+    String(INPS_PAGE_SIZE),
+    "giorno",
+    "DESC",
+    INPS_MODEL,
+  ].map(hexEncode).join(".");
+  return `https://www.inps.it/content/scorporati/search/jcr:content.search.${selectors}.json`;
+}
+
+type InpsListItem = {
+  selectors: string;
+  path: string;
+  dataPubblicazione: string; // "DD/MM/YYYY"
+  oggetto: string;
+  numero: string;
+  tipo: string;
+};
+
+async function fetchInpsPage(page: number): Promise<InpsListItem[]> {
+  const res = await fetch(buildInpsSearchUrl(page), {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; INPS-Insight/1.0)" },
+  });
+  if (!res.ok) throw new Error(`INPS HTTP ${res.status} a page ${page}`);
+  const json = (await res.json()) as { result?: string; data?: { results?: InpsListItem[] } };
+  if (json.result !== "OK") throw new Error(`INPS bad response a page ${page}`);
+  return json.data?.results ?? [];
+}
+
+function yearFromItalian(date: string): number {
+  const m = date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? Number(m[3]) : NaN;
+}
+
+// selectors "circolari-e-messaggi.2026.06.circolare-numero-63-del-05-06-2026_15279"
+// → URL HTML pubblico dell'atto su inps.it.
+function selectorsToUrl(selectors: string): string {
+  return `https://www.inps.it/it/it/inps-comunica/atti/circolari-messaggi-e-normativa/dettaglio.${selectors}.html`;
+}
+
 export const discoverInpsCorpus = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => DiscoverInput.parse(data ?? {}))
   .handler(async ({ data }) => {
     if (data.yearTo < data.yearFrom) throw new Error("yearTo < yearFrom");
+
+    const { yearFrom, yearTo } = data;
     const discovered = new Set<string>();
     const errors: string[] = [];
 
-    for (let year = data.yearTo; year >= data.yearFrom; year--) {
-      for (const term of [`circolare numero del ${year}`, `messaggio numero del ${year}`]) {
+    // I risultati sono ordinati DESC per data: scarichiamo pagine in parallelo
+    // e ci fermiamo non appena una pagina è interamente sotto yearFrom (oppure
+    // vuota). 15k atti / 100 per pagina = ~153 pagine → con concurrency 6 e
+    // ~300ms a chiamata, ~8s totali per la discovery completa.
+    const CONCURRENCY = 6;
+    const MAX_PAGES = 250; // safety net (l'archivio reale è ~15k atti)
+    let nextPage = 0;
+    let stopRequested = false;
+
+    async function worker() {
+      while (!stopRequested) {
+        const page = nextPage++;
+        if (page >= MAX_PAGES) return;
+        let results: InpsListItem[];
         try {
-          const links = await firecrawlMap("https://www.inps.it", term, 500);
-          for (const l of links) {
-            if (/inps\.it\/.+(circolare|messaggio).*\d/i.test(l)) {
-              const clean = l.split("#")[0].split("?")[0];
-              const meta = parseInpsUrl(clean);
-              // tieni solo URL il cui anno parsato corrisponde (filtra rumore)
-              if (meta.year === year) discovered.add(clean);
-            }
-          }
+          results = await fetchInpsPage(page);
         } catch (e) {
-          errors.push(`${term}: ${(e as Error).message}`);
+          errors.push(`page ${page}: ${(e as Error).message}`);
+          return;
         }
+        if (results.length === 0) {
+          stopRequested = true;
+          return;
+        }
+        let allBelowFrom = true;
+        for (const r of results) {
+          const y = yearFromItalian(r.dataPubblicazione);
+          if (!Number.isFinite(y)) continue;
+          if (y < yearFrom) continue;
+          allBelowFrom = false;
+          if (y > yearTo) continue;
+          discovered.add(selectorsToUrl(r.selectors));
+        }
+        // Ordinamento DESC: se questa pagina è tutta sotto yearFrom, le
+        // successive lo saranno per forza → stop.
+        if (allBelowFrom) stopRequested = true;
       }
     }
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
-    // Bulk upsert in coda (ignora duplicati grazie all'unique constraint).
+    // Bulk upsert in coda (idempotente via unique constraint su url).
     const rows = Array.from(discovered).map((url) => ({ url, status: "pending" }));
     let inserted = 0;
     const chunkSize = 500;
@@ -513,8 +603,8 @@ export const discoverInpsCorpus = createServerFn({ method: "POST" })
     return {
       discovered: discovered.size,
       enqueued: inserted,
-      yearFrom: data.yearFrom,
-      yearTo: data.yearTo,
+      yearFrom,
+      yearTo,
       errors: errors.slice(0, 10),
     };
   });
