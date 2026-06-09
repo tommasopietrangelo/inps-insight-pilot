@@ -21,6 +21,32 @@ function vecLit(v: number[]) {
   return `[${v.join(",")}]`;
 }
 
+async function fallbackKeywordMatches(query: string, limit: number) {
+  const { data, error } = await supabaseAdmin
+    .from("sources")
+    .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt")
+    .textSearch("fts", query, {
+      type: "websearch",
+      config: "italian",
+    })
+    .order("publication_date", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`fallback text search: ${error.message}`);
+
+  return (data ?? []).map((row, i) => ({
+    chunk_id: `fts-${row.id}`,
+    source_id: row.id,
+    content: row.full_text || row.excerpt || "",
+    source_title: row.title,
+    source_type: row.source_type,
+    document_number: row.document_number,
+    publication_date: row.publication_date,
+    official_url: row.official_url,
+    similarity: Math.max(0.5, 0.99 - i * 0.05),
+  }));
+}
+
 // Massimo numero di atti elaborati per singola chiamata: serve a stare entro
 // il timeout del worker. La UI richiama la funzione finché `remaining` > 0.
 const INGEST_BATCH = 40;
@@ -140,11 +166,23 @@ export const groundedSearch = createServerFn({ method: "POST" })
 
     const queryEmb = await embed(data.query);
 
-    const { data: matches, error } = await supabaseAdmin.rpc("match_chunks", {
+    let matches: any[] | null = null;
+    let retrievalMode: "semantic" | "fts-fallback" = "semantic";
+
+    const { data: semanticMatches, error } = await supabaseAdmin.rpc("match_chunks", {
       query_embedding: vecLit(queryEmb) as unknown as string,
       match_count: 6,
     });
-    if (error) throw new Error(`match_chunks: ${error.message}`);
+
+    if (error) {
+      const message = error.message ?? "";
+      const isTimeout = /statement timeout|canceling statement due to statement timeout/i.test(message);
+      if (!isTimeout) throw new Error(`match_chunks: ${message}`);
+      retrievalMode = "fts-fallback";
+      matches = await fallbackKeywordMatches(data.query, 6);
+    } else {
+      matches = semanticMatches;
+    }
 
     const sources = (matches ?? []).map((m: any, i: number) => ({
       n: i + 1,
@@ -202,5 +240,5 @@ export const groundedSearch = createServerFn({ method: "POST" })
       .insert({ query: data.query, results_count: sources.length })
       .then(() => undefined, () => undefined);
 
-    return { answer, sources };
+    return { answer, sources, retrievalMode };
   });
