@@ -226,14 +226,14 @@ async function ingestSingleInps(url: string): Promise<
     .maybeSingle();
   if (existing) return { ok: true, created: false, external_id, title: existing.title };
 
-  const scraped = await firecrawlScrape(url, { onlyMainContent: true });
-  const md = (scraped.markdown ?? "").trim();
-  if (md.length < 400) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)` };
+  const scraped = await scrapeWithPdfFallback(url);
+  const md = scraped.markdown;
+  if (md.length < 400) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)${scraped.pdfUrl ? ` · PDF tentato: ${scraped.pdfUrl}` : " · nessun PDF trovato"}` };
 
-  const title = scraped.metadata?.title?.replace(/\s+\|\s+INPS.*$/i, "").trim() || `INPS ${meta.kind} ${meta.number ?? ""}`.trim();
+  const title = scraped.title?.replace(/\s+\|\s+INPS.*$/i, "").trim() || `INPS ${meta.kind} ${meta.number ?? ""}`.trim();
   const fullText = md.slice(0, 60000);
   const date = detectDateFromText(`${title}\n${md.slice(0, 2000)}`, meta.date);
-  const description = scraped.metadata?.description?.slice(0, 500) ?? "";
+  const description = scraped.description?.slice(0, 500) ?? "";
   const topics = guessTopicTags(`${title} ${md.slice(0, 4000)}`);
 
   const { data: upserted, error } = await supabaseAdmin
