@@ -82,6 +82,9 @@ function Settings() {
   const [batchSize, setBatchSize] = useState(200);
   const [batchProgress, setBatchProgress] = useState<{ processed: number; created: number; skipped: number; failed: number } | null>(null);
   const stopBatchRef = useRef(false);
+  const runRepair = useServerFn(repairEmptyInpsFullText);
+  const [repairing, setRepairing] = useState(false);
+  const [repairResult, setRepairResult] = useState<string | null>(null);
   const { data: queueStats, refetch: refetchQueueStats } = useQuery({
     queryKey: ["inps-queue-stats"],
     queryFn: () => fetchQueueStats(),
