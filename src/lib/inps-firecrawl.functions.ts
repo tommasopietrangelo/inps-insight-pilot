@@ -25,6 +25,7 @@ function requireFirecrawlKey() {
 
 type ScrapeResult = {
   markdown?: string;
+  links?: string[];
   metadata?: {
     title?: string;
     description?: string;
@@ -34,14 +35,19 @@ type ScrapeResult = {
   };
 };
 
-async function firecrawlScrape(url: string, opts?: { onlyMainContent?: boolean; waitFor?: number }): Promise<ScrapeResult> {
+async function firecrawlScrape(
+  url: string,
+  opts?: { onlyMainContent?: boolean; waitFor?: number; withLinks?: boolean },
+): Promise<ScrapeResult> {
   const key = requireFirecrawlKey();
+  const formats: string[] = ["markdown"];
+  if (opts?.withLinks) formats.push("links");
   const res = await fetch(`${FIRECRAWL_BASE}/scrape`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       url,
-      formats: ["markdown"],
+      formats,
       onlyMainContent: opts?.onlyMainContent ?? true,
       waitFor: opts?.waitFor,
       parsers: ["pdf"],
@@ -53,6 +59,58 @@ async function firecrawlScrape(url: string, opts?: { onlyMainContent?: boolean; 
   const json = (await res.json()) as { success?: boolean; data?: ScrapeResult; error?: string };
   if (!json.success || !json.data) throw new Error(`Firecrawl scrape failed: ${json.error ?? "unknown"}`);
   return json.data;
+}
+
+// Cerca il PDF "ufficiale" dell'atto fra i link della pagina di dettaglio.
+// INPS pubblica i PDF sotto /content/dam/.../circolari-e-messaggi/...pdf
+function pickInpsPdfLink(links: string[] | undefined, pageUrl: string): string | null {
+  if (!links?.length) return null;
+  const pdfs = links
+    .map((l) => l.split("#")[0].split("?")[0])
+    .filter((l) => /\.pdf$/i.test(l));
+  if (pdfs.length === 0) return null;
+  const inpsPdfs = pdfs.filter((l) => /(^https?:)?\/\/[^/]*inps\.it\//i.test(l) || l.startsWith("/"));
+  const pool = inpsPdfs.length ? inpsPdfs : pdfs;
+  const dam = pool.find((l) => /\/content\/dam\/.*circolari-e-messaggi/i.test(l));
+  const chosen = dam ?? pool[0];
+  try {
+    return new URL(chosen, pageUrl).toString();
+  } catch {
+    return chosen;
+  }
+}
+
+// Scraping con fallback PDF: se la pagina HTML non ha testo utile
+// (markdown < 400 char), cerca un link PDF nella pagina e ri-scrape quello
+// via Firecrawl (parser PDF nativo). Usato sia in fase di ingest che di
+// "repair" su atti vecchi con full_text vuoto.
+async function scrapeWithPdfFallback(url: string): Promise<{
+  markdown: string;
+  title: string | undefined;
+  description: string | undefined;
+  pdfUrl: string | null;
+}> {
+  const page = await firecrawlScrape(url, { onlyMainContent: true, withLinks: true });
+  let md = (page.markdown ?? "").trim();
+  let pdfUrl: string | null = null;
+  if (md.length < 400) {
+    pdfUrl = pickInpsPdfLink(page.links, url);
+    if (pdfUrl) {
+      try {
+        const pdf = await firecrawlScrape(pdfUrl, { onlyMainContent: false });
+        const pdfMd = (pdf.markdown ?? "").trim();
+        if (pdfMd.length > md.length) md = pdfMd;
+      } catch (e) {
+        console.error(`PDF fallback failed for ${pdfUrl}`, e);
+      }
+    }
+  }
+  return {
+    markdown: md,
+    title: page.metadata?.title,
+    description: page.metadata?.description,
+    pdfUrl,
+  };
 }
 
 async function firecrawlMap(url: string, search: string, limit = 200): Promise<string[]> {
@@ -168,14 +226,14 @@ async function ingestSingleInps(url: string): Promise<
     .maybeSingle();
   if (existing) return { ok: true, created: false, external_id, title: existing.title };
 
-  const scraped = await firecrawlScrape(url, { onlyMainContent: true });
-  const md = (scraped.markdown ?? "").trim();
-  if (md.length < 400) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)` };
+  const scraped = await scrapeWithPdfFallback(url);
+  const md = scraped.markdown;
+  if (md.length < 400) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)${scraped.pdfUrl ? ` · PDF tentato: ${scraped.pdfUrl}` : " · nessun PDF trovato"}` };
 
-  const title = scraped.metadata?.title?.replace(/\s+\|\s+INPS.*$/i, "").trim() || `INPS ${meta.kind} ${meta.number ?? ""}`.trim();
+  const title = scraped.title?.replace(/\s+\|\s+INPS.*$/i, "").trim() || `INPS ${meta.kind} ${meta.number ?? ""}`.trim();
   const fullText = md.slice(0, 60000);
   const date = detectDateFromText(`${title}\n${md.slice(0, 2000)}`, meta.date);
-  const description = scraped.metadata?.description?.slice(0, 500) ?? "";
+  const description = scraped.description?.slice(0, 500) ?? "";
   const topics = guessTopicTags(`${title} ${md.slice(0, 4000)}`);
 
   const { data: upserted, error } = await supabaseAdmin
@@ -697,5 +755,86 @@ export const getInpsQueueStats = createServerFn({ method: "GET" })
       queue: counts,
       queueTotal: total,
       sourcesInpsTotal: sourcesCount ?? 0,
+    };
+  });
+
+// ---------------------------------------------------------------------------
+// Repair: rigenera full_text per atti INPS con testo vuoto/corto
+//
+// Alcuni vecchi atti (pre-2010) hanno la pagina di dettaglio con solo
+// intestazione e un link al PDF: lo scrape HTML restituisce <400 char e il
+// full_text resta vuoto, quindi gli embedding non li indicizzano.
+// Questa funzione cerca quelle sources e ri-ingesta con il fallback PDF.
+// ---------------------------------------------------------------------------
+
+const RepairInput = z.object({
+  limit: z.number().int().min(1).max(25).default(10),
+  minLength: z.number().int().min(0).max(2000).default(400),
+});
+
+export const repairEmptyInpsFullText = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => RepairInput.parse(data ?? {}))
+  .handler(async ({ data }) => {
+    // Trova atti INPS con full_text vuoto o troppo corto.
+    const { data: rows, error } = await supabaseAdmin
+      .from("sources")
+      .select("id, official_url, full_text")
+      .in("source_type", ["circolare", "messaggio"])
+      .not("official_url", "is", null)
+      .order("publication_date", { ascending: true })
+      .limit(500);
+    if (error) throw new Error(error.message);
+
+    const targets = (rows ?? [])
+      .filter((r) => (r.full_text ?? "").length < data.minLength)
+      .slice(0, data.limit);
+
+    let repaired = 0;
+    let stillEmpty = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    const fixedItems: Array<{ id: string; url: string; chars: number; pdfUrl: string | null }> = [];
+
+    for (const r of targets) {
+      const url = r.official_url as string;
+      try {
+        const scraped = await scrapeWithPdfFallback(url);
+        const md = scraped.markdown;
+        if (md.length < data.minLength) {
+          stillEmpty++;
+          errors.push(`${url}: ancora vuoto (${md.length} chars)${scraped.pdfUrl ? ` · PDF: ${scraped.pdfUrl}` : ""}`);
+          continue;
+        }
+        const fullText = md.slice(0, 60000);
+        const { error: updErr } = await supabaseAdmin
+          .from("sources")
+          .update({
+            full_text: fullText,
+            excerpt: fullText.slice(0, 800),
+          })
+          .eq("id", r.id);
+        if (updErr) {
+          failed++;
+          errors.push(`${url}: update ${updErr.message}`);
+          continue;
+        }
+        // Forza re-embedding alla prossima "Aggiorna indice"
+        await supabaseAdmin.from("chunks").delete().eq("source_id", r.id);
+        repaired++;
+        fixedItems.push({ id: r.id, url, chars: fullText.length, pdfUrl: scraped.pdfUrl });
+      } catch (e) {
+        failed++;
+        errors.push(`${url}: ${(e as Error).message}`);
+      }
+    }
+
+    return {
+      scanned: rows?.length ?? 0,
+      candidates: targets.length,
+      repaired,
+      stillEmpty,
+      failed,
+      fixedItems,
+      errors: errors.slice(0, 10),
     };
   });
