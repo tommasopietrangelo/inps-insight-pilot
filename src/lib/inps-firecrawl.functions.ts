@@ -757,3 +757,84 @@ export const getInpsQueueStats = createServerFn({ method: "GET" })
       sourcesInpsTotal: sourcesCount ?? 0,
     };
   });
+
+// ---------------------------------------------------------------------------
+// Repair: rigenera full_text per atti INPS con testo vuoto/corto
+//
+// Alcuni vecchi atti (pre-2010) hanno la pagina di dettaglio con solo
+// intestazione e un link al PDF: lo scrape HTML restituisce <400 char e il
+// full_text resta vuoto, quindi gli embedding non li indicizzano.
+// Questa funzione cerca quelle sources e ri-ingesta con il fallback PDF.
+// ---------------------------------------------------------------------------
+
+const RepairInput = z.object({
+  limit: z.number().int().min(1).max(25).default(10),
+  minLength: z.number().int().min(0).max(2000).default(400),
+});
+
+export const repairEmptyInpsFullText = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => RepairInput.parse(data ?? {}))
+  .handler(async ({ data }) => {
+    // Trova atti INPS con full_text vuoto o troppo corto.
+    const { data: rows, error } = await supabaseAdmin
+      .from("sources")
+      .select("id, official_url, full_text")
+      .in("source_type", ["circolare", "messaggio"])
+      .not("official_url", "is", null)
+      .order("publication_date", { ascending: true })
+      .limit(500);
+    if (error) throw new Error(error.message);
+
+    const targets = (rows ?? [])
+      .filter((r) => (r.full_text ?? "").length < data.minLength)
+      .slice(0, data.limit);
+
+    let repaired = 0;
+    let stillEmpty = 0;
+    let failed = 0;
+    const errors: string[] = [];
+    const fixedItems: Array<{ id: string; url: string; chars: number; pdfUrl: string | null }> = [];
+
+    for (const r of targets) {
+      const url = r.official_url as string;
+      try {
+        const scraped = await scrapeWithPdfFallback(url);
+        const md = scraped.markdown;
+        if (md.length < data.minLength) {
+          stillEmpty++;
+          errors.push(`${url}: ancora vuoto (${md.length} chars)${scraped.pdfUrl ? ` · PDF: ${scraped.pdfUrl}` : ""}`);
+          continue;
+        }
+        const fullText = md.slice(0, 60000);
+        const { error: updErr } = await supabaseAdmin
+          .from("sources")
+          .update({
+            full_text: fullText,
+            excerpt: fullText.slice(0, 800),
+          })
+          .eq("id", r.id);
+        if (updErr) {
+          failed++;
+          errors.push(`${url}: update ${updErr.message}`);
+          continue;
+        }
+        // Forza re-embedding alla prossima "Aggiorna indice"
+        await supabaseAdmin.from("chunks").delete().eq("source_id", r.id);
+        repaired++;
+        fixedItems.push({ id: r.id, url, chars: fullText.length, pdfUrl: scraped.pdfUrl });
+      } catch (e) {
+        failed++;
+        errors.push(`${url}: ${(e as Error).message}`);
+      }
+    }
+
+    return {
+      scanned: rows?.length ?? 0,
+      candidates: targets.length,
+      repaired,
+      stillEmpty,
+      failed,
+      fixedItems,
+      errors: errors.slice(0, 10),
+    };
+  });
