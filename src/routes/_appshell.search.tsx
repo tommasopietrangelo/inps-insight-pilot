@@ -206,19 +206,26 @@ function SearchPage() {
             e.preventDefault();
             submit(q);
           }}
-          className="flex items-center gap-2"
+          className="flex items-start gap-2"
         >
-          <Search className="ml-3 h-5 w-5 text-muted-foreground" />
-          <input
+          <Search className="ml-3 mt-3 h-5 w-5 shrink-0 text-muted-foreground" />
+          <textarea
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="es. requisiti ADI 2026 per nuclei con minori"
-            className="h-11 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                submit(q);
+              }
+            }}
+            rows={2}
+            placeholder="Fai una domanda completa in linguaggio naturale… (Cmd/Ctrl+Invio per inviare)"
+            className="min-h-11 max-h-64 flex-1 resize-y bg-transparent py-2.5 text-base outline-none placeholder:text-muted-foreground"
           />
-          <Button variant="ghost" size="sm" className="gap-1.5" type="button">
+          <Button variant="ghost" size="sm" className="mt-1 gap-1.5" type="button">
             <ListFilter className="h-4 w-4" /> Filtri
           </Button>
-          <Button type="submit" className="gap-1.5" disabled={mutation.isPending}>
+          <Button type="submit" className="mt-1 gap-1.5" disabled={mutation.isPending}>
             {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Cerca
           </Button>
