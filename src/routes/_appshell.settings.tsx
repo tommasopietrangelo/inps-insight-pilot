@@ -10,6 +10,7 @@ import {
   discoverInpsCorpus,
   processInpsQueueBatch,
   getInpsQueueStats,
+  repairEmptyInpsFullText,
 } from "@/lib/inps-firecrawl.functions";
 import { Database as DatabaseIcon } from "lucide-react";
 import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
