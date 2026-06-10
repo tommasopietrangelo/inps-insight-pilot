@@ -156,7 +156,7 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
     };
   });
 
-const SearchInput = z.object({ query: z.string().min(2).max(500) });
+const SearchInput = z.object({ query: z.string().min(2).max(8000) });
 
 export const groundedSearch = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => SearchInput.parse(data))
