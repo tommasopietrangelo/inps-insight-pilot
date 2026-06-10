@@ -410,6 +410,43 @@ function Settings() {
           {batchResult && (
             <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{batchResult}</div>
           )}
+
+          <Separator className="my-5" />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="max-w-2xl text-sm">
+              <div className="font-medium">3) Ripara atti con testo vuoto</div>
+              <div className="text-muted-foreground">
+                Per i vecchi atti la pagina HTML non contiene testo: scarica il PDF allegato e
+                ne estrae il contenuto. 1 credito Firecrawl per atto riparato.
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={repairing}
+              onClick={async () => {
+                setRepairing(true);
+                setRepairResult(null);
+                try {
+                  const r = await runRepair({ data: { limit: 10, minLength: 400 } });
+                  setRepairResult(
+                    `Riparati ${r.repaired}/${r.candidates} atti · ${r.stillEmpty} senza PDF utile · ${r.failed} errori. Lancia "Aggiorna indice" per re-embeddare.`,
+                  );
+                } catch (e) {
+                  setRepairResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setRepairing(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {repairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flame className="h-4 w-4" />}
+              {repairing ? "Riparazione…" : "Ripara 10 atti"}
+            </Button>
+          </div>
+          {repairResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{repairResult}</div>
+          )}
         </Card>
 
         {/* Firecrawl backfill */}
