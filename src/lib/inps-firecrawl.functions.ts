@@ -25,6 +25,7 @@ function requireFirecrawlKey() {
 
 type ScrapeResult = {
   markdown?: string;
+  links?: string[];
   metadata?: {
     title?: string;
     description?: string;
@@ -34,14 +35,19 @@ type ScrapeResult = {
   };
 };
 
-async function firecrawlScrape(url: string, opts?: { onlyMainContent?: boolean; waitFor?: number }): Promise<ScrapeResult> {
+async function firecrawlScrape(
+  url: string,
+  opts?: { onlyMainContent?: boolean; waitFor?: number; withLinks?: boolean },
+): Promise<ScrapeResult> {
   const key = requireFirecrawlKey();
+  const formats: string[] = ["markdown"];
+  if (opts?.withLinks) formats.push("links");
   const res = await fetch(`${FIRECRAWL_BASE}/scrape`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       url,
-      formats: ["markdown"],
+      formats,
       onlyMainContent: opts?.onlyMainContent ?? true,
       waitFor: opts?.waitFor,
       parsers: ["pdf"],
@@ -53,6 +59,58 @@ async function firecrawlScrape(url: string, opts?: { onlyMainContent?: boolean; 
   const json = (await res.json()) as { success?: boolean; data?: ScrapeResult; error?: string };
   if (!json.success || !json.data) throw new Error(`Firecrawl scrape failed: ${json.error ?? "unknown"}`);
   return json.data;
+}
+
+// Cerca il PDF "ufficiale" dell'atto fra i link della pagina di dettaglio.
+// INPS pubblica i PDF sotto /content/dam/.../circolari-e-messaggi/...pdf
+function pickInpsPdfLink(links: string[] | undefined, pageUrl: string): string | null {
+  if (!links?.length) return null;
+  const pdfs = links
+    .map((l) => l.split("#")[0].split("?")[0])
+    .filter((l) => /\.pdf$/i.test(l));
+  if (pdfs.length === 0) return null;
+  const inpsPdfs = pdfs.filter((l) => /(^https?:)?\/\/[^/]*inps\.it\//i.test(l) || l.startsWith("/"));
+  const pool = inpsPdfs.length ? inpsPdfs : pdfs;
+  const dam = pool.find((l) => /\/content\/dam\/.*circolari-e-messaggi/i.test(l));
+  const chosen = dam ?? pool[0];
+  try {
+    return new URL(chosen, pageUrl).toString();
+  } catch {
+    return chosen;
+  }
+}
+
+// Scraping con fallback PDF: se la pagina HTML non ha testo utile
+// (markdown < 400 char), cerca un link PDF nella pagina e ri-scrape quello
+// via Firecrawl (parser PDF nativo). Usato sia in fase di ingest che di
+// "repair" su atti vecchi con full_text vuoto.
+async function scrapeWithPdfFallback(url: string): Promise<{
+  markdown: string;
+  title: string | undefined;
+  description: string | undefined;
+  pdfUrl: string | null;
+}> {
+  const page = await firecrawlScrape(url, { onlyMainContent: true, withLinks: true });
+  let md = (page.markdown ?? "").trim();
+  let pdfUrl: string | null = null;
+  if (md.length < 400) {
+    pdfUrl = pickInpsPdfLink(page.links, url);
+    if (pdfUrl) {
+      try {
+        const pdf = await firecrawlScrape(pdfUrl, { onlyMainContent: false });
+        const pdfMd = (pdf.markdown ?? "").trim();
+        if (pdfMd.length > md.length) md = pdfMd;
+      } catch (e) {
+        console.error(`PDF fallback failed for ${pdfUrl}`, e);
+      }
+    }
+  }
+  return {
+    markdown: md,
+    title: page.metadata?.title,
+    description: page.metadata?.description,
+    pdfUrl,
+  };
 }
 
 async function firecrawlMap(url: string, search: string, limit = 200): Promise<string[]> {
