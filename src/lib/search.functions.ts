@@ -406,12 +406,18 @@ export const groundedSearch = createServerFn({ method: "POST" })
     if (!key) throw new Error("LOVABLE_API_KEY non configurata");
 
     const signals = extractSearchSignals(data.query);
+    const isProceduralAdiQuery =
+      signals.topicFilters.includes("ADI") &&
+      /(adi-com|sentenza|giudicato|condanna|comunicazione|modello)/.test(signals.normalized);
     const keywordPromise = fallbackKeywordMatchesVariants(
       signals.keywordQueries,
       8,
       signals.keywordTerms,
       signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined,
     );
+    const specializedPromise = isProceduralAdiQuery
+      ? specializedPatternMatches(8, signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined)
+      : Promise.resolve([] as any[]);
     const queryEmb = await embed(signals.semanticQuery);
 
     let matches: any[] | null = null;
@@ -423,30 +429,34 @@ export const groundedSearch = createServerFn({ method: "POST" })
       filter_topics: signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined,
     });
 
-    const keywordMatches = await keywordPromise;
+    const [keywordMatches, specializedMatches] = await Promise.all([keywordPromise, specializedPromise]);
+    const boostedKeywordMatches = specializedMatches.length > 0
+      ? mergeRetrievalMatches(specializedMatches, keywordMatches, 8, signals.keywordTerms)
+      : keywordMatches;
 
     if (error) {
       const message = error.message ?? "";
       const isTimeout = /statement timeout|canceling statement due to statement timeout/i.test(message);
       if (!isTimeout) throw new Error(`match_chunks: ${message}`);
       retrievalMode = "fts-fallback";
-      matches = keywordMatches;
+      matches = boostedKeywordMatches;
     } else {
       const semanticRows = semanticMatches ?? [];
       const topSimilarity = semanticRows[0]?.similarity ?? 0;
       const shouldBlend =
-        keywordMatches.length > 0 && (
+        boostedKeywordMatches.length > 0 && (
           semanticRows.length === 0 ||
+          isProceduralAdiQuery ||
           data.query.trim().length > 160 ||
           topSimilarity < 0.72
         );
 
       matches = shouldBlend
-        ? mergeRetrievalMatches(semanticRows, keywordMatches, 8, signals.keywordTerms)
+        ? mergeRetrievalMatches(semanticRows, boostedKeywordMatches, 8, signals.keywordTerms)
         : semanticRows.slice(0, 8);
       if (shouldBlend) retrievalMode = "hybrid";
-      if ((matches?.length ?? 0) === 0 && keywordMatches.length > 0) {
-        matches = keywordMatches;
+      if ((matches?.length ?? 0) === 0 && boostedKeywordMatches.length > 0) {
+        matches = boostedKeywordMatches;
         retrievalMode = "fts-fallback";
       }
     }
