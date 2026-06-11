@@ -313,7 +313,7 @@ function Settings() {
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="yf" className="text-xs">Anno da</Label>
-              <Input id="yf" type="number" min={1995} max={yearTo} value={yearFrom}
+              <Input id="yf" type="number" min={1969} max={yearTo} value={yearFrom}
                 onChange={(e) => setYearFrom(Number(e.target.value) || 1999)} className="w-24" />
             </div>
             <div className="space-y-1.5">

@@ -523,8 +523,8 @@ type QueueRow = { id: string; url: string; status: string };
 const QUEUE_TABLE = "inps_ingest_queue" as const;
 
 const DiscoverInput = z.object({
-  yearFrom: z.number().int().min(1995).max(2100).default(1999),
-  yearTo: z.number().int().min(1995).max(2100).default(new Date().getFullYear()),
+  yearFrom: z.number().int().min(1969).max(2100).default(1999),
+  yearTo: z.number().int().min(1969).max(2100).default(new Date().getFullYear()),
 });
 
 // ---------------------------------------------------------------------------
