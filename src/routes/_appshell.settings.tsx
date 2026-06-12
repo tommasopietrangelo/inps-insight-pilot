@@ -12,6 +12,12 @@ import {
   getInpsQueueStats,
   repairEmptyInpsFullText,
 } from "@/lib/inps-firecrawl.functions";
+import {
+  discoverInpsOperational,
+  processInpsOperationalBatch,
+  getInpsOperationalQueueStats,
+} from "@/lib/inps-operational.functions";
+
 import { Database as DatabaseIcon } from "lucide-react";
 import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
 import { Card } from "@/components/ui/card";
