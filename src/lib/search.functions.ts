@@ -59,7 +59,7 @@ async function fallbackKeywordMatches(query: string, limit: number, topicFilters
 async function specializedPatternMatches(limit: number, topicFilters?: string[]) {
   let request = supabaseAdmin
     .from("sources")
-    .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt")
+    .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt, corpus_layer")
     .or([
       "title.ilike.%ADI-Com%",
       "excerpt.ilike.%ADI-Com%",
@@ -90,9 +90,11 @@ async function specializedPatternMatches(limit: number, topicFilters?: string[])
     document_number: row.document_number,
     publication_date: row.publication_date,
     official_url: row.official_url,
+    corpus_layer: (row as any).corpus_layer ?? "normativo",
     similarity: Math.max(0.6, 1.05 - i * 0.01),
   }));
 }
+
 
 const SEARCH_STOPWORDS = new Set([
   "a", "ad", "al", "alla", "allo", "ai", "agli", "all", "alle",
