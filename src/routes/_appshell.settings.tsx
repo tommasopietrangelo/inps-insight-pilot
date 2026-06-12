@@ -96,6 +96,26 @@ function Settings() {
     queryFn: () => fetchQueueStats(),
   });
 
+  // Layer operativo (schede servizio, FAQ, notizie, portali)
+  const runOpDiscover = useServerFn(discoverInpsOperational);
+  const runOpBatch = useServerFn(processInpsOperationalBatch);
+  const fetchOpStats = useServerFn(getInpsOperationalQueueStats);
+  const [opDiscovering, setOpDiscovering] = useState(false);
+  const [opDiscoverResult, setOpDiscoverResult] = useState<string | null>(null);
+  const [opBatching, setOpBatching] = useState(false);
+  const [opBatchResult, setOpBatchResult] = useState<string | null>(null);
+  const [opBatchSize, setOpBatchSize] = useState(100);
+  const [opBatchProgress, setOpBatchProgress] = useState<{ processed: number; created: number; skipped: number; failed: number } | null>(null);
+  const opStopBatchRef = useRef(false);
+  const [opLayers, setOpLayers] = useState<{ scheda: boolean; faq: boolean; notizia: boolean; portale: boolean }>({
+    scheda: true, faq: true, notizia: true, portale: true,
+  });
+  const { data: opStats, refetch: refetchOpStats } = useQuery({
+    queryKey: ["inps-op-queue-stats"],
+    queryFn: () => fetchOpStats(),
+  });
+
+
   const { data: sourcesByIngestion, isLoading: sourcesByIngestionLoading } = useQuery({
     queryKey: ["sources-by-ingestion"],
     queryFn: async () => {
