@@ -24,7 +24,7 @@ function vecLit(v: number[]) {
 async function fallbackKeywordMatches(query: string, limit: number, topicFilters?: string[]) {
   let request = supabaseAdmin
     .from("sources")
-    .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt")
+    .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt, corpus_layer")
     .textSearch("fts", query, {
       type: "websearch",
       config: "italian",
@@ -39,6 +39,21 @@ async function fallbackKeywordMatches(query: string, limit: number, topicFilters
     .limit(limit);
 
   if (error) throw new Error(`fallback text search: ${error.message}`);
+
+  return (data ?? []).map((row, i) => ({
+    chunk_id: `fts-${row.id}`,
+    source_id: row.id,
+    content: row.full_text || row.excerpt || "",
+    source_title: row.title,
+    source_type: row.source_type,
+    document_number: row.document_number,
+    publication_date: row.publication_date,
+    official_url: row.official_url,
+    corpus_layer: (row as any).corpus_layer ?? "normativo",
+    similarity: Math.max(0.5, 0.99 - i * 0.05),
+  }));
+}
+
 
   return (data ?? []).map((row, i) => ({
     chunk_id: `fts-${row.id}`,
