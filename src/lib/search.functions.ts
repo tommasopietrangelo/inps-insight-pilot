@@ -55,18 +55,6 @@ async function fallbackKeywordMatches(query: string, limit: number, topicFilters
 }
 
 
-  return (data ?? []).map((row, i) => ({
-    chunk_id: `fts-${row.id}`,
-    source_id: row.id,
-    content: row.full_text || row.excerpt || "",
-    source_title: row.title,
-    source_type: row.source_type,
-    document_number: row.document_number,
-    publication_date: row.publication_date,
-    official_url: row.official_url,
-    similarity: Math.max(0.5, 0.99 - i * 0.05),
-  }));
-}
 
 async function specializedPatternMatches(limit: number, topicFilters?: string[]) {
   let request = supabaseAdmin
