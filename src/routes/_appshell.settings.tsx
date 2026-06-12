@@ -475,7 +475,154 @@ function Settings() {
           )}
         </Card>
 
+        {/* Layer OPERATIVO: schede servizio, FAQ, notizie, portali tematici */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <Layers className="h-4 w-4 text-primary" /> Layer operativo INPS (schede servizio, FAQ, notizie)
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Estende il corpus oltre le sole circolari/messaggi. Importa <strong>schede servizio</strong>
+                (catalogo prestazioni: come fare domanda, requisiti), <strong>FAQ ufficiali</strong>,
+                <strong> notizie</strong> e <strong>portali tematici</strong> (Famiglia, Giovani).
+                Stesso flusso del layer normativo: <strong>1) Discovery</strong> (Firecrawl `map` sui 5 entry point ufficiali,
+                ~5 crediti per run) → <strong>2) Batch</strong> (scrape + indicizzazione, salta i duplicati prima dello scrape).
+                In risposta, l'AI dichiara quale layer ha usato.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+            <div className="rounded-md border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">In coda</div>
+              <div className="font-mono text-lg">{opStats?.queue.pending ?? "—"}</div>
+            </div>
+            <div className="rounded-md border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">Importate</div>
+              <div className="font-mono text-lg">{opStats?.queue.done ?? "—"}</div>
+            </div>
+            <div className="rounded-md border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">Già presenti</div>
+              <div className="font-mono text-lg">{opStats?.queue.skipped ?? "—"}</div>
+            </div>
+            <div className="rounded-md border bg-surface px-3 py-2">
+              <div className="text-xs text-muted-foreground">Errori</div>
+              <div className="font-mono text-lg">{opStats?.queue.error ?? "—"}</div>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            Totale URL accodati: <strong>{opStats?.queueTotal ?? "—"}</strong> · Pagine operative nel corpus:{" "}
+            <strong>{opStats?.sourcesOpTotal ?? "—"}</strong>
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-wrap gap-3">
+              {(["scheda", "faq", "notizia", "portale"] as const).map((k) => (
+                <label key={k} className="flex items-center gap-2 text-sm">
+                  <Switch
+                    checked={opLayers[k]}
+                    onCheckedChange={(v) => setOpLayers((s) => ({ ...s, [k]: v }))}
+                  />
+                  <span className="capitalize">{k}</span>
+                </label>
+              ))}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={opDiscovering}
+              onClick={async () => {
+                setOpDiscovering(true);
+                setOpDiscoverResult(null);
+                try {
+                  const layers = (["scheda", "faq", "notizia", "portale"] as const).filter((k) => opLayers[k]);
+                  if (layers.length === 0) {
+                    setOpDiscoverResult("Seleziona almeno un layer.");
+                    return;
+                  }
+                  const r = await runOpDiscover({ data: { layers, limit: 500 } });
+                  setOpDiscoverResult(
+                    `Scoperti ${r.discovered} URL · ${r.enqueued} nuovi accodati (scheda ${r.perLayer.scheda ?? 0}, faq ${r.perLayer.faq ?? 0}, notizia ${r.perLayer.notizia ?? 0}, portale ${r.perLayer.portale ?? 0})${r.errors.length ? ` · ${r.errors.length} errori` : ""}`,
+                  );
+                  await refetchOpStats();
+                } catch (e) {
+                  setOpDiscoverResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setOpDiscovering(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {opDiscovering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+              {opDiscovering ? "Discovery…" : "1) Discovery URL operativi"}
+            </Button>
+
+            <div className="ml-auto flex items-end gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="op-bs" className="text-xs">Batch totale</Label>
+                <Input id="op-bs" type="number" min={1} max={2000} value={opBatchSize}
+                  onChange={(e) => setOpBatchSize(Math.max(1, Math.min(2000, Number(e.target.value) || 100)))} className="w-24" />
+              </div>
+              {opBatching ? (
+                <Button size="sm" variant="outline" onClick={() => { opStopBatchRef.current = true; }} className="gap-1.5">
+                  Ferma
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                disabled={opBatching || (opStats?.queue.pending ?? 0) === 0}
+                onClick={async () => {
+                  setOpBatching(true);
+                  setOpBatchResult(null);
+                  opStopBatchRef.current = false;
+                  const totals = { processed: 0, created: 0, skipped: 0, failed: 0 };
+                  setOpBatchProgress({ ...totals });
+                  const CHUNK = 15;
+                  try {
+                    while (totals.processed < opBatchSize && !opStopBatchRef.current) {
+                      const remaining = opBatchSize - totals.processed;
+                      const limit = Math.min(CHUNK, remaining);
+                      const r = await runOpBatch({ data: { limit, concurrency: 4 } });
+                      totals.processed += r.processed;
+                      totals.created += r.created;
+                      totals.skipped += r.skipped;
+                      totals.failed += r.failed;
+                      setOpBatchProgress({ ...totals });
+                      await refetchOpStats();
+                      if (r.processed === 0) break;
+                    }
+                    setOpBatchResult(
+                      `Batch ${opStopBatchRef.current ? "fermato" : "completato"}: ${totals.processed} URL · ${totals.created} nuovi · ${totals.skipped} già presenti · ${totals.failed} errori. Ricorda di lanciare "Aggiorna indice".`,
+                    );
+                  } catch (e) {
+                    setOpBatchResult(`Interrotto a ${totals.processed}/${opBatchSize}. Errore: ${(e as Error).message}`);
+                  } finally {
+                    setOpBatching(false);
+                  }
+                }}
+                className="gap-1.5"
+              >
+                {opBatching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flame className="h-4 w-4" />}
+                {opBatching
+                  ? `Batch ${opBatchProgress?.processed ?? 0}/${opBatchSize}…`
+                  : "2) Importa prossimo batch"}
+              </Button>
+            </div>
+          </div>
+
+          {opDiscoverResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{opDiscoverResult}</div>
+          )}
+          {opBatchResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{opBatchResult}</div>
+          )}
+        </Card>
+
         {/* Firecrawl backfill */}
+
         <Card className="p-6 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="max-w-2xl">
