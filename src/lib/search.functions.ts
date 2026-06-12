@@ -479,9 +479,10 @@ export const groundedSearch = createServerFn({ method: "POST" })
         .from("sources")
         .select("id, corpus_layer" as any)
         .in("id", missing);
-      for (const r of (layerRows ?? []) as Array<{ id: string; corpus_layer: string }>) {
+      for (const r of ((layerRows ?? []) as unknown) as Array<{ id: string; corpus_layer: string }>) {
         layerById.set(r.id, r.corpus_layer ?? "normativo");
       }
+
     }
 
     const sources = (matches ?? []).map((m: any, i: number) => ({
