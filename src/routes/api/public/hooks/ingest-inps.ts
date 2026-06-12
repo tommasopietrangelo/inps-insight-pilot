@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ingestInpsDaily } from "@/lib/inps-firecrawl.functions";
+import { ingestInpsOperationalDaily } from "@/lib/inps-operational.functions";
 import { ingestEmbeddings } from "@/lib/search.functions";
+
 
 // Endpoint pubblico chiamato da pg_cron una volta al giorno.
 // Nessuna autenticazione utente: idempotente (dedup su external_id) e non
