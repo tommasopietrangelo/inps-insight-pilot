@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ingestInpsDaily } from "@/lib/inps-firecrawl.functions";
+import { ingestInpsOperationalDaily } from "@/lib/inps-operational.functions";
 import { ingestEmbeddings } from "@/lib/search.functions";
+
 
 // Endpoint pubblico chiamato da pg_cron una volta al giorno.
 // Nessuna autenticazione utente: idempotente (dedup su external_id) e non
@@ -29,9 +31,18 @@ export const Route = createFileRoute("/api/public/hooks/ingest-inps")({
             return Response.json({ ok: true, skipped: true, romeHour });
           }
           const ingest = await ingestInpsDaily();
+          let operational: Awaited<ReturnType<typeof ingestInpsOperationalDaily>> | null = null;
+          let operationalError: string | null = null;
+          try {
+            operational = await ingestInpsOperationalDaily();
+          } catch (e) {
+            operationalError = (e as Error).message;
+            console.error("ingest-inps: operational step failed", e);
+          }
           let index: { processed: number; total: number; skipped: number } | null = null;
           let indexError: string | null = null;
-          if (ingest.created > 0) {
+          const createdNew = (ingest.created ?? 0) + (operational?.batch.created ?? 0);
+          if (createdNew > 0) {
             try {
               index = await ingestEmbeddings();
             } catch (e) {
@@ -39,7 +50,8 @@ export const Route = createFileRoute("/api/public/hooks/ingest-inps")({
               console.error("ingest-inps: embedding step failed", e);
             }
           }
-          return Response.json({ ok: true, ingest, index, indexError });
+          return Response.json({ ok: true, ingest, operational, operationalError, index, indexError });
+
         } catch (e) {
           console.error("ingest-inps failed", e);
           return Response.json(

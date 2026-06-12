@@ -192,6 +192,42 @@ export type Database = {
         }
         Relationships: []
       }
+      inps_operational_queue: {
+        Row: {
+          attempts: number
+          discovered_at: string
+          error: string | null
+          external_id: string | null
+          id: string
+          kind: string | null
+          processed_at: string | null
+          status: string
+          url: string
+        }
+        Insert: {
+          attempts?: number
+          discovered_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          kind?: string | null
+          processed_at?: string | null
+          status?: string
+          url: string
+        }
+        Update: {
+          attempts?: number
+          discovered_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          kind?: string | null
+          processed_at?: string | null
+          status?: string
+          url?: string
+        }
+        Relationships: []
+      }
       notes: {
         Row: {
           author_id: string
@@ -401,6 +437,7 @@ export type Database = {
       }
       sources: {
         Row: {
+          corpus_layer: string
           document_number: string | null
           excerpt: string | null
           external_id: string | null
@@ -418,6 +455,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          corpus_layer?: string
           document_number?: string | null
           excerpt?: string | null
           external_id?: string | null
@@ -435,6 +473,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          corpus_layer?: string
           document_number?: string | null
           excerpt?: string | null
           external_id?: string | null

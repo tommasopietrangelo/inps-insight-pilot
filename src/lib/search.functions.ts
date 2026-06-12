@@ -24,7 +24,7 @@ function vecLit(v: number[]) {
 async function fallbackKeywordMatches(query: string, limit: number, topicFilters?: string[]) {
   let request = supabaseAdmin
     .from("sources")
-    .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt")
+    .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt, corpus_layer")
     .textSearch("fts", query, {
       type: "websearch",
       config: "italian",
@@ -49,14 +49,17 @@ async function fallbackKeywordMatches(query: string, limit: number, topicFilters
     document_number: row.document_number,
     publication_date: row.publication_date,
     official_url: row.official_url,
+    corpus_layer: (row as any).corpus_layer ?? "normativo",
     similarity: Math.max(0.5, 0.99 - i * 0.05),
   }));
 }
 
+
+
 async function specializedPatternMatches(limit: number, topicFilters?: string[]) {
   let request = supabaseAdmin
     .from("sources")
-    .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt")
+    .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt, corpus_layer")
     .or([
       "title.ilike.%ADI-Com%",
       "excerpt.ilike.%ADI-Com%",
@@ -87,9 +90,11 @@ async function specializedPatternMatches(limit: number, topicFilters?: string[])
     document_number: row.document_number,
     publication_date: row.publication_date,
     official_url: row.official_url,
+    corpus_layer: (row as any).corpus_layer ?? "normativo",
     similarity: Math.max(0.6, 1.05 - i * 0.01),
   }));
 }
+
 
 const SEARCH_STOPWORDS = new Set([
   "a", "ad", "al", "alla", "allo", "ai", "agli", "all", "alle",
@@ -461,6 +466,25 @@ export const groundedSearch = createServerFn({ method: "POST" })
       }
     }
 
+    // Arricchisci con corpus_layer (il match_chunks RPC non lo restituisce;
+    // i match keyword/specialized invece sì → preferisci quello)
+    const sourceIds = Array.from(new Set((matches ?? []).map((m: any) => m.source_id)));
+    const layerById = new Map<string, string>();
+    for (const m of matches ?? []) {
+      if (m.corpus_layer) layerById.set(m.source_id, m.corpus_layer);
+    }
+    const missing = sourceIds.filter((id) => !layerById.has(id));
+    if (missing.length > 0) {
+      const { data: layerRows } = await supabaseAdmin
+        .from("sources")
+        .select("id, corpus_layer" as any)
+        .in("id", missing);
+      for (const r of ((layerRows ?? []) as unknown) as Array<{ id: string; corpus_layer: string }>) {
+        layerById.set(r.id, r.corpus_layer ?? "normativo");
+      }
+
+    }
+
     const sources = (matches ?? []).map((m: any, i: number) => ({
       n: i + 1,
       chunk_id: m.chunk_id,
@@ -470,6 +494,7 @@ export const groundedSearch = createServerFn({ method: "POST" })
       document_number: m.document_number,
       publication_date: m.publication_date,
       official_url: m.official_url,
+      corpus_layer: layerById.get(m.source_id) ?? "normativo",
       excerpt: (m.content ?? "").slice(0, 1800),
       similarity: m.similarity,
     }));
@@ -479,19 +504,26 @@ export const groundedSearch = createServerFn({ method: "POST" })
     }
 
     const context = sources
-      .map((s) => `[${s.n}] ${s.source_type.toUpperCase()} ${s.document_number ?? ""} — ${s.title}\n${s.excerpt}`)
+      .map((s) => {
+        const layerLabel = s.corpus_layer === "operativo" ? "OPERATIVO" : "NORMATIVO";
+        return `[${s.n}] (${layerLabel}) ${s.source_type.toUpperCase()} ${s.document_number ?? ""} — ${s.title}\n${s.excerpt}`;
+      })
       .join("\n\n");
 
     const system =
       "Sei un assistente esperto di previdenza e welfare italiano per CAF, patronati e consulenti del lavoro. " +
       "Rispondi in italiano professionale, sintetico e operativo. " +
       "Ogni affermazione fattuale DEVE essere supportata da una citazione nel formato [n] riferita alle fonti fornite. " +
+      "Le fonti sono etichettate come (NORMATIVO) = circolari/messaggi/leggi ad alta affidabilità giuridica, oppure (OPERATIVO) = schede servizio, FAQ, notizie INPS utili per istruzioni pratiche. " +
+      "Quando citi, mantieni implicito quale layer stai usando: se rispondi con istruzioni pratiche (come fare domanda, scadenze, modulistica) appoggiati al layer OPERATIVO; se rispondi su requisiti normativi, importi o procedure formali appoggiati al layer NORMATIVO. " +
+      "Alla fine della risposta, in una riga, dichiara: 'Layer usati: NORMATIVO [elenco n]; OPERATIVO [elenco n]' (ometti il layer non usato). " +
       "Non inventare normative. Se le fonti non bastano dillo esplicitamente. " +
       "Quando la domanda descrive un caso pratico, individua i sotto-problemi operativi (adempimento, soggetto obbligato, canale o modulo, rischio da omissione, azione immediata per il CAF) e rispondi in modo utile per chi deve gestire la pratica. " +
       "Se una fonte cita espressamente il modulo o la comunicazione richiesta, valorizzala chiaramente. " +
       "Struttura la risposta con: Sintesi, Cosa fare, Chi è coinvolto, Rischi o attenzioni, Note operative per il CAF.";
 
     const user = `Domanda: ${data.query}\n\nFonti disponibili:\n${context}`;
+
 
     const res = await fetch(`${GATEWAY}/chat/completions`, {
       method: "POST",
