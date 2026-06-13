@@ -201,6 +201,7 @@ export type Database = {
           id: string
           kind: string | null
           processed_at: string | null
+          section: string | null
           status: string
           url: string
         }
@@ -212,6 +213,7 @@ export type Database = {
           id?: string
           kind?: string | null
           processed_at?: string | null
+          section?: string | null
           status?: string
           url: string
         }
@@ -223,6 +225,7 @@ export type Database = {
           id?: string
           kind?: string | null
           processed_at?: string | null
+          section?: string | null
           status?: string
           url?: string
         }
