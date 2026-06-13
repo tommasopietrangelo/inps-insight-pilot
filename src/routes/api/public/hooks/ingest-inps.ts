@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ingestInpsDaily } from "@/lib/inps-firecrawl.functions";
-import { ingestInpsOperationalDaily } from "@/lib/inps-operational.functions";
+// Operational rediscovery cron è DISATTIVATO (vedi settings UI per controllo manuale per-sezione).
+// import { ingestInpsOperationalDaily } from "@/lib/inps-operational.functions";
 import { ingestEmbeddings } from "@/lib/search.functions";
 
 
