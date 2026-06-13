@@ -13,9 +13,9 @@ import {
   repairEmptyInpsFullText,
 } from "@/lib/inps-firecrawl.functions";
 import {
-  discoverInpsOperational,
-  processInpsOperationalBatch,
-  getInpsOperationalQueueStats,
+  discoverInpsSection,
+  processInpsSectionBatch,
+  getInpsSectionsStats,
 } from "@/lib/inps-operational.functions";
 
 import { Database as DatabaseIcon } from "lucide-react";
@@ -96,22 +96,16 @@ function Settings() {
     queryFn: () => fetchQueueStats(),
   });
 
-  // Layer operativo (schede servizio, FAQ, notizie, portali)
-  const runOpDiscover = useServerFn(discoverInpsOperational);
-  const runOpBatch = useServerFn(processInpsOperationalBatch);
-  const fetchOpStats = useServerFn(getInpsOperationalQueueStats);
-  const [opDiscovering, setOpDiscovering] = useState(false);
-  const [opDiscoverResult, setOpDiscoverResult] = useState<string | null>(null);
-  const [opBatching, setOpBatching] = useState(false);
-  const [opBatchResult, setOpBatchResult] = useState<string | null>(null);
+  // Layer operativo per-sezione (controllo manuale dalle Impostazioni)
+  const runOpDiscover = useServerFn(discoverInpsSection);
+  const runOpBatch = useServerFn(processInpsSectionBatch);
+  const fetchOpStats = useServerFn(getInpsSectionsStats);
+  const [opBusySection, setOpBusySection] = useState<string | null>(null);
+  const [opBusyMode, setOpBusyMode] = useState<"discover" | "batch" | null>(null);
+  const [opSectionMsg, setOpSectionMsg] = useState<Record<string, string>>({});
   const [opBatchSize, setOpBatchSize] = useState(100);
-  const [opBatchProgress, setOpBatchProgress] = useState<{ processed: number; created: number; skipped: number; failed: number } | null>(null);
-  const opStopBatchRef = useRef(false);
-  const [opLayers, setOpLayers] = useState<{ scheda: boolean; faq: boolean; notizia: boolean; portale: boolean }>({
-    scheda: true, faq: true, notizia: true, portale: true,
-  });
   const { data: opStats, refetch: refetchOpStats } = useQuery({
-    queryKey: ["inps-op-queue-stats"],
+    queryKey: ["inps-op-sections-stats"],
     queryFn: () => fetchOpStats(),
   });
 
@@ -475,151 +469,136 @@ function Settings() {
           )}
         </Card>
 
-        {/* Layer OPERATIVO: schede servizio, FAQ, notizie, portali tematici */}
+        {/* Layer OPERATIVO per-sezione: discovery + batch indipendenti */}
         <Card className="p-6 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="max-w-2xl">
+            <div className="max-w-3xl">
               <div className="flex items-center gap-2 font-display text-base font-semibold">
-                <Layers className="h-4 w-4 text-primary" /> Layer operativo INPS (schede servizio, FAQ, notizie)
+                <Layers className="h-4 w-4 text-primary" /> Layer operativo INPS · per sezione
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Estende il corpus oltre le sole circolari/messaggi. Importa <strong>schede servizio</strong>
-                (catalogo prestazioni: come fare domanda, requisiti), <strong>FAQ ufficiali</strong>,
-                <strong> notizie</strong> e <strong>portali tematici</strong> (Famiglia, Giovani).
-                Stesso flusso del layer normativo: <strong>1) Discovery</strong> (Firecrawl `map` sui 5 entry point ufficiali,
-                ~5 crediti per run) → <strong>2) Batch</strong> (scrape + indicizzazione, salta i duplicati prima dello scrape).
-                In risposta, l'AI dichiara quale layer ha usato.
+                Per ogni sezione top-level di inps.it lancia <strong>Discovery</strong> (Firecrawl `map` su entry-point + base con keyword,
+                filtra i link nel path della sezione) e poi <strong>Batch</strong> (scrape + upsert nel corpus, dedup automatico).
+                Stats indipendenti per sezione così vedi quante sottosezioni Firecrawl è riuscito a scoprire e importare.
+                Lo scraping ricorrente è disattivato: si lancia manualmente da qui.
               </p>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="op-bs" className="text-xs">Batch totale / sezione</Label>
+                <Input id="op-bs" type="number" min={1} max={2000} value={opBatchSize}
+                  onChange={(e) => setOpBatchSize(Math.max(1, Math.min(2000, Number(e.target.value) || 100)))} className="w-24" />
+              </div>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-4">
-            <div className="rounded-md border bg-surface px-3 py-2">
-              <div className="text-xs text-muted-foreground">In coda</div>
-              <div className="font-mono text-lg">{opStats?.queue.pending ?? "—"}</div>
-            </div>
-            <div className="rounded-md border bg-surface px-3 py-2">
-              <div className="text-xs text-muted-foreground">Importate</div>
-              <div className="font-mono text-lg">{opStats?.queue.done ?? "—"}</div>
-            </div>
-            <div className="rounded-md border bg-surface px-3 py-2">
-              <div className="text-xs text-muted-foreground">Già presenti</div>
-              <div className="font-mono text-lg">{opStats?.queue.skipped ?? "—"}</div>
-            </div>
-            <div className="rounded-md border bg-surface px-3 py-2">
-              <div className="text-xs text-muted-foreground">Errori</div>
-              <div className="font-mono text-lg">{opStats?.queue.error ?? "—"}</div>
-            </div>
-          </div>
-          <div className="mt-2 text-xs text-muted-foreground">
-            Totale URL accodati: <strong>{opStats?.queueTotal ?? "—"}</strong> · Pagine operative nel corpus:{" "}
-            <strong>{opStats?.sourcesOpTotal ?? "—"}</strong>
+          <div className="mt-3 text-xs text-muted-foreground">
+            Pagine operative nel corpus: <strong>{opStats?.sourcesOpTotal ?? "—"}</strong>
           </div>
 
           <Separator className="my-4" />
 
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-wrap gap-3">
-              {(["scheda", "faq", "notizia", "portale"] as const).map((k) => (
-                <label key={k} className="flex items-center gap-2 text-sm">
-                  <Switch
-                    checked={opLayers[k]}
-                    onCheckedChange={(v) => setOpLayers((s) => ({ ...s, [k]: v }))}
-                  />
-                  <span className="capitalize">{k}</span>
-                </label>
-              ))}
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={opDiscovering}
-              onClick={async () => {
-                setOpDiscovering(true);
-                setOpDiscoverResult(null);
-                try {
-                  const layers = (["scheda", "faq", "notizia", "portale"] as const).filter((k) => opLayers[k]);
-                  if (layers.length === 0) {
-                    setOpDiscoverResult("Seleziona almeno un layer.");
-                    return;
-                  }
-                  const r = await runOpDiscover({ data: { layers, limit: 500 } });
-                  setOpDiscoverResult(
-                    `Scoperti ${r.discovered} URL · ${r.enqueued} nuovi accodati (scheda ${r.perLayer.scheda ?? 0}, faq ${r.perLayer.faq ?? 0}, notizia ${r.perLayer.notizia ?? 0}, portale ${r.perLayer.portale ?? 0})${r.errors.length ? ` · ${r.errors.length} errori` : ""}`,
-                  );
-                  await refetchOpStats();
-                } catch (e) {
-                  setOpDiscoverResult(`Errore: ${(e as Error).message}`);
-                } finally {
-                  setOpDiscovering(false);
-                }
-              }}
-              className="gap-1.5"
-            >
-              {opDiscovering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
-              {opDiscovering ? "Discovery…" : "1) Discovery URL operativi"}
-            </Button>
-
-            <div className="ml-auto flex items-end gap-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="op-bs" className="text-xs">Batch totale</Label>
-                <Input id="op-bs" type="number" min={1} max={2000} value={opBatchSize}
-                  onChange={(e) => setOpBatchSize(Math.max(1, Math.min(2000, Number(e.target.value) || 100)))} className="w-24" />
-              </div>
-              {opBatching ? (
-                <Button size="sm" variant="outline" onClick={() => { opStopBatchRef.current = true; }} className="gap-1.5">
-                  Ferma
-                </Button>
-              ) : null}
-              <Button
-                size="sm"
-                disabled={opBatching || (opStats?.queue.pending ?? 0) === 0}
-                onClick={async () => {
-                  setOpBatching(true);
-                  setOpBatchResult(null);
-                  opStopBatchRef.current = false;
-                  const totals = { processed: 0, created: 0, skipped: 0, failed: 0 };
-                  setOpBatchProgress({ ...totals });
-                  const CHUNK = 15;
-                  try {
-                    while (totals.processed < opBatchSize && !opStopBatchRef.current) {
-                      const remaining = opBatchSize - totals.processed;
-                      const limit = Math.min(CHUNK, remaining);
-                      const r = await runOpBatch({ data: { limit, concurrency: 4 } });
-                      totals.processed += r.processed;
-                      totals.created += r.created;
-                      totals.skipped += r.skipped;
-                      totals.failed += r.failed;
-                      setOpBatchProgress({ ...totals });
-                      await refetchOpStats();
-                      if (r.processed === 0) break;
-                    }
-                    setOpBatchResult(
-                      `Batch ${opStopBatchRef.current ? "fermato" : "completato"}: ${totals.processed} URL · ${totals.created} nuovi · ${totals.skipped} già presenti · ${totals.failed} errori. Ricorda di lanciare "Aggiorna indice".`,
-                    );
-                  } catch (e) {
-                    setOpBatchResult(`Interrotto a ${totals.processed}/${opBatchSize}. Errore: ${(e as Error).message}`);
-                  } finally {
-                    setOpBatching(false);
-                  }
-                }}
-                className="gap-1.5"
-              >
-                {opBatching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flame className="h-4 w-4" />}
-                {opBatching
-                  ? `Batch ${opBatchProgress?.processed ?? 0}/${opBatchSize}…`
-                  : "2) Importa prossimo batch"}
-              </Button>
-            </div>
+          <div className="space-y-2">
+            {(opStats?.sections ?? []).map((sec) => {
+              const stats = opStats?.perSection[sec.id] ?? { pending: 0, done: 0, skipped: 0, error: 0, total: 0 };
+              const busy = opBusySection === sec.id;
+              const msg = opSectionMsg[sec.id];
+              return (
+                <div key={sec.id} className="rounded-md border bg-surface px-3 py-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{sec.label}</div>
+                      <a href={sec.entryUrl} target="_blank" rel="noreferrer"
+                        className="truncate text-xs text-muted-foreground hover:underline">
+                        {sec.entryUrl.replace(/^https?:\/\//, "")}
+                      </a>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2 text-xs">
+                      <Badge variant="outline" className="font-mono">scoperti {stats.total}</Badge>
+                      <Badge variant="outline" className="font-mono">pend {stats.pending}</Badge>
+                      <Badge variant="outline" className="font-mono">ok {stats.done}</Badge>
+                      <Badge variant="outline" className="font-mono">dup {stats.skipped}</Badge>
+                      <Badge variant="outline" className="font-mono">err {stats.error}</Badge>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={async () => {
+                          setOpBusySection(sec.id);
+                          setOpBusyMode("discover");
+                          setOpSectionMsg((m) => ({ ...m, [sec.id]: "Discovery…" }));
+                          try {
+                            const r = await runOpDiscover({ data: { section: sec.id, limit: 500 } });
+                            setOpSectionMsg((m) => ({
+                              ...m,
+                              [sec.id]: `Discovery: ${r.discovered} URL, ${r.enqueued} nuovi accodati${r.errors.length ? ` · ${r.errors.length} errori` : ""}`,
+                            }));
+                            await refetchOpStats();
+                          } catch (e) {
+                            setOpSectionMsg((m) => ({ ...m, [sec.id]: `Errore discovery: ${(e as Error).message}` }));
+                          } finally {
+                            setOpBusySection(null);
+                            setOpBusyMode(null);
+                          }
+                        }}
+                        className="gap-1.5"
+                      >
+                        {busy && opBusyMode === "discover" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Layers className="h-3.5 w-3.5" />}
+                        Discovery
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={busy || stats.pending === 0}
+                        onClick={async () => {
+                          setOpBusySection(sec.id);
+                          setOpBusyMode("batch");
+                          const totals = { processed: 0, created: 0, skipped: 0, failed: 0 };
+                          const CHUNK = 15;
+                          try {
+                            while (totals.processed < opBatchSize) {
+                              const remaining = opBatchSize - totals.processed;
+                              const limit = Math.min(CHUNK, remaining);
+                              const r = await runOpBatch({ data: { section: sec.id, limit, concurrency: 4 } });
+                              totals.processed += r.processed;
+                              totals.created += r.created;
+                              totals.skipped += r.skipped;
+                              totals.failed += r.failed;
+                              setOpSectionMsg((m) => ({
+                                ...m,
+                                [sec.id]: `Batch ${totals.processed}/${opBatchSize} · nuovi ${totals.created} · dup ${totals.skipped} · err ${totals.failed}`,
+                              }));
+                              await refetchOpStats();
+                              if (r.processed === 0) break;
+                            }
+                            setOpSectionMsg((m) => ({
+                              ...m,
+                              [sec.id]: `Batch completato: ${totals.processed} URL · ${totals.created} nuovi · ${totals.skipped} già presenti · ${totals.failed} errori. Lancia "Aggiorna indice".`,
+                            }));
+                          } catch (e) {
+                            setOpSectionMsg((m) => ({ ...m, [sec.id]: `Errore batch a ${totals.processed}: ${(e as Error).message}` }));
+                          } finally {
+                            setOpBusySection(null);
+                            setOpBusyMode(null);
+                          }
+                        }}
+                        className="gap-1.5"
+                      >
+                        {busy && opBusyMode === "batch" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flame className="h-3.5 w-3.5" />}
+                        Batch
+                      </Button>
+                    </div>
+                  </div>
+                  {msg && (
+                    <div className="mt-2 text-xs text-muted-foreground">{msg}</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-
-          {opDiscoverResult && (
-            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{opDiscoverResult}</div>
-          )}
-          {opBatchResult && (
-            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{opBatchResult}</div>
-          )}
         </Card>
+
 
         {/* Firecrawl backfill */}
 

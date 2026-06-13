@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ingestInpsDaily } from "@/lib/inps-firecrawl.functions";
-import { ingestInpsOperationalDaily } from "@/lib/inps-operational.functions";
+// Operational rediscovery cron è DISATTIVATO (vedi settings UI per controllo manuale per-sezione).
+// import { ingestInpsOperationalDaily } from "@/lib/inps-operational.functions";
 import { ingestEmbeddings } from "@/lib/search.functions";
 
 
@@ -31,18 +32,10 @@ export const Route = createFileRoute("/api/public/hooks/ingest-inps")({
             return Response.json({ ok: true, skipped: true, romeHour });
           }
           const ingest = await ingestInpsDaily();
-          let operational: Awaited<ReturnType<typeof ingestInpsOperationalDaily>> | null = null;
-          let operationalError: string | null = null;
-          try {
-            operational = await ingestInpsOperationalDaily();
-          } catch (e) {
-            operationalError = (e as Error).message;
-            console.error("ingest-inps: operational step failed", e);
-          }
+          // NB: rediscovery operativa per-sezione è gestita manualmente da Impostazioni.
           let index: { processed: number; total: number; skipped: number } | null = null;
           let indexError: string | null = null;
-          const createdNew = (ingest.created ?? 0) + (operational?.batch.created ?? 0);
-          if (createdNew > 0) {
+          if ((ingest.created ?? 0) > 0) {
             try {
               index = await ingestEmbeddings();
             } catch (e) {
@@ -50,7 +43,7 @@ export const Route = createFileRoute("/api/public/hooks/ingest-inps")({
               console.error("ingest-inps: embedding step failed", e);
             }
           }
-          return Response.json({ ok: true, ingest, operational, operationalError, index, indexError });
+          return Response.json({ ok: true, ingest, index, indexError });
 
         } catch (e) {
           console.error("ingest-inps failed", e);

@@ -3,21 +3,32 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // ---------------------------------------------------------------------------
-// Layer OPERATIVO del corpus INPS
+// Layer OPERATIVO INPS — modello a SEZIONI
 //
-// A differenza del layer normativo (circolari/messaggi), qui raccogliamo
-// pagine pratiche dal sito inps.it organizzate in tre "famiglie":
-//   - schede servizio    (catalogo prestazioni: come fare domanda, requisiti)
-//   - faq                (FAQ ufficiali)
-//   - notizie            (news + portali tematici)
+// Ogni "sezione" è uno dei landing top-level del sito INPS che raggruppa
+// schede servizio, dossier e contenuti pratici per categoria di utenza:
 //
-// Stesso modello Discovery → Batch → Indicizzazione del layer normativo:
-//  1) Discovery: Firecrawl `map` sui 5 entry-point ufficiali → coda DB.
-//  2) Batch: scrape + upsert in `sources` con `corpus_layer='operativo'`.
-//  3) "Aggiorna indice" già esistente fa partire gli embedding.
+//   - nucleo-familiare      /sostegni-sussidi-indennita/per-nucleo-familiare.html
+//   - disoccupati           /sostegni-sussidi-indennita/per-disoccupati.html
+//   - basso-reddito         /sostegni-sussidi-indennita/per-persone-a-basso-reddito.html
+//   - disabili              /sostegni-sussidi-indennita/per-disabili-invalidi-inabili.html
+//   - previdenza            /previdenza.html
+//   - lavoro                /lavoro.html
+//   - imprese               /imprese-e-liberi-professionisti.html
+//   - sostegni-root         /sostegni-sussidi-indennita.html
+//
+// Per ogni sezione l'utente lancia, dalle Impostazioni, due step indipendenti:
+//   1) Discovery → Firecrawl `map` (entry-point + BASE con `search`) →
+//      filtra link nel path della sezione → accoda con `section=<id>`.
+//   2) Batch → scrape Firecrawl + upsert in `sources` (corpus_layer='operativo').
+//
+// In questo modo il CAF tiene sotto controllo, per ogni sezione, quante
+// sottosezioni Firecrawl è riuscito a scoprire e indicizzare.
+// La funzione cron giornaliera resta come hook futuro ma NON è attiva.
 // ---------------------------------------------------------------------------
 
 const FIRECRAWL_BASE = "https://api.firecrawl.dev/v2";
+const BASE = "https://www.inps.it";
 
 function requireFirecrawlKey() {
   const key = process.env.FIRECRAWL_API_KEY;
@@ -31,19 +42,14 @@ type ScrapeResult = {
   metadata?: { title?: string; description?: string; sourceURL?: string; statusCode?: number };
 };
 
-async function firecrawlScrape(
-  url: string,
-  opts?: { onlyMainContent?: boolean; withLinks?: boolean },
-): Promise<ScrapeResult> {
+async function firecrawlScrape(url: string, opts?: { onlyMainContent?: boolean }): Promise<ScrapeResult> {
   const key = requireFirecrawlKey();
-  const formats: string[] = ["markdown"];
-  if (opts?.withLinks) formats.push("links");
   const res = await fetch(`${FIRECRAWL_BASE}/scrape`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       url,
-      formats,
+      formats: ["markdown"],
       onlyMainContent: opts?.onlyMainContent ?? true,
       parsers: ["pdf"],
     }),
@@ -71,7 +77,11 @@ async function firecrawlMap(url: string, search: string | undefined, limit = 500
       continue;
     }
     if (!res.ok) throw new Error(`Firecrawl map ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    const json = (await res.json()) as { success?: boolean; links?: Array<string | { url: string }>; data?: { links?: Array<string | { url: string }> } };
+    const json = (await res.json()) as {
+      success?: boolean;
+      links?: Array<string | { url: string }>;
+      data?: { links?: Array<string | { url: string }> };
+    };
     const raw = json.links ?? json.data?.links ?? [];
     return raw.map((l) => (typeof l === "string" ? l : l.url)).filter(Boolean);
   }
@@ -79,73 +89,97 @@ async function firecrawlMap(url: string, search: string | undefined, limit = 500
 }
 
 // ---------------------------------------------------------------------------
-// Entry-point e classificazione
+// Definizione sezioni
 // ---------------------------------------------------------------------------
 
-type OpLayer = "scheda" | "faq" | "notizia" | "portale";
+export type SectionId =
+  | "nucleo-familiare"
+  | "disoccupati"
+  | "basso-reddito"
+  | "disabili"
+  | "previdenza"
+  | "lavoro"
+  | "imprese"
+  | "sostegni-root";
 
-type EntryPoint = {
-  layer: OpLayer;
-  url: string;
-  search?: string;
-  includePattern: RegExp;
+type SectionDef = {
+  id: SectionId;
+  label: string;
+  entryUrl: string;
+  pathPrefix: string; // filtra i link discovered
+  search: string;     // query per il map su BASE
 };
 
-// NB: mappare un sotto-URL profondo (es. /tutti-i-servizi.html) restituisce
-// 1 solo link — Firecrawl avvisa "try mapping the base domain". Quindi tutti
-// gli entry-point operativi partono da `https://www.inps.it` con `search`
-// dedicate; il pattern di inclusione filtra poi sul tipo di pagina.
-const BASE = "https://www.inps.it";
-
-const ENTRY_POINTS: EntryPoint[] = [
-  // 1) Schede servizio: /it/it/dettaglio-scheda.it.schede-servizio-strumento.*.html
-  { layer: "scheda", url: BASE, search: "scheda servizio prestazione",
-    includePattern: /www\.inps\.it\/it\/it\/dettaglio-scheda\.it\..+\.html$/i },
-  { layer: "scheda", url: BASE, search: "come fare domanda prestazione inps",
-    includePattern: /www\.inps\.it\/it\/it\/dettaglio-scheda\.it\..+\.html$/i },
-  { layer: "scheda", url: BASE, search: "naspi assegno inclusione bonus requisiti",
-    includePattern: /www\.inps\.it\/it\/it\/dettaglio-scheda\.it\..+\.html$/i },
-
-  // 2) FAQ: pagine HTML in /it/it/... che contengono "faq" o "domande-frequenti"
-  { layer: "faq", url: BASE, search: "faq domande frequenti",
-    includePattern: /www\.inps\.it\/it\/it\/.*(faq|domande-frequenti).*\.html$/i },
-  { layer: "faq", url: BASE, search: "faq inps assistenza",
-    includePattern: /www\.inps\.it\/it\/it\/.*(faq|domande-frequenti).*\.html$/i },
-
-  // 3) Notizie: /it/it/inps-comunica/notizie/dettaglio-news-page.news.YYYY.MM.slug.html
-  { layer: "notizia", url: BASE, search: "notizia inps comunica",
-    includePattern: /www\.inps\.it\/it\/it\/inps-comunica\/notizie\/dettaglio-news-page\..+\.html$/i },
-  { layer: "notizia", url: BASE, search: "novità inps prestazioni famiglie lavoratori",
-    includePattern: /www\.inps\.it\/it\/it\/inps-comunica\/notizie\/dettaglio-news-page\..+\.html$/i },
-  { layer: "notizia", url: BASE, search: "messaggio circolare scadenza domanda",
-    includePattern: /www\.inps\.it\/it\/it\/inps-comunica\/notizie\/dettaglio-news-page\..+\.html$/i },
-
-  // 4) Portale famiglia + dossier tematici + sostegni-sussidi-indennita + giovani
-  { layer: "portale", url: BASE, search: "portale famiglia genitorialità",
-    includePattern: /www\.inps\.it\/it\/it\/portale-della-famiglia-e-della-genitorialita.*\.html$/i },
-  { layer: "portale", url: BASE, search: "dossier inps",
-    includePattern: /www\.inps\.it\/it\/it\/inps-comunica\/dossier\/.+\.html$/i },
-  { layer: "portale", url: BASE, search: "sostegni sussidi indennità famiglia disabilità lavoro",
-    includePattern: /www\.inps\.it\/it\/it\/sostegni-sussidi-indennita\/.+\.html$/i },
-  { layer: "portale", url: BASE, search: "inps per i giovani lavoro studio",
-    includePattern: /www\.inps\.it\/it\/it\/inps-per-i-giovani.*\.html$/i },
+export const SECTIONS: SectionDef[] = [
+  {
+    id: "nucleo-familiare",
+    label: "Sostegni · Nucleo familiare",
+    entryUrl: `${BASE}/it/it/sostegni-sussidi-indennita/per-nucleo-familiare.html`,
+    pathPrefix: "/it/it/sostegni-sussidi-indennita/per-nucleo-familiare",
+    search: "assegno unico maternità congedo parentale bonus asilo nido famiglia",
+  },
+  {
+    id: "disoccupati",
+    label: "Sostegni · Disoccupati",
+    entryUrl: `${BASE}/it/it/sostegni-sussidi-indennita/per-disoccupati.html`,
+    pathPrefix: "/it/it/sostegni-sussidi-indennita/per-disoccupati",
+    search: "naspi dis-coll discoll disoccupazione sostegno lavoro",
+  },
+  {
+    id: "basso-reddito",
+    label: "Sostegni · Basso reddito",
+    entryUrl: `${BASE}/it/it/sostegni-sussidi-indennita/per-persone-a-basso-reddito.html`,
+    pathPrefix: "/it/it/sostegni-sussidi-indennita/per-persone-a-basso-reddito",
+    search: "assegno inclusione adi supporto formazione lavoro sfl carta acquisti",
+  },
+  {
+    id: "disabili",
+    label: "Sostegni · Disabili / Invalidi",
+    entryUrl: `${BASE}/it/it/sostegni-sussidi-indennita/per-disabili-invalidi-inabili.html`,
+    pathPrefix: "/it/it/sostegni-sussidi-indennita/per-disabili-invalidi-inabili",
+    search: "invalidità civile legge 104 indennità accompagnamento disabilità",
+  },
+  {
+    id: "previdenza",
+    label: "Previdenza",
+    entryUrl: `${BASE}/it/it/previdenza.html`,
+    pathPrefix: "/it/it/previdenza",
+    search: "pensione vecchiaia anticipata ape opzione donna quota contributi",
+  },
+  {
+    id: "lavoro",
+    label: "Lavoro",
+    entryUrl: `${BASE}/it/it/lavoro.html`,
+    pathPrefix: "/it/it/lavoro",
+    search: "lavoro contratto cassa integrazione cig domestico colf badante",
+  },
+  {
+    id: "imprese",
+    label: "Imprese e liberi professionisti",
+    entryUrl: `${BASE}/it/it/imprese-e-liberi-professionisti.html`,
+    pathPrefix: "/it/it/imprese-e-liberi-professionisti",
+    search: "azienda artigiani commercianti gestione separata uniemens contributi",
+  },
+  {
+    id: "sostegni-root",
+    label: "Sostegni · Indice generale",
+    entryUrl: `${BASE}/it/it/sostegni-sussidi-indennita.html`,
+    pathPrefix: "/it/it/sostegni-sussidi-indennita",
+    search: "sostegni sussidi indennità prestazioni inps",
+  },
 ];
 
-const CLASSIFY_PATTERNS: Array<{ layer: OpLayer; re: RegExp }> = [
-  { layer: "scheda",  re: /www\.inps\.it\/it\/it\/dettaglio-scheda\.it\./i },
-  { layer: "notizia", re: /www\.inps\.it\/it\/it\/inps-comunica\/notizie\/dettaglio-news-page\./i },
-  { layer: "faq",     re: /www\.inps\.it\/it\/it\/.*(faq|domande-frequenti)/i },
-  { layer: "portale", re: /www\.inps\.it\/it\/it\/(portale-della-famiglia-e-della-genitorialita|inps-per-i-giovani|inps-comunica\/dossier|sostegni-sussidi-indennita)/i },
-];
-
-function classifyOperationalUrl(url: string): OpLayer {
-  for (const c of CLASSIFY_PATTERNS) if (c.re.test(url)) return c.layer;
-  return "scheda";
+function getSection(id: string): SectionDef {
+  const s = SECTIONS.find((x) => x.id === id);
+  if (!s) throw new Error(`Sezione sconosciuta: ${id}`);
+  return s;
 }
 
-function buildOperationalExternalId(url: string, layer: OpLayer): string {
+// ---------- helpers ----------
+
+function buildExternalId(url: string): string {
   const hash = Buffer.from(url).toString("base64url").slice(0, 18);
-  return `inps-op-${layer}-${hash}`;
+  return `inps-op-${hash}`;
 }
 
 function guessTopicTags(text: string): string[] {
@@ -170,16 +204,12 @@ function guessTopicTags(text: string): string[] {
 
 const QUEUE = "inps_operational_queue" as const;
 
-// ---------- ingest singolo URL operativo ----------
-
-async function ingestSingleOperational(url: string): Promise<
+async function ingestSingle(url: string): Promise<
   | { ok: true; created: boolean; external_id: string; title: string }
   | { ok: false; url: string; reason: string }
 > {
-  const layer = classifyOperationalUrl(url);
-  const external_id = buildOperationalExternalId(url, layer);
+  const external_id = buildExternalId(url);
 
-  // Dedup PRIMA dello scrape (zero crediti Firecrawl per già noti)
   const { data: existing } = await supabaseAdmin
     .from("sources")
     .select("id, title")
@@ -191,8 +221,8 @@ async function ingestSingleOperational(url: string): Promise<
   const md = (page.markdown ?? "").trim();
   if (md.length < 250) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)` };
 
-  const title = page.metadata?.title?.replace(/\s+\|\s+INPS.*$/i, "").trim()
-    || `INPS — ${layer}`;
+  const title =
+    page.metadata?.title?.replace(/\s+\|\s+INPS.*$/i, "").trim() || "INPS — pagina servizio";
   const fullText = md.slice(0, 60000);
   const description = page.metadata?.description?.slice(0, 500) ?? "";
   const topics = guessTopicTags(`${title} ${md.slice(0, 4000)}`);
@@ -223,42 +253,56 @@ async function ingestSingleOperational(url: string): Promise<
   return { ok: true, created: true, external_id: upserted.external_id!, title: upserted.title };
 }
 
-// ---------- Discovery ----------
+// ---------------------------------------------------------------------------
+// Discovery di una singola sezione
+// ---------------------------------------------------------------------------
 
 const DiscoverInput = z.object({
-  layers: z.array(z.enum(["scheda", "faq", "notizia", "portale"])).default(["scheda", "faq", "notizia", "portale"]),
+  section: z.string().min(1),
   limit: z.number().int().min(50).max(2000).default(500),
 });
 
-export const discoverInpsOperational = createServerFn({ method: "POST" })
+export const discoverInpsSection = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => DiscoverInput.parse(data ?? {}))
   .handler(async ({ data }) => {
-    const discovered = new Set<string>();
-    const perLayer: Record<string, number> = { scheda: 0, faq: 0, notizia: 0, portale: 0 };
+    const sec = getSection(data.section);
     const errors: string[] = [];
+    const found = new Set<string>();
 
-    const targets = ENTRY_POINTS.filter((ep) => data.layers.includes(ep.layer));
-    for (const ep of targets) {
+    // Strategia: due chiamate map per massimizzare la copertura.
+    //   a) map sull'entry-point della sezione (Firecrawl può restituire pochi
+    //      link su URL profondi, ma quando funziona dà i figli diretti)
+    //   b) map su BASE con `search` calibrata sulla sezione (più recall)
+    // Poi filtra per path-prefix della sezione.
+    const calls: Array<{ url: string; search?: string; label: string }> = [
+      { url: sec.entryUrl, search: undefined, label: "entry" },
+      { url: BASE, search: sec.search, label: "base+search" },
+    ];
+
+    for (const c of calls) {
       try {
-        const links = await firecrawlMap(ep.url, ep.search, data.limit);
+        const links = await firecrawlMap(c.url, c.search, data.limit);
         for (const raw of links) {
           const clean = raw.split("#")[0].split("?")[0];
-          if (!ep.includePattern.test(clean)) continue;
-          if (!discovered.has(clean)) {
-            discovered.add(clean);
-            perLayer[ep.layer] = (perLayer[ep.layer] ?? 0) + 1;
-          }
+          // filtro: deve essere sul dominio inps.it e dentro al path della sezione
+          if (!/^https?:\/\/(www\.)?inps\.it\//i.test(clean)) continue;
+          const path = clean.replace(/^https?:\/\/(www\.)?inps\.it/i, "");
+          if (!path.toLowerCase().startsWith(sec.pathPrefix.toLowerCase())) continue;
+          // escludi l'entry-point stesso
+          if (clean.replace(/\/$/, "") === sec.entryUrl.replace(/\/$/, "")) continue;
+          found.add(clean);
         }
       } catch (e) {
-        errors.push(`${ep.layer} ${ep.url}: ${(e as Error).message}`);
+        errors.push(`${c.label}: ${(e as Error).message}`);
       }
     }
 
-    // Upsert idempotente sulla coda
-    const rows = Array.from(discovered).map((url) => ({
+    // Upsert idempotente con section
+    const rows = Array.from(found).map((url) => ({
       url,
       status: "pending",
-      kind: classifyOperationalUrl(url),
+      kind: "section",
+      section: sec.id,
     }));
     let enqueued = 0;
     const CHUNK = 500;
@@ -271,22 +315,33 @@ export const discoverInpsOperational = createServerFn({ method: "POST" })
       else enqueued += (ins as unknown[] | null)?.length ?? 0;
     }
 
-    return { discovered: discovered.size, enqueued, perLayer, errors: errors.slice(0, 10) };
+    return {
+      section: sec.id,
+      label: sec.label,
+      discovered: found.size,
+      enqueued,
+      errors: errors.slice(0, 10),
+    };
   });
 
-// ---------- Batch ----------
+// ---------------------------------------------------------------------------
+// Batch di una singola sezione
+// ---------------------------------------------------------------------------
 
 const ProcessBatchInput = z.object({
+  section: z.string().min(1),
   limit: z.number().int().min(1).max(25).default(15),
   concurrency: z.number().int().min(1).max(6).default(4),
 });
 
-export const processInpsOperationalBatch = createServerFn({ method: "POST" })
+export const processInpsSectionBatch = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => ProcessBatchInput.parse(data ?? {}))
   .handler(async ({ data }) => {
+    const sec = getSection(data.section);
     const { data: pending, error } = await (supabaseAdmin as any).from(QUEUE)
       .select("id, url")
       .eq("status", "pending")
+      .eq("section", sec.id)
       .order("discovered_at", { ascending: true })
       .limit(data.limit);
     if (error) throw new Error(error.message);
@@ -300,7 +355,7 @@ export const processInpsOperationalBatch = createServerFn({ method: "POST" })
         if (i >= rows.length) return;
         const row = rows[i];
         try {
-          const r = await ingestSingleOperational(row.url);
+          const r = await ingestSingle(row.url);
           if (r.ok) {
             await (supabaseAdmin as any).from(QUEUE).update({
               status: r.created ? "done" : "skipped",
@@ -330,35 +385,82 @@ export const processInpsOperationalBatch = createServerFn({ method: "POST" })
     const pool = Math.min(data.concurrency, rows.length);
     await Promise.all(Array.from({ length: pool }, () => worker()));
 
-    return { processed: rows.length, created, skipped, failed };
+    return { section: sec.id, processed: rows.length, created, skipped, failed };
   });
 
-// ---------- Stats ----------
+// ---------------------------------------------------------------------------
+// Stats per-sezione
+// ---------------------------------------------------------------------------
 
-export const getInpsOperationalQueueStats = createServerFn({ method: "GET" })
+export const getInpsSectionsStats = createServerFn({ method: "GET" })
   .handler(async () => {
-    const counts: Record<string, number> = { pending: 0, done: 0, skipped: 0, error: 0 };
-    for (const status of Object.keys(counts)) {
-      const { count } = await (supabaseAdmin as any).from(QUEUE)
-        .select("id", { count: "exact", head: true })
-        .eq("status", status);
-      counts[status] = count ?? 0;
+    const { data, error } = await (supabaseAdmin as any).from(QUEUE)
+      .select("section, status");
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as Array<{ section: string | null; status: string }>;
+
+    const perSection: Record<string, { pending: number; done: number; skipped: number; error: number; total: number }> = {};
+    for (const s of SECTIONS) perSection[s.id] = { pending: 0, done: 0, skipped: 0, error: 0, total: 0 };
+    for (const r of rows) {
+      const id = r.section ?? "";
+      if (!perSection[id]) continue;
+      const slot = perSection[id];
+      if (r.status === "pending") slot.pending++;
+      else if (r.status === "done") slot.done++;
+      else if (r.status === "skipped") slot.skipped++;
+      else if (r.status === "error") slot.error++;
+      slot.total++;
     }
-    const total = counts.pending + counts.done + counts.skipped + counts.error;
+
     const { count: opCount } = await supabaseAdmin
       .from("sources")
       .select("id", { count: "exact", head: true } as any)
       .eq("corpus_layer" as any, "operativo");
-    return { queue: counts, queueTotal: total, sourcesOpTotal: opCount ?? 0 };
+
+    return {
+      sections: SECTIONS.map((s) => ({ id: s.id, label: s.label, entryUrl: s.entryUrl })),
+      perSection,
+      sourcesOpTotal: opCount ?? 0,
+    };
   });
 
-// ---------- Cron giornaliero: rediscovery + processing ----------
+// ---------------------------------------------------------------------------
+// Hook futuro: rediscovery + processing periodico (NON attivo).
+// Lasciato per quando vorremo abilitarlo da cron.
+// ---------------------------------------------------------------------------
+
+type DailyEntry = {
+  section: string;
+  discovered?: number;
+  enqueued?: number;
+  processed?: number;
+  created?: number;
+  skipped?: number;
+  failed?: number;
+  error?: string;
+};
 
 export const ingestInpsOperationalDaily = createServerFn({ method: "POST" })
-  .handler(async () => {
-    // 1) Rediscovery leggera (limite ridotto per stare entro il timeout cron)
-    const disc = await discoverInpsOperational({ data: { layers: ["scheda", "faq", "notizia", "portale"], limit: 200 } } as any);
-    // 2) Processa i primi 15 in coda
-    const batch = await processInpsOperationalBatch({ data: { limit: 15, concurrency: 4 } } as any);
-    return { discovery: disc, batch };
+  .handler(async (): Promise<{ sections: DailyEntry[]; created: number }> => {
+    const out: DailyEntry[] = [];
+    let created = 0;
+    for (const s of SECTIONS) {
+      try {
+        const disc = await discoverInpsSection({ data: { section: s.id, limit: 200 } } as any);
+        const batch = await processInpsSectionBatch({ data: { section: s.id, limit: 10, concurrency: 3 } } as any);
+        created += batch.created;
+        out.push({
+          section: s.id,
+          discovered: disc.discovered,
+          enqueued: disc.enqueued,
+          processed: batch.processed,
+          created: batch.created,
+          skipped: batch.skipped,
+          failed: batch.failed,
+        });
+      } catch (e) {
+        out.push({ section: s.id, error: (e as Error).message });
+      }
+    }
+    return { sections: out, created };
   });
