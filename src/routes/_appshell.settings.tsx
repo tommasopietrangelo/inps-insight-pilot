@@ -13,9 +13,9 @@ import {
   repairEmptyInpsFullText,
 } from "@/lib/inps-firecrawl.functions";
 import {
-  discoverInpsOperational,
-  processInpsOperationalBatch,
-  getInpsOperationalQueueStats,
+  discoverInpsSection,
+  processInpsSectionBatch,
+  getInpsSectionsStats,
 } from "@/lib/inps-operational.functions";
 
 import { Database as DatabaseIcon } from "lucide-react";
