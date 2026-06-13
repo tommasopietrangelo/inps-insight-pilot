@@ -429,17 +429,38 @@ export const getInpsSectionsStats = createServerFn({ method: "GET" })
 // Lasciato per quando vorremo abilitarlo da cron.
 // ---------------------------------------------------------------------------
 
+type DailyEntry = {
+  section: string;
+  discovered?: number;
+  enqueued?: number;
+  processed?: number;
+  created?: number;
+  skipped?: number;
+  failed?: number;
+  error?: string;
+};
+
 export const ingestInpsOperationalDaily = createServerFn({ method: "POST" })
-  .handler(async () => {
-    const out: Array<Record<string, unknown>> = [];
+  .handler(async (): Promise<{ sections: DailyEntry[]; created: number }> => {
+    const out: DailyEntry[] = [];
+    let created = 0;
     for (const s of SECTIONS) {
       try {
         const disc = await discoverInpsSection({ data: { section: s.id, limit: 200 } } as any);
         const batch = await processInpsSectionBatch({ data: { section: s.id, limit: 10, concurrency: 3 } } as any);
-        out.push({ section: s.id, disc, batch });
+        created += batch.created;
+        out.push({
+          section: s.id,
+          discovered: disc.discovered,
+          enqueued: disc.enqueued,
+          processed: batch.processed,
+          created: batch.created,
+          skipped: batch.skipped,
+          failed: batch.failed,
+        });
       } catch (e) {
         out.push({ section: s.id, error: (e as Error).message });
       }
     }
-    return { sections: out };
+    return { sections: out, created };
   });
