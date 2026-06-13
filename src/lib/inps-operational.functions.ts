@@ -91,48 +91,55 @@ type EntryPoint = {
   includePattern: RegExp;
 };
 
+// NB: mappare un sotto-URL profondo (es. /tutti-i-servizi.html) restituisce
+// 1 solo link — Firecrawl avvisa "try mapping the base domain". Quindi tutti
+// gli entry-point operativi partono da `https://www.inps.it` con `search`
+// dedicate; il pattern di inclusione filtra poi sul tipo di pagina.
+const BASE = "https://www.inps.it";
+
 const ENTRY_POINTS: EntryPoint[] = [
-  // 1) Schede servizio (catalogo prestazioni)
-  {
-    layer: "scheda",
-    url: "https://www.inps.it/it/it/tutti-i-servizi.html",
-    search: "dettaglio scheda servizio",
-    includePattern: /inps\.it\/it\/it\/.*(dettaglio[-.]scheda|schede-servizio)/i,
-  },
-  // 2) FAQ
-  {
-    layer: "faq",
-    url: "https://www.inps.it/it/it/assistenza.html",
-    search: "faq domande frequenti",
-    includePattern: /inps\.it\/it\/it\/.*(faq|domande[-]frequenti)/i,
-  },
-  // 3) Notizie
-  {
-    layer: "notizia",
-    url: "https://www.inps.it/it/it/inps-comunica/notizie.html",
-    search: "notizia",
-    includePattern: /inps\.it\/it\/it\/inps-comunica\/notizie\/.+\.html$/i,
-  },
-  // 4) Portale Famiglia
-  {
-    layer: "portale",
-    url: "https://www.inps.it/it/it/portale-della-famiglia-e-della-genitorialita.html",
-    search: undefined,
-    includePattern: /inps\.it\/it\/it\/portale-della-famiglia-e-della-genitorialita\/.+\.html$/i,
-  },
-  // 5) INPS per i giovani
-  {
-    layer: "portale",
-    url: "https://www.inps.it/it/it/inps-per-i-giovani.html",
-    search: undefined,
-    includePattern: /inps\.it\/it\/it\/inps-per-i-giovani\/.+\.html$/i,
-  },
+  // 1) Schede servizio: /it/it/dettaglio-scheda.it.schede-servizio-strumento.*.html
+  { layer: "scheda", url: BASE, search: "scheda servizio prestazione",
+    includePattern: /www\.inps\.it\/it\/it\/dettaglio-scheda\.it\..+\.html$/i },
+  { layer: "scheda", url: BASE, search: "come fare domanda prestazione inps",
+    includePattern: /www\.inps\.it\/it\/it\/dettaglio-scheda\.it\..+\.html$/i },
+  { layer: "scheda", url: BASE, search: "naspi assegno inclusione bonus requisiti",
+    includePattern: /www\.inps\.it\/it\/it\/dettaglio-scheda\.it\..+\.html$/i },
+
+  // 2) FAQ: pagine HTML in /it/it/... che contengono "faq" o "domande-frequenti"
+  { layer: "faq", url: BASE, search: "faq domande frequenti",
+    includePattern: /www\.inps\.it\/it\/it\/.*(faq|domande-frequenti).*\.html$/i },
+  { layer: "faq", url: BASE, search: "faq inps assistenza",
+    includePattern: /www\.inps\.it\/it\/it\/.*(faq|domande-frequenti).*\.html$/i },
+
+  // 3) Notizie: /it/it/inps-comunica/notizie/dettaglio-news-page.news.YYYY.MM.slug.html
+  { layer: "notizia", url: BASE, search: "notizia inps comunica",
+    includePattern: /www\.inps\.it\/it\/it\/inps-comunica\/notizie\/dettaglio-news-page\..+\.html$/i },
+  { layer: "notizia", url: BASE, search: "novità inps prestazioni famiglie lavoratori",
+    includePattern: /www\.inps\.it\/it\/it\/inps-comunica\/notizie\/dettaglio-news-page\..+\.html$/i },
+  { layer: "notizia", url: BASE, search: "messaggio circolare scadenza domanda",
+    includePattern: /www\.inps\.it\/it\/it\/inps-comunica\/notizie\/dettaglio-news-page\..+\.html$/i },
+
+  // 4) Portale famiglia + dossier tematici + sostegni-sussidi-indennita + giovani
+  { layer: "portale", url: BASE, search: "portale famiglia genitorialità",
+    includePattern: /www\.inps\.it\/it\/it\/portale-della-famiglia-e-della-genitorialita.*\.html$/i },
+  { layer: "portale", url: BASE, search: "dossier inps",
+    includePattern: /www\.inps\.it\/it\/it\/inps-comunica\/dossier\/.+\.html$/i },
+  { layer: "portale", url: BASE, search: "sostegni sussidi indennità famiglia disabilità lavoro",
+    includePattern: /www\.inps\.it\/it\/it\/sostegni-sussidi-indennita\/.+\.html$/i },
+  { layer: "portale", url: BASE, search: "inps per i giovani lavoro studio",
+    includePattern: /www\.inps\.it\/it\/it\/inps-per-i-giovani.*\.html$/i },
+];
+
+const CLASSIFY_PATTERNS: Array<{ layer: OpLayer; re: RegExp }> = [
+  { layer: "scheda",  re: /www\.inps\.it\/it\/it\/dettaglio-scheda\.it\./i },
+  { layer: "notizia", re: /www\.inps\.it\/it\/it\/inps-comunica\/notizie\/dettaglio-news-page\./i },
+  { layer: "faq",     re: /www\.inps\.it\/it\/it\/.*(faq|domande-frequenti)/i },
+  { layer: "portale", re: /www\.inps\.it\/it\/it\/(portale-della-famiglia-e-della-genitorialita|inps-per-i-giovani|inps-comunica\/dossier|sostegni-sussidi-indennita)/i },
 ];
 
 function classifyOperationalUrl(url: string): OpLayer {
-  for (const ep of ENTRY_POINTS) {
-    if (ep.includePattern.test(url)) return ep.layer;
-  }
+  for (const c of CLASSIFY_PATTERNS) if (c.re.test(url)) return c.layer;
   return "scheda";
 }
 
