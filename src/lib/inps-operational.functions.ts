@@ -49,8 +49,12 @@ async function firecrawlScrape(url: string, opts?: { onlyMainContent?: boolean }
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       url,
-      formats: ["markdown"],
-      onlyMainContent: opts?.onlyMainContent ?? true,
+      // Includiamo "links" così possiamo seguire i "leggi di più" verso le
+      // schede correlate e accodarle nella stessa sezione.
+      formats: ["markdown", "links"],
+      // onlyMainContent=false → cattura anche box laterali, accordion
+      // "Cos'è / A chi è rivolto / Come fare domanda" delle schede INPS.
+      onlyMainContent: opts?.onlyMainContent ?? false,
       parsers: ["pdf"],
     }),
   });
@@ -108,7 +112,17 @@ type SectionDef = {
   entryUrl: string;
   pathPrefix: string; // filtra i link discovered
   search: string;     // query per il map su BASE
+  // Seed URLs curati: vengono accodati direttamente in Discovery, anche se
+  // fuori dal pathPrefix della sezione. Servono a "imboccare" il crawler
+  // verso le schede-servizio realmente importanti che il map di Firecrawl
+  // non scopre (vivono su /dettaglio-scheda...html).
+  // Inoltre, lo scraper espande i link "leggi di più" → schede correlate
+  // trovate in queste pagine e le accoda nella stessa sezione.
+  seedUrls?: string[];
 };
+
+// Pattern delle schede-servizio INPS (per follow-up "leggi di più")
+const SCHEDA_REGEX = /\/it\/it\/dettaglio-scheda\.it\.[^"'\s<>]+\.html$/i;
 
 export const SECTIONS: SectionDef[] = [
   {
@@ -151,7 +165,28 @@ export const SECTIONS: SectionDef[] = [
     label: "Lavoro",
     entryUrl: `${BASE}/it/it/lavoro.html`,
     pathPrefix: "/it/it/lavoro",
-    search: "lavoro contratto cassa integrazione cig domestico colf badante",
+    search: "lavoro contratto cassa integrazione cig domestico colf badante disoccupazione naspi",
+    seedUrls: [
+      `${BASE}/it/it/lavoro/disoccupazione.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.assegno-di-inclusione-adi.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.comunicazioni-naspi.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.disoccupazione-agricola-indennit-erogata-in-unica-soluzione-50120.disoccupazione-agricola-indennit-erogata-in-unica-soluzione-per-i-lavoratori-agricoli-dipendenti.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.incentivo-decreto-coesione-domanda.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.indennit-di-discontinuit-a-favore-dei-lavoratori-dello-spettacolo.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.59173.indennit-di-disoccupazione-per-i-giornalisti.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.naspi-anticipata-indennit-di-disoccupazione-erogata-in-50589.naspi-anticipata-indennit-di-disoccupazione-erogata-in-unica-soluzione-lavoratori-licenziati-dal-1-maggio-2015-.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.50593.naspi-indennit-mensile-di-disoccupazione.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.questionario-inps-in-rete-.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.reddito-di-cittadinanza-e-pensione-di-cittadinanza-53209.reddito-di-cittadinanza-e-pensione-di-cittadinanza.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.rilascio-certificazione-a1-per-attivit-lavorative-in-stati-ue-see-svizzera.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.supporto-per-la-formazione-e-il-lavoro-sfl-.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.trattamento-speciale-di-disoccupazione-edile-legge-6-agosto-1975-n-427-50115.trattamento-speciale-di-disoccupazione-edile-legge-6-agosto-1975-n-427.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.50116.trattamento-speciale-di-disoccupazione-legge-23-luglio-1991-n-223-del-1991-e-legge-19-luglio-1994-n-451.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.Validazione-delle-certificazioni-ADI.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.comunicazione-di-rioccupazione-omnia-is-com.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.50109.mobilit-in-deroga---indennit-concessa-dalle-regioni-e-province-autonome-e-dal-ministero-del-lavoro-e-delle-politiche-sociali.html`,
+      `${BASE}/it/it/dettaglio-scheda.it.schede-servizio-strumento.schede-servizi.50112.mobilit-ordinaria---indennit-per-lavoratori-messi-in-mobilit-che-cercano-un-altra-occupazione-subordinata.html`,
+    ],
   },
   {
     id: "imprese",
@@ -205,7 +240,7 @@ function guessTopicTags(text: string): string[] {
 const QUEUE = "inps_operational_queue" as const;
 
 async function ingestSingle(url: string): Promise<
-  | { ok: true; created: boolean; external_id: string; title: string }
+  | { ok: true; created: boolean; external_id: string; title: string; relatedSchede: string[] }
   | { ok: false; url: string; reason: string }
 > {
   const external_id = buildExternalId(url);
@@ -215,9 +250,9 @@ async function ingestSingle(url: string): Promise<
     .select("id, title")
     .eq("external_id", external_id)
     .maybeSingle();
-  if (existing) return { ok: true, created: false, external_id, title: existing.title };
+  if (existing) return { ok: true, created: false, external_id, title: existing.title, relatedSchede: [] };
 
-  const page = await firecrawlScrape(url, { onlyMainContent: true });
+  const page = await firecrawlScrape(url);
   const md = (page.markdown ?? "").trim();
   if (md.length < 250) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)` };
 
@@ -226,6 +261,18 @@ async function ingestSingle(url: string): Promise<
   const fullText = md.slice(0, 60000);
   const description = page.metadata?.description?.slice(0, 500) ?? "";
   const topics = guessTopicTags(`${title} ${md.slice(0, 4000)}`);
+
+  // Harvest "leggi di più" → altre schede-servizio INPS collegate.
+  const relatedSchede: string[] = [];
+  for (const raw of page.links ?? []) {
+    if (!raw) continue;
+    const clean = raw.split("#")[0].split("?")[0];
+    if (!/^https?:\/\/(www\.)?inps\.it\//i.test(clean)) continue;
+    const path = clean.replace(/^https?:\/\/(www\.)?inps\.it/i, "");
+    if (!SCHEDA_REGEX.test(path)) continue;
+    if (clean === url) continue;
+    relatedSchede.push(clean);
+  }
 
   const { data: upserted, error } = await supabaseAdmin
     .from("sources")
@@ -250,7 +297,13 @@ async function ingestSingle(url: string): Promise<
   if (error) return { ok: false, url, reason: error.message };
 
   await supabaseAdmin.from("chunks").delete().eq("source_id", upserted.id);
-  return { ok: true, created: true, external_id: upserted.external_id!, title: upserted.title };
+  return {
+    ok: true,
+    created: true,
+    external_id: upserted.external_id!,
+    title: upserted.title,
+    relatedSchede: Array.from(new Set(relatedSchede)),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -297,6 +350,17 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
       }
     }
 
+    // Seed URLs curati: accodati SEMPRE, ignorando il pathPrefix (servono a
+    // imboccare il crawler verso schede-servizio fuori dal path di sezione).
+    let seedCount = 0;
+    for (const seed of sec.seedUrls ?? []) {
+      const clean = seed.split("#")[0].split("?")[0];
+      if (!found.has(clean)) {
+        found.add(clean);
+        seedCount++;
+      }
+    }
+
     // Upsert idempotente con section
     const rows = Array.from(found).map((url) => ({
       url,
@@ -319,6 +383,7 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
       section: sec.id,
       label: sec.label,
       discovered: found.size,
+      seedUrls: seedCount,
       enqueued,
       errors: errors.slice(0, 10),
     };
@@ -348,6 +413,7 @@ export const processInpsSectionBatch = createServerFn({ method: "POST" })
     const rows = (pending as Array<{ id: string; url: string }> | null) ?? [];
 
     let created = 0, skipped = 0, failed = 0;
+    const harvested = new Set<string>();
     let idx = 0;
     const worker = async () => {
       while (true) {
@@ -364,6 +430,7 @@ export const processInpsSectionBatch = createServerFn({ method: "POST" })
               error: null,
             }).eq("id", row.id);
             if (r.created) created++; else skipped++;
+            for (const u of r.relatedSchede) harvested.add(u);
           } else {
             failed++;
             await (supabaseAdmin as any).from(QUEUE).update({
@@ -385,7 +452,19 @@ export const processInpsSectionBatch = createServerFn({ method: "POST" })
     const pool = Math.min(data.concurrency, rows.length);
     await Promise.all(Array.from({ length: pool }, () => worker()));
 
-    return { section: sec.id, processed: rows.length, created, skipped, failed };
+    // Accoda nella stessa sezione le schede "leggi di più" scoperte.
+    let enqueuedRelated = 0;
+    if (harvested.size > 0) {
+      const newRows = Array.from(harvested).map((url) => ({
+        url, status: "pending", kind: "related", section: sec.id,
+      }));
+      const { data: ins } = await (supabaseAdmin as any).from(QUEUE)
+        .upsert(newRows, { onConflict: "url", ignoreDuplicates: true })
+        .select("id");
+      enqueuedRelated = (ins as unknown[] | null)?.length ?? 0;
+    }
+
+    return { section: sec.id, processed: rows.length, created, skipped, failed, enqueuedRelated };
   });
 
 // ---------------------------------------------------------------------------
