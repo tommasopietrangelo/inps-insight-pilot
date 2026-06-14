@@ -407,6 +407,7 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
       label: sec.label,
       discovered: found.size,
       seedUrls: seedCount,
+      fromEntryScrape,
       enqueued,
       errors: errors.slice(0, 10),
     };
