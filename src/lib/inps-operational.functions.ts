@@ -240,7 +240,7 @@ function guessTopicTags(text: string): string[] {
 const QUEUE = "inps_operational_queue" as const;
 
 async function ingestSingle(url: string): Promise<
-  | { ok: true; created: boolean; external_id: string; title: string }
+  | { ok: true; created: boolean; external_id: string; title: string; relatedSchede: string[] }
   | { ok: false; url: string; reason: string }
 > {
   const external_id = buildExternalId(url);
@@ -250,9 +250,9 @@ async function ingestSingle(url: string): Promise<
     .select("id, title")
     .eq("external_id", external_id)
     .maybeSingle();
-  if (existing) return { ok: true, created: false, external_id, title: existing.title };
+  if (existing) return { ok: true, created: false, external_id, title: existing.title, relatedSchede: [] };
 
-  const page = await firecrawlScrape(url, { onlyMainContent: true });
+  const page = await firecrawlScrape(url);
   const md = (page.markdown ?? "").trim();
   if (md.length < 250) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)` };
 
@@ -261,6 +261,18 @@ async function ingestSingle(url: string): Promise<
   const fullText = md.slice(0, 60000);
   const description = page.metadata?.description?.slice(0, 500) ?? "";
   const topics = guessTopicTags(`${title} ${md.slice(0, 4000)}`);
+
+  // Harvest "leggi di più" → altre schede-servizio INPS collegate.
+  const relatedSchede: string[] = [];
+  for (const raw of page.links ?? []) {
+    if (!raw) continue;
+    const clean = raw.split("#")[0].split("?")[0];
+    if (!/^https?:\/\/(www\.)?inps\.it\//i.test(clean)) continue;
+    const path = clean.replace(/^https?:\/\/(www\.)?inps\.it/i, "");
+    if (!SCHEDA_REGEX.test(path)) continue;
+    if (clean === url) continue;
+    relatedSchede.push(clean);
+  }
 
   const { data: upserted, error } = await supabaseAdmin
     .from("sources")
@@ -285,7 +297,13 @@ async function ingestSingle(url: string): Promise<
   if (error) return { ok: false, url, reason: error.message };
 
   await supabaseAdmin.from("chunks").delete().eq("source_id", upserted.id);
-  return { ok: true, created: true, external_id: upserted.external_id!, title: upserted.title };
+  return {
+    ok: true,
+    created: true,
+    external_id: upserted.external_id!,
+    title: upserted.title,
+    relatedSchede: Array.from(new Set(relatedSchede)),
+  };
 }
 
 // ---------------------------------------------------------------------------
