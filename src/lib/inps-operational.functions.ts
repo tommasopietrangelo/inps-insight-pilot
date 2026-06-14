@@ -350,6 +350,17 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
       }
     }
 
+    // Seed URLs curati: accodati SEMPRE, ignorando il pathPrefix (servono a
+    // imboccare il crawler verso schede-servizio fuori dal path di sezione).
+    let seedCount = 0;
+    for (const seed of sec.seedUrls ?? []) {
+      const clean = seed.split("#")[0].split("?")[0];
+      if (!found.has(clean)) {
+        found.add(clean);
+        seedCount++;
+      }
+    }
+
     // Upsert idempotente con section
     const rows = Array.from(found).map((url) => ({
       url,
