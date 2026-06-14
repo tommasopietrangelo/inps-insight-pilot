@@ -413,6 +413,7 @@ export const processInpsSectionBatch = createServerFn({ method: "POST" })
     const rows = (pending as Array<{ id: string; url: string }> | null) ?? [];
 
     let created = 0, skipped = 0, failed = 0;
+    const harvested = new Set<string>();
     let idx = 0;
     const worker = async () => {
       while (true) {
@@ -429,6 +430,7 @@ export const processInpsSectionBatch = createServerFn({ method: "POST" })
               error: null,
             }).eq("id", row.id);
             if (r.created) created++; else skipped++;
+            for (const u of r.relatedSchede) harvested.add(u);
           } else {
             failed++;
             await (supabaseAdmin as any).from(QUEUE).update({
@@ -450,7 +452,19 @@ export const processInpsSectionBatch = createServerFn({ method: "POST" })
     const pool = Math.min(data.concurrency, rows.length);
     await Promise.all(Array.from({ length: pool }, () => worker()));
 
-    return { section: sec.id, processed: rows.length, created, skipped, failed };
+    // Accoda nella stessa sezione le schede "leggi di più" scoperte.
+    let enqueuedRelated = 0;
+    if (harvested.size > 0) {
+      const newRows = Array.from(harvested).map((url) => ({
+        url, status: "pending", kind: "related", section: sec.id,
+      }));
+      const { data: ins } = await (supabaseAdmin as any).from(QUEUE)
+        .upsert(newRows, { onConflict: "url", ignoreDuplicates: true })
+        .select("id");
+      enqueuedRelated = (ins as unknown[] | null)?.length ?? 0;
+    }
+
+    return { section: sec.id, processed: rows.length, created, skipped, failed, enqueuedRelated };
   });
 
 // ---------------------------------------------------------------------------
