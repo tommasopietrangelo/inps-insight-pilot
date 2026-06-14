@@ -350,8 +350,30 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
       }
     }
 
-    // Seed URLs curati: accodati SEMPRE, ignorando il pathPrefix (servono a
-    // imboccare il crawler verso schede-servizio fuori dal path di sezione).
+    // Step extra: SCRAPE della entry page per raccogliere i link "figli" reali.
+    // Le landing INPS (es. per-disoccupati.html) linkano quasi esclusivamente a
+    // schede `/dettaglio-scheda...html` che vivono fuori dal pathPrefix, quindi
+    // verrebbero scartate dal filtro precedente. Qui le accettiamo se sono
+    // schede-servizio INPS (pattern SCHEDA_REGEX) oppure stanno nel pathPrefix.
+    let fromEntryScrape = 0;
+    try {
+      const entryPage = await firecrawlScrape(sec.entryUrl);
+      for (const raw of entryPage.links ?? []) {
+        if (!raw) continue;
+        const clean = raw.split("#")[0].split("?")[0];
+        if (!/^https?:\/\/(www\.)?inps\.it\//i.test(clean)) continue;
+        const path = clean.replace(/^https?:\/\/(www\.)?inps\.it/i, "");
+        const isScheda = SCHEDA_REGEX.test(path);
+        const inPath = path.toLowerCase().startsWith(sec.pathPrefix.toLowerCase());
+        if (!isScheda && !inPath) continue;
+        if (clean.replace(/\/$/, "") === sec.entryUrl.replace(/\/$/, "")) continue;
+        if (!found.has(clean)) { found.add(clean); fromEntryScrape++; }
+      }
+    } catch (e) {
+      errors.push(`entry-scrape: ${(e as Error).message}`);
+    }
+
+    // Seed URLs curati: accodati SEMPRE, ignorando il pathPrefix.
     let seedCount = 0;
     for (const seed of sec.seedUrls ?? []) {
       const clean = seed.split("#")[0].split("?")[0];
@@ -360,6 +382,7 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
         seedCount++;
       }
     }
+
 
     // Upsert idempotente con section
     const rows = Array.from(found).map((url) => ({
@@ -384,6 +407,7 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
       label: sec.label,
       discovered: found.size,
       seedUrls: seedCount,
+      fromEntryScrape,
       enqueued,
       errors: errors.slice(0, 10),
     };
