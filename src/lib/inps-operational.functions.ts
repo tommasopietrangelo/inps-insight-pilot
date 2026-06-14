@@ -49,8 +49,12 @@ async function firecrawlScrape(url: string, opts?: { onlyMainContent?: boolean }
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       url,
-      formats: ["markdown"],
-      onlyMainContent: opts?.onlyMainContent ?? true,
+      // Includiamo "links" così possiamo seguire i "leggi di più" verso le
+      // schede correlate e accodarle nella stessa sezione.
+      formats: ["markdown", "links"],
+      // onlyMainContent=false → cattura anche box laterali, accordion
+      // "Cos'è / A chi è rivolto / Come fare domanda" delle schede INPS.
+      onlyMainContent: opts?.onlyMainContent ?? false,
       parsers: ["pdf"],
     }),
   });
