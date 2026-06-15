@@ -43,27 +43,61 @@ type ScrapeResult = {
   metadata?: { title?: string; description?: string; sourceURL?: string; statusCode?: number };
 };
 
-async function firecrawlScrape(url: string, opts?: { onlyMainContent?: boolean }): Promise<ScrapeResult> {
+async function firecrawlScrape(
+  url: string,
+  opts?: { onlyMainContent?: boolean; expandAccordions?: boolean },
+): Promise<ScrapeResult> {
   const key = requireFirecrawlKey();
+  const body: Record<string, unknown> = {
+    url,
+    // Includiamo "links" così possiamo seguire i "leggi di più" verso le
+    // schede correlate e accodarle nella stessa sezione.
+    formats: ["markdown", "links"],
+    // onlyMainContent=false → cattura anche box laterali, accordion
+    // "Cos'è / A chi è rivolto / Come fare domanda" delle schede INPS.
+    onlyMainContent: opts?.onlyMainContent ?? false,
+    parsers: ["pdf"],
+  };
+  if (opts?.expandAccordions) {
+    // Espande tutti gli accordion / "leggi di più" prima dello scrape,
+    // così il markdown contiene anche le sezioni nascoste lazy-loaded.
+    body.actions = [
+      { type: "wait", milliseconds: 1500 },
+      {
+        type: "executeJavascript",
+        script: `
+          (() => {
+            const sels = [
+              '[aria-expanded="false"]',
+              'button.accordion-button.collapsed',
+              '.collapsed[data-bs-toggle="collapse"]',
+              'details:not([open])',
+              'a.leggi-di-piu, a.read-more, button.read-more',
+            ];
+            document.querySelectorAll(sels.join(',')).forEach((el) => {
+              try {
+                if (el.tagName === 'DETAILS') { el.setAttribute('open',''); }
+                else { el.click(); }
+              } catch (_) {}
+            });
+          })();
+        `,
+      },
+      { type: "wait", milliseconds: 1500 },
+      { type: "scrape" },
+    ];
+  }
   const res = await fetch(`${FIRECRAWL_BASE}/scrape`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      url,
-      // Includiamo "links" così possiamo seguire i "leggi di più" verso le
-      // schede correlate e accodarle nella stessa sezione.
-      formats: ["markdown", "links"],
-      // onlyMainContent=false → cattura anche box laterali, accordion
-      // "Cos'è / A chi è rivolto / Come fare domanda" delle schede INPS.
-      onlyMainContent: opts?.onlyMainContent ?? false,
-      parsers: ["pdf"],
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Firecrawl scrape ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const json = (await res.json()) as { success?: boolean; data?: ScrapeResult; error?: string };
   if (!json.success || !json.data) throw new Error(`Firecrawl scrape failed: ${json.error ?? "unknown"}`);
   return json.data;
 }
+
 
 async function firecrawlMap(url: string, search: string | undefined, limit = 500): Promise<string[]> {
   const key = requireFirecrawlKey();
@@ -255,7 +289,7 @@ async function ingestSingle(url: string): Promise<
     .maybeSingle();
   if (existing) return { ok: true, created: false, external_id, title: existing.title, relatedSchede: [] };
 
-  const page = await firecrawlScrape(url);
+  const page = await firecrawlScrape(url, { expandAccordions: true });
   const md = (page.markdown ?? "").trim();
   if (md.length < 250) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)` };
 
