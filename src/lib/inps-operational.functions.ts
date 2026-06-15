@@ -289,7 +289,7 @@ async function ingestSingle(url: string): Promise<
     .maybeSingle();
   if (existing) return { ok: true, created: false, external_id, title: existing.title, relatedSchede: [] };
 
-  const page = await firecrawlScrape(url);
+  const page = await firecrawlScrape(url, { expandAccordions: true });
   const md = (page.markdown ?? "").trim();
   if (md.length < 250) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)` };
 
