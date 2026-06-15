@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { createHash } from "crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // ---------------------------------------------------------------------------
@@ -213,7 +214,9 @@ function getSection(id: string): SectionDef {
 // ---------- helpers ----------
 
 function buildExternalId(url: string): string {
-  const hash = Buffer.from(url).toString("base64url").slice(0, 18);
+  // sha256 dell'URL completo → ID univoco e stabile. Il vecchio schema
+  // base64.slice(0,18) collassava su un unico ID per tutti gli URL inps.it.
+  const hash = createHash("sha256").update(url).digest("hex").slice(0, 24);
   return `inps-op-${hash}`;
 }
 
