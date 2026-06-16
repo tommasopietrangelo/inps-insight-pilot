@@ -547,9 +547,19 @@ function Settings() {
                           setOpSectionMsg((m) => ({ ...m, [sec.id]: "Discovery…" }));
                           try {
                             const r = await runOpDiscover({ data: { section: sec.id, limit: 500 } });
+                            saveReport(sec.id, {
+                              totalLinksSeen: r.totalLinksSeen,
+                              matched: r.matched,
+                              ignored: r.ignored,
+                              inCorpus: r.inCorpus,
+                              newEnqueued: r.newEnqueued,
+                              seedUrls: r.seedUrls,
+                              fromEntryScrape: r.fromEntryScrape,
+                              at: new Date().toISOString(),
+                            });
                             setOpSectionMsg((m) => ({
                               ...m,
-                              [sec.id]: `Discovery: ${r.discovered} URL, ${r.enqueued} nuovi accodati${r.errors.length ? ` · ${r.errors.length} errori` : ""}`,
+                              [sec.id]: `Discovery completata${r.errors.length ? ` · ${r.errors.length} errori` : ""}`,
                             }));
                             await refetchOpStats();
                           } catch (e) {
