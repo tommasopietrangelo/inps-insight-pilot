@@ -519,6 +519,7 @@ function Settings() {
               const stats = opStats?.perSection[sec.id] ?? { pending: 0, done: 0, skipped: 0, error: 0, total: 0 };
               const busy = opBusySection === sec.id;
               const msg = opSectionMsg[sec.id];
+              const report = opReports[sec.id];
               return (
                 <div key={sec.id} className="rounded-md border bg-surface px-3 py-3">
                   <div className="flex flex-wrap items-center gap-3">
