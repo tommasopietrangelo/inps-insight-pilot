@@ -357,13 +357,22 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const sec = getSection(data.section);
     const errors: string[] = [];
-    const found = new Set<string>();
+    // Raccogliamo TUTTI i link inps.it visti (entry, base+search, entry-scrape)
+    // così possiamo poi calcolare il report:
+    //   trovati = totale link inps.it unici visti
+    //   matched = link che passano il filtro (pathPrefix o scheda)
+    //   ignored = link inps.it scartati (fuori pattern)
+    //   inCorpus = link matched già presenti in `sources` (operativo)
+    //   newEnqueued = nuovi accodati in coda
+    const allSeen = new Set<string>();
+    const matched = new Set<string>();
+    const fromEntryScrapeSet = new Set<string>();
 
-    // Strategia: due chiamate map per massimizzare la copertura.
-    //   a) map sull'entry-point della sezione (Firecrawl può restituire pochi
-    //      link su URL profondi, ma quando funziona dà i figli diretti)
-    //   b) map su BASE con `search` calibrata sulla sezione (più recall)
-    // Poi filtra per path-prefix della sezione.
+    const normalize = (raw: string) => raw.split("#")[0].split("?")[0];
+    const isInps = (u: string) => /^https?:\/\/(www\.)?inps\.it\//i.test(u);
+    const isEntry = (u: string) => u.replace(/\/$/, "") === sec.entryUrl.replace(/\/$/, "");
+
+    // a) map entry  b) map BASE+search
     const calls: Array<{ url: string; search?: string; label: string }> = [
       { url: sec.entryUrl, search: undefined, label: "entry" },
       { url: BASE, search: sec.search, label: "base+search" },
@@ -373,62 +382,75 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
       try {
         const links = await firecrawlMap(c.url, c.search, data.limit);
         for (const raw of links) {
-          const clean = raw.split("#")[0].split("?")[0];
-          // filtro: deve essere sul dominio inps.it e dentro al path della sezione
-          if (!/^https?:\/\/(www\.)?inps\.it\//i.test(clean)) continue;
+          const clean = normalize(raw);
+          if (!isInps(clean) || isEntry(clean)) continue;
+          allSeen.add(clean);
           const path = clean.replace(/^https?:\/\/(www\.)?inps\.it/i, "");
-          if (!path.toLowerCase().startsWith(sec.pathPrefix.toLowerCase())) continue;
-          // escludi l'entry-point stesso
-          if (clean.replace(/\/$/, "") === sec.entryUrl.replace(/\/$/, "")) continue;
-          found.add(clean);
+          if (path.toLowerCase().startsWith(sec.pathPrefix.toLowerCase())) matched.add(clean);
         }
       } catch (e) {
         errors.push(`${c.label}: ${(e as Error).message}`);
       }
     }
 
-    // Step extra: SCRAPE della entry page per raccogliere i link "figli" reali.
-    // Le landing INPS (es. per-disoccupati.html) linkano quasi esclusivamente a
-    // schede `/dettaglio-scheda...html` che vivono fuori dal pathPrefix, quindi
-    // verrebbero scartate dal filtro precedente. Qui le accettiamo se sono
-    // schede-servizio INPS (pattern SCHEDA_REGEX) oppure stanno nel pathPrefix.
-    let fromEntryScrape = 0;
+    // c) Scrape della entry page: accetta anche schede `/dettaglio-scheda…html`
+    // fuori dal pathPrefix (sono i veri "leggi di più" delle landing INPS).
     try {
       const entryPage = await firecrawlScrape(sec.entryUrl);
       for (const raw of entryPage.links ?? []) {
         if (!raw) continue;
-        const clean = raw.split("#")[0].split("?")[0];
-        if (!/^https?:\/\/(www\.)?inps\.it\//i.test(clean)) continue;
+        const clean = normalize(raw);
+        if (!isInps(clean) || isEntry(clean)) continue;
+        allSeen.add(clean);
         const path = clean.replace(/^https?:\/\/(www\.)?inps\.it/i, "");
         const isScheda = SCHEDA_REGEX.test(path);
         const inPath = path.toLowerCase().startsWith(sec.pathPrefix.toLowerCase());
-        if (!isScheda && !inPath) continue;
-        if (clean.replace(/\/$/, "") === sec.entryUrl.replace(/\/$/, "")) continue;
-        if (!found.has(clean)) { found.add(clean); fromEntryScrape++; }
+        if (isScheda || inPath) {
+          if (!matched.has(clean)) fromEntryScrapeSet.add(clean);
+          matched.add(clean);
+        }
       }
     } catch (e) {
       errors.push(`entry-scrape: ${(e as Error).message}`);
     }
 
-    // Seed URLs curati: accodati SEMPRE, ignorando il pathPrefix.
+    // Seed URLs curati: sempre nei matched.
     let seedCount = 0;
     for (const seed of sec.seedUrls ?? []) {
-      const clean = seed.split("#")[0].split("?")[0];
-      if (!found.has(clean)) {
-        found.add(clean);
+      const clean = normalize(seed);
+      allSeen.add(clean);
+      if (!matched.has(clean)) {
+        matched.add(clean);
         seedCount++;
       }
     }
 
+    const matchedList = Array.from(matched);
 
-    // Upsert idempotente con section
-    const rows = Array.from(found).map((url) => ({
-      url,
-      status: "pending",
-      kind: "section",
-      section: sec.id,
+    // Conta quanti dei matched sono già in `sources` (corpus operativo).
+    const externalIds = matchedList.map((u) => buildExternalId(u));
+    const idToUrl = new Map<string, string>();
+    matchedList.forEach((u, i) => idToUrl.set(externalIds[i], u));
+    let inCorpus = 0;
+    const CHUNK_Q = 200;
+    for (let i = 0; i < externalIds.length; i += CHUNK_Q) {
+      const slice = externalIds.slice(i, i + CHUNK_Q);
+      const { data: exist, error } = await supabaseAdmin
+        .from("sources")
+        .select("external_id")
+        .in("external_id", slice);
+      if (error) {
+        errors.push(`in-corpus check: ${error.message}`);
+        continue;
+      }
+      inCorpus += (exist ?? []).length;
+    }
+
+    // Upsert idempotente
+    const rows = matchedList.map((url) => ({
+      url, status: "pending", kind: "section", section: sec.id,
     }));
-    let enqueued = 0;
+    let newEnqueued = 0;
     const CHUNK = 500;
     for (let i = 0; i < rows.length; i += CHUNK) {
       const slice = rows.slice(i, i + CHUNK);
@@ -436,16 +458,26 @@ export const discoverInpsSection = createServerFn({ method: "POST" })
         .upsert(slice, { onConflict: "url", ignoreDuplicates: true })
         .select("id");
       if (error) errors.push(`enqueue ${i}: ${error.message}`);
-      else enqueued += (ins as unknown[] | null)?.length ?? 0;
+      else newEnqueued += (ins as unknown[] | null)?.length ?? 0;
     }
+
+    const ignored = allSeen.size - matched.size;
 
     return {
       section: sec.id,
       label: sec.label,
-      discovered: found.size,
+      // === REPORT ===
+      totalLinksSeen: allSeen.size,
+      matched: matched.size,
+      ignored,
+      inCorpus,
+      newEnqueued,
+      // dettagli
       seedUrls: seedCount,
-      fromEntryScrape,
-      enqueued,
+      fromEntryScrape: fromEntryScrapeSet.size,
+      // retro-compat (UI vecchia)
+      discovered: matched.size,
+      enqueued: newEnqueued,
       errors: errors.slice(0, 10),
     };
   });
