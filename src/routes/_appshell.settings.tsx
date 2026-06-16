@@ -104,6 +104,22 @@ function Settings() {
   const [opBusyMode, setOpBusyMode] = useState<"discover" | "batch" | null>(null);
   const [opSectionMsg, setOpSectionMsg] = useState<Record<string, string>>({});
   const [opBatchSize, setOpBatchSize] = useState(100);
+  type DiscoveryReport = {
+    totalLinksSeen: number; matched: number; ignored: number;
+    inCorpus: number; newEnqueued: number; seedUrls: number; fromEntryScrape: number;
+    at: string;
+  };
+  const [opReports, setOpReports] = useState<Record<string, DiscoveryReport>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem("inps-op-discovery-reports") || "{}"); } catch { return {}; }
+  });
+  const saveReport = (id: string, r: DiscoveryReport) => {
+    setOpReports((prev) => {
+      const next = { ...prev, [id]: r };
+      try { localStorage.setItem("inps-op-discovery-reports", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
   const { data: opStats, refetch: refetchOpStats } = useQuery({
     queryKey: ["inps-op-sections-stats"],
     queryFn: () => fetchOpStats(),
