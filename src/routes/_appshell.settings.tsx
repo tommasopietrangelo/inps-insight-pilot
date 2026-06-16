@@ -104,6 +104,22 @@ function Settings() {
   const [opBusyMode, setOpBusyMode] = useState<"discover" | "batch" | null>(null);
   const [opSectionMsg, setOpSectionMsg] = useState<Record<string, string>>({});
   const [opBatchSize, setOpBatchSize] = useState(100);
+  type DiscoveryReport = {
+    totalLinksSeen: number; matched: number; ignored: number;
+    inCorpus: number; newEnqueued: number; seedUrls: number; fromEntryScrape: number;
+    at: string;
+  };
+  const [opReports, setOpReports] = useState<Record<string, DiscoveryReport>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem("inps-op-discovery-reports") || "{}"); } catch { return {}; }
+  });
+  const saveReport = (id: string, r: DiscoveryReport) => {
+    setOpReports((prev) => {
+      const next = { ...prev, [id]: r };
+      try { localStorage.setItem("inps-op-discovery-reports", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
   const { data: opStats, refetch: refetchOpStats } = useQuery({
     queryKey: ["inps-op-sections-stats"],
     queryFn: () => fetchOpStats(),
@@ -503,6 +519,7 @@ function Settings() {
               const stats = opStats?.perSection[sec.id] ?? { pending: 0, done: 0, skipped: 0, error: 0, total: 0 };
               const busy = opBusySection === sec.id;
               const msg = opSectionMsg[sec.id];
+              const report = opReports[sec.id];
               return (
                 <div key={sec.id} className="rounded-md border bg-surface px-3 py-3">
                   <div className="flex flex-wrap items-center gap-3">
@@ -531,9 +548,19 @@ function Settings() {
                           setOpSectionMsg((m) => ({ ...m, [sec.id]: "Discovery…" }));
                           try {
                             const r = await runOpDiscover({ data: { section: sec.id, limit: 500 } });
+                            saveReport(sec.id, {
+                              totalLinksSeen: r.totalLinksSeen,
+                              matched: r.matched,
+                              ignored: r.ignored,
+                              inCorpus: r.inCorpus,
+                              newEnqueued: r.newEnqueued,
+                              seedUrls: r.seedUrls,
+                              fromEntryScrape: r.fromEntryScrape,
+                              at: new Date().toISOString(),
+                            });
                             setOpSectionMsg((m) => ({
                               ...m,
-                              [sec.id]: `Discovery: ${r.discovered} URL, ${r.enqueued} nuovi accodati${r.errors.length ? ` · ${r.errors.length} errori` : ""}`,
+                              [sec.id]: `Discovery completata${r.errors.length ? ` · ${r.errors.length} errori` : ""}`,
                             }));
                             await refetchOpStats();
                           } catch (e) {
@@ -590,6 +617,26 @@ function Settings() {
                       </Button>
                     </div>
                   </div>
+                  {report && (
+                    <div className="mt-2 rounded border bg-background/50 px-2.5 py-2 text-xs">
+                      <div className="mb-1 font-medium text-foreground/80">
+                        Ultima discovery · {new Date(report.at).toLocaleString("it-IT")}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant="secondary" className="font-mono">trovati {report.totalLinksSeen}</Badge>
+                        <Badge variant="secondary" className="font-mono">match {report.matched}</Badge>
+                        <Badge variant="secondary" className="font-mono text-emerald-700 dark:text-emerald-400">nuovi {report.newEnqueued}</Badge>
+                        <Badge variant="secondary" className="font-mono">già in corpus {report.inCorpus}</Badge>
+                        <Badge variant="secondary" className="font-mono text-muted-foreground">ignorati {report.ignored}</Badge>
+                        {report.seedUrls > 0 && (
+                          <Badge variant="outline" className="font-mono">seed {report.seedUrls}</Badge>
+                        )}
+                        {report.fromEntryScrape > 0 && (
+                          <Badge variant="outline" className="font-mono">da entry {report.fromEntryScrape}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {msg && (
                     <div className="mt-2 text-xs text-muted-foreground">{msg}</div>
                   )}
