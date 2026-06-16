@@ -617,6 +617,26 @@ function Settings() {
                       </Button>
                     </div>
                   </div>
+                  {report && (
+                    <div className="mt-2 rounded border bg-background/50 px-2.5 py-2 text-xs">
+                      <div className="mb-1 font-medium text-foreground/80">
+                        Ultima discovery · {new Date(report.at).toLocaleString("it-IT")}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant="secondary" className="font-mono">trovati {report.totalLinksSeen}</Badge>
+                        <Badge variant="secondary" className="font-mono">match {report.matched}</Badge>
+                        <Badge variant="secondary" className="font-mono text-emerald-700 dark:text-emerald-400">nuovi {report.newEnqueued}</Badge>
+                        <Badge variant="secondary" className="font-mono">già in corpus {report.inCorpus}</Badge>
+                        <Badge variant="secondary" className="font-mono text-muted-foreground">ignorati {report.ignored}</Badge>
+                        {report.seedUrls > 0 && (
+                          <Badge variant="outline" className="font-mono">seed {report.seedUrls}</Badge>
+                        )}
+                        {report.fromEntryScrape > 0 && (
+                          <Badge variant="outline" className="font-mono">da entry {report.fromEntryScrape}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {msg && (
                     <div className="mt-2 text-xs text-muted-foreground">{msg}</div>
                   )}
