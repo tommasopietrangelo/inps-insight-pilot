@@ -157,9 +157,11 @@ function parseInpsUrl(url: string): AttoMeta {
 
   // Pattern tipico: ".../circolare-numero-58-del-20-05-2026_15274.html"
   //                ".../messaggio-numero-1794-del-28-05-2026_15211.html"
-  const m = lower.match(/numero[-\s]?(\d{1,5})[-\s_]+del[-\s_]+(\d{2})[-\s_](\d{2})[-\s_](\d{4})/);
+  const m = lower.match(/numero[-\s]?(\d{1,5})[-\s_]+del[-\s_]+(\d{1,2})[-\s_](\d{1,2})[-\s_](\d{4})/);
   if (m) {
-    return { kind, number: m[1], year: Number(m[4]), date: `${m[4]}-${m[3]}-${m[2]}` };
+    const dd = m[2].padStart(2, "0");
+    const mm = m[3].padStart(2, "0");
+    return { kind, number: m[1], year: Number(m[4]), date: `${m[4]}-${mm}-${dd}` };
   }
   const m2 = lower.match(/n[-_.]?(\d{1,5})[-_.](?:del[-_.])?(\d{4})/);
   if (m2) return { kind, number: m2[1], year: Number(m2[2]), date: null };
@@ -169,7 +171,7 @@ function parseInpsUrl(url: string): AttoMeta {
 function buildExternalId(meta: AttoMeta, fallbackUrl: string): string {
   const prefix = meta.kind === "circolare" ? "circ" : meta.kind === "messaggio" ? "msg" : meta.kind === "decreto" ? "dec" : "doc";
   if (meta.number && meta.year) return `inps-${prefix}-${meta.number}-${meta.year}`;
-  const hash = Buffer.from(fallbackUrl).toString("base64url").slice(0, 14);
+  const hash = createHash("sha256").update(fallbackUrl).digest("hex").slice(0, 24);
   return `inps-${prefix}-${hash}`;
 }
 
