@@ -853,7 +853,7 @@ export const repairEmptyInpsFullText = createServerFn({ method: "POST" })
 //     li riprocessa, senza ricreare la discovery.
 // ---------------------------------------------------------------------------
 
-const CREDIT_PATTERNS = ["%402%", "%insufficient credit%", "%insufficient_credits%"];
+
 const TRANSIENT_REGEX = "(429|408|502|503|504|timeout|ETIMEDOUT|ECONNRESET|EAI_AGAIN)";
 
 export const getInpsErrorBreakdown = createServerFn({ method: "GET" })
