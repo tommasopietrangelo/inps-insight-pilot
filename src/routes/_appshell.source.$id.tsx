@@ -8,14 +8,19 @@ import {
   Hash,
   Tag,
   Loader2,
+  Sparkles,
+  KeyRound,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { NOTES } from "@/lib/mock-data";
-import { useSourceBySlug, useSources } from "@/lib/data";
+import { useSourceBySlug } from "@/lib/data";
+import { getSourceKeyPoints, getRelatedSources } from "@/lib/source-detail.functions";
 
 export const Route = createFileRoute("/_appshell/source/$id")({
   head: () => ({ meta: [{ title: "Fonte · INPS Copilot" }] }),
@@ -25,7 +30,22 @@ export const Route = createFileRoute("/_appshell/source/$id")({
 function SourceDetail() {
   const { id } = Route.useParams();
   const { data: src, isLoading } = useSourceBySlug(id);
-  const { data: allSources = [] } = useSources();
+
+  const fetchKeyPoints = useServerFn(getSourceKeyPoints);
+  const fetchRelated = useServerFn(getRelatedSources);
+
+  const keyPointsQuery = useQuery({
+    queryKey: ["source-key-points", src?.uuid],
+    enabled: !!src?.uuid,
+    staleTime: 1000 * 60 * 60,
+    queryFn: () => fetchKeyPoints({ data: { sourceId: src!.uuid } }),
+  });
+  const relatedQuery = useQuery({
+    queryKey: ["source-related", src?.uuid],
+    enabled: !!src?.uuid,
+    staleTime: 1000 * 60 * 30,
+    queryFn: () => fetchRelated({ data: { sourceId: src!.uuid, limit: 8 } }),
+  });
 
   if (isLoading) {
     return (
@@ -45,10 +65,9 @@ function SourceDetail() {
     );
   }
 
-  const related = allSources
-    .filter((s) => s.id !== src.id && s.topic_tags.some((t) => src.topic_tags.includes(t)))
-    .slice(0, 4);
+  const related = relatedQuery.data?.related ?? [];
   const noteForSource = NOTES.find((n) => n.linked_source === src.id);
+
 
   return (
     <div className="space-y-5">
@@ -101,7 +120,7 @@ function SourceDetail() {
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="ai">Sintesi AI</TabsTrigger>
               <TabsTrigger value="text">Testo integrale</TabsTrigger>
-              <TabsTrigger value="deadlines">Scadenze chiave</TabsTrigger>
+              <TabsTrigger value="deadlines">Punti chiave</TabsTrigger>
               <TabsTrigger value="related">Atti collegati</TabsTrigger>
               <TabsTrigger value="notes">Note interne</TabsTrigger>
             </TabsList>
@@ -137,42 +156,124 @@ function SourceDetail() {
 
             <TabsContent value="deadlines" className="mt-4">
               <Card className="p-6">
-                <div className="space-y-3 text-sm">
-                  {[
-                    { d: "01/06/2026", t: "Entrata in vigore nuovi requisiti reddituali" },
-                    { d: "30/09/2026", t: "Termine rinnovo PAD per nuclei già percettori" },
-                    { d: "31/12/2026", t: "Conclusione fase transitoria" },
-                  ].map((x) => (
-                    <div key={x.d} className="flex items-center gap-3 rounded-md border bg-surface p-3">
-                      <CalendarDays className="h-4 w-4 text-primary" />
-                      <span className="font-mono text-xs text-muted-foreground">{x.d}</span>
-                      <span className="text-foreground">{x.t}</span>
+                {keyPointsQuery.isLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Estrazione punti chiave dal testo…
+                  </div>
+                ) : keyPointsQuery.isError ? (
+                  <div className="text-sm text-destructive">
+                    Errore: {(keyPointsQuery.error as Error).message}
+                  </div>
+                ) : (
+                  <div className="space-y-6 text-sm">
+                    <div>
+                      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                        <Sparkles className="h-3.5 w-3.5" /> Punti fondamentali
+                      </div>
+                      {keyPointsQuery.data?.points?.length ? (
+                        <div className="space-y-2">
+                          {keyPointsQuery.data.points.map((p, i) => (
+                            <div
+                              key={`${i}-${p.label}`}
+                              className="flex gap-3 rounded-md border bg-surface p-3"
+                            >
+                              <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                              <div>
+                                <div className="font-medium text-foreground">{p.label}</div>
+                                {p.detail && (
+                                  <div className="mt-0.5 text-muted-foreground">{p.detail}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          Nessun punto chiave estratto: il testo dell'atto è troppo breve o non disponibile.
+                        </p>
+                      )}
                     </div>
-                  ))}
-                </div>
+
+                    <div>
+                      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                        <CalendarDays className="h-3.5 w-3.5" /> Scadenze esplicite
+                      </div>
+                      {keyPointsQuery.data?.deadlines?.length ? (
+                        <div className="space-y-2">
+                          {keyPointsQuery.data.deadlines.map((x, i) => (
+                            <div
+                              key={`${i}-${x.date}`}
+                              className="flex items-center gap-3 rounded-md border bg-surface p-3"
+                            >
+                              <CalendarDays className="h-4 w-4 text-primary" />
+                              <span className="font-mono text-xs text-muted-foreground">{x.date}</span>
+                              <span className="text-foreground">{x.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          Nessuna scadenza esplicita rilevata nel testo.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </Card>
             </TabsContent>
 
             <TabsContent value="related" className="mt-4">
               <Card className="p-6">
-                <div className="divide-y">
-                  {related.map((r) => (
-                    <Link
-                      key={r.id}
-                      to="/source/$id"
-                      params={{ id: r.id }}
-                      className="block py-3 first:pt-0 last:pb-0 hover:bg-surface-muted/50 -mx-2 px-2 rounded-md"
-                    >
-                      <div className="flex items-center gap-2 text-xs">
-                        <Badge variant="secondary" className="rounded-sm">{r.source_type}</Badge>
-                        <span className="font-mono text-muted-foreground">{r.document_number}</span>
-                      </div>
-                      <div className="mt-1 text-sm font-medium">{r.title}</div>
-                    </Link>
-                  ))}
-                </div>
+                {relatedQuery.isLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Ricerca atti collegati nel corpus…
+                  </div>
+                ) : relatedQuery.isError ? (
+                  <div className="text-sm text-destructive">
+                    Errore: {(relatedQuery.error as Error).message}
+                  </div>
+                ) : related.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Nessun atto tematicamente collegato trovato nel corpus.
+                  </p>
+                ) : (
+                  <div className="divide-y">
+                    {related.map((r) => (
+                      <Link
+                        key={r.id}
+                        to="/source/$id"
+                        params={{ id: r.external_id }}
+                        className="-mx-2 block rounded-md px-2 py-3 first:pt-0 last:pb-0 hover:bg-surface-muted/50"
+                      >
+                        <div className="flex items-center gap-2 text-xs">
+                          <Badge variant="secondary" className="rounded-sm capitalize">
+                            {r.source_type}
+                          </Badge>
+                          {r.document_number && (
+                            <span className="font-mono text-muted-foreground">{r.document_number}</span>
+                          )}
+                          <span className="text-muted-foreground">·</span>
+                          <span className="text-muted-foreground">
+                            {new Date(r.publication_date).toLocaleDateString("it-IT", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                          <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+                            {r.reason === "semantic"
+                              ? `match ${Math.round(r.score * 100)}%`
+                              : "stesso topic"}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-sm font-medium">{r.title}</div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </Card>
             </TabsContent>
+
 
             <TabsContent value="notes" className="mt-4">
               <Card className="p-6">
@@ -232,18 +333,23 @@ function SourceDetail() {
               Atti correlati
             </div>
             <div className="space-y-2">
-              {related.slice(0, 3).map((r) => (
-                <Link
-                  key={r.id}
-                  to="/source/$id"
-                  params={{ id: r.id }}
-                  className="block rounded-md border bg-surface p-3 hover:border-primary/40"
-                >
-                  <div className="text-xs text-muted-foreground">{r.document_number}</div>
-                  <div className="mt-0.5 line-clamp-2 text-sm font-medium">{r.title}</div>
-                </Link>
-              ))}
+              {related.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nessun atto collegato.</p>
+              ) : (
+                related.slice(0, 3).map((r) => (
+                  <Link
+                    key={r.id}
+                    to="/source/$id"
+                    params={{ id: r.external_id }}
+                    className="block rounded-md border bg-surface p-3 hover:border-primary/40"
+                  >
+                    <div className="text-xs text-muted-foreground">{r.document_number ?? ""}</div>
+                    <div className="mt-0.5 line-clamp-2 text-sm font-medium">{r.title}</div>
+                  </Link>
+                ))
+              )}
             </div>
+
           </Card>
         </aside>
       </div>
