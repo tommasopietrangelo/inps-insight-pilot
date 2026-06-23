@@ -333,18 +333,23 @@ function SourceDetail() {
               Atti correlati
             </div>
             <div className="space-y-2">
-              {related.slice(0, 3).map((r) => (
-                <Link
-                  key={r.id}
-                  to="/source/$id"
-                  params={{ id: r.id }}
-                  className="block rounded-md border bg-surface p-3 hover:border-primary/40"
-                >
-                  <div className="text-xs text-muted-foreground">{r.document_number}</div>
-                  <div className="mt-0.5 line-clamp-2 text-sm font-medium">{r.title}</div>
-                </Link>
-              ))}
+              {related.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nessun atto collegato.</p>
+              ) : (
+                related.slice(0, 3).map((r) => (
+                  <Link
+                    key={r.id}
+                    to="/source/$id"
+                    params={{ id: r.external_id }}
+                    className="block rounded-md border bg-surface p-3 hover:border-primary/40"
+                  >
+                    <div className="text-xs text-muted-foreground">{r.document_number ?? ""}</div>
+                    <div className="mt-0.5 line-clamp-2 text-sm font-medium">{r.title}</div>
+                  </Link>
+                ))
+              )}
             </div>
+
           </Card>
         </aside>
       </div>
