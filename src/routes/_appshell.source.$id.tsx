@@ -8,14 +8,19 @@ import {
   Hash,
   Tag,
   Loader2,
+  Sparkles,
+  KeyRound,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { NOTES } from "@/lib/mock-data";
-import { useSourceBySlug, useSources } from "@/lib/data";
+import { useSourceBySlug } from "@/lib/data";
+import { getSourceKeyPoints, getRelatedSources } from "@/lib/source-detail.functions";
 
 export const Route = createFileRoute("/_appshell/source/$id")({
   head: () => ({ meta: [{ title: "Fonte · INPS Copilot" }] }),
@@ -25,7 +30,22 @@ export const Route = createFileRoute("/_appshell/source/$id")({
 function SourceDetail() {
   const { id } = Route.useParams();
   const { data: src, isLoading } = useSourceBySlug(id);
-  const { data: allSources = [] } = useSources();
+
+  const fetchKeyPoints = useServerFn(getSourceKeyPoints);
+  const fetchRelated = useServerFn(getRelatedSources);
+
+  const keyPointsQuery = useQuery({
+    queryKey: ["source-key-points", src?.uuid],
+    enabled: !!src?.uuid,
+    staleTime: 1000 * 60 * 60,
+    queryFn: () => fetchKeyPoints({ data: { sourceId: src!.uuid } }),
+  });
+  const relatedQuery = useQuery({
+    queryKey: ["source-related", src?.uuid],
+    enabled: !!src?.uuid,
+    staleTime: 1000 * 60 * 30,
+    queryFn: () => fetchRelated({ data: { sourceId: src!.uuid, limit: 8 } }),
+  });
 
   if (isLoading) {
     return (
@@ -45,10 +65,9 @@ function SourceDetail() {
     );
   }
 
-  const related = allSources
-    .filter((s) => s.id !== src.id && s.topic_tags.some((t) => src.topic_tags.includes(t)))
-    .slice(0, 4);
+  const related = relatedQuery.data?.related ?? [];
   const noteForSource = NOTES.find((n) => n.linked_source === src.id);
+
 
   return (
     <div className="space-y-5">
