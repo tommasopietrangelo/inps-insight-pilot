@@ -176,7 +176,7 @@ export const getRelatedSources = createServerFn({ method: "POST" })
         const { data: matches, error: mErr } = await supabaseAdmin.rpc("match_chunks", {
           query_embedding: vec as unknown as string,
           match_count: Math.max(data.limit * 6, 40),
-          filter_topics: null,
+          filter_topics: undefined,
         });
         if (!mErr && matches) {
           for (const m of matches as Array<{ source_id: string; similarity: number }>) {
