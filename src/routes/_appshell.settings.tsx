@@ -98,6 +98,17 @@ function Settings() {
     queryFn: () => fetchQueueStats(),
   });
 
+  // Recupero errori coda
+  const fetchErrorBreakdown = useServerFn(getInpsErrorBreakdown);
+  const runRetryErrors = useServerFn(retryInpsErrors);
+  const { data: errorBreakdown, refetch: refetchErrorBreakdown } = useQuery({
+    queryKey: ["inps-error-breakdown"],
+    queryFn: () => fetchErrorBreakdown(),
+  });
+  const [retrying, setRetrying] = useState<null | "all" | "credits" | "transient" | "other">(null);
+  const [retryResult, setRetryResult] = useState<string | null>(null);
+
+
   // Layer operativo per-sezione (controllo manuale dalle Impostazioni)
   const runOpDiscover = useServerFn(discoverInpsSection);
   const runOpBatch = useServerFn(processInpsSectionBatch);
