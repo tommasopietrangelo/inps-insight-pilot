@@ -841,3 +841,83 @@ export const repairEmptyInpsFullText = createServerFn({ method: "POST" })
       errors: errors.slice(0, 10),
     };
   });
+
+// ---------------------------------------------------------------------------
+// Recupero errori coda ingest INPS
+//
+// Quando i crediti Firecrawl sono esauriti (HTTP 402) o ci sono errori
+// transitori (429 rate-limit, 408/502/503/504 timeout), gli URL restano
+// con status='error' nella coda. Queste funzioni permettono di:
+//   - vedere quanti errori ci sono e di che tipo (crediti / transitori / altri)
+//   - resettare a 'pending' un sottoinsieme così il prossimo "Importa batch"
+//     li riprocessa, senza ricreare la discovery.
+// ---------------------------------------------------------------------------
+
+
+const TRANSIENT_REGEX = "(429|408|502|503|504|timeout|ETIMEDOUT|ECONNRESET|EAI_AGAIN)";
+
+export const getInpsErrorBreakdown = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { data, error } = await supabaseAdmin
+      .from("inps_ingest_queue")
+      .select("error")
+      .eq("status", "error")
+      .limit(20000);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as Array<{ error: string | null }>;
+    let credits = 0, transient = 0, other = 0;
+    const transientRe = new RegExp(TRANSIENT_REGEX, "i");
+    for (const r of rows) {
+      const msg = (r.error ?? "").toLowerCase();
+      if (msg.includes("402") || msg.includes("insufficient credit")) credits++;
+      else if (transientRe.test(r.error ?? "")) transient++;
+      else other++;
+    }
+    return { total: rows.length, credits, transient, other };
+  });
+
+const RetryInput = z.object({
+  scope: z.enum(["all", "credits", "transient", "other"]).default("all"),
+});
+
+export const retryInpsErrors = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => RetryInput.parse(data ?? {}))
+  .handler(async ({ data }) => {
+    // Fetch IDs by scope (filtering in JS keeps it simple and robust).
+    const { data: rows, error } = await supabaseAdmin
+      .from("inps_ingest_queue")
+      .select("id, error")
+      .eq("status", "error")
+      .limit(20000);
+    if (error) throw new Error(error.message);
+
+    const transientRe = new RegExp(TRANSIENT_REGEX, "i");
+    const matching = (rows ?? []).filter((r) => {
+      const msg = (r.error ?? "").toLowerCase();
+      const isCredits = msg.includes("402") || msg.includes("insufficient credit");
+      const isTransient = !isCredits && transientRe.test(r.error ?? "");
+      if (data.scope === "all") return true;
+      if (data.scope === "credits") return isCredits;
+      if (data.scope === "transient") return isTransient;
+      return !isCredits && !isTransient; // "other"
+    });
+
+    if (matching.length === 0) return { reset: 0, scope: data.scope };
+
+    const ids = matching.map((r) => (r as { id: string }).id);
+    let reset = 0;
+    const CHUNK = 500;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK);
+      const { error: upErr, count } = await supabaseAdmin
+        .from("inps_ingest_queue")
+        .update(
+          { status: "pending", external_id: null, error: null, attempts: 0 } as any,
+          { count: "exact" },
+        )
+        .in("id", slice);
+      if (upErr) throw new Error(upErr.message);
+      reset += count ?? slice.length;
+    }
+    return { reset, scope: data.scope };
+  });

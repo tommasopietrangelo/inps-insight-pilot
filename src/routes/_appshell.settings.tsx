@@ -11,6 +11,8 @@ import {
   processInpsQueueBatch,
   getInpsQueueStats,
   repairEmptyInpsFullText,
+  getInpsErrorBreakdown,
+  retryInpsErrors,
 } from "@/lib/inps-firecrawl.functions";
 import {
   discoverInpsSection,
@@ -95,6 +97,17 @@ function Settings() {
     queryKey: ["inps-queue-stats"],
     queryFn: () => fetchQueueStats(),
   });
+
+  // Recupero errori coda
+  const fetchErrorBreakdown = useServerFn(getInpsErrorBreakdown);
+  const runRetryErrors = useServerFn(retryInpsErrors);
+  const { data: errorBreakdown, refetch: refetchErrorBreakdown } = useQuery({
+    queryKey: ["inps-error-breakdown"],
+    queryFn: () => fetchErrorBreakdown(),
+  });
+  const [retrying, setRetrying] = useState<null | "all" | "credits" | "transient" | "other">(null);
+  const [retryResult, setRetryResult] = useState<string | null>(null);
+
 
   // Layer operativo per-sezione (controllo manuale dalle Impostazioni)
   const runOpDiscover = useServerFn(discoverInpsSection);
@@ -448,6 +461,89 @@ function Settings() {
           )}
 
           <Separator className="my-5" />
+          <div className="space-y-3">
+            <div className="max-w-2xl text-sm">
+              <div className="font-medium">2bis) Recupero errori coda</div>
+              <div className="text-muted-foreground">
+                Resetta a <code>pending</code> gli URL falliti così il prossimo batch li riprocessa.
+                Utile dopo aver ricaricato i crediti Firecrawl o quando un picco di rate-limit ha
+                lasciato indietro molte righe.
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <Badge variant="outline">Totale errori: {errorBreakdown?.total ?? "—"}</Badge>
+              <Badge variant="outline">Crediti esauriti (402): {errorBreakdown?.credits ?? "—"}</Badge>
+              <Badge variant="outline">Transitori (429/timeout/5xx): {errorBreakdown?.transient ?? "—"}</Badge>
+              <Badge variant="outline">Altri: {errorBreakdown?.other ?? "—"}</Badge>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => refetchErrorBreakdown()}
+                className="h-7 px-2"
+              >
+                Aggiorna
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(["credits", "transient", "other", "all"] as const).map((scope) => {
+                const count =
+                  scope === "credits"
+                    ? errorBreakdown?.credits
+                    : scope === "transient"
+                      ? errorBreakdown?.transient
+                      : scope === "other"
+                        ? errorBreakdown?.other
+                        : errorBreakdown?.total;
+                const label =
+                  scope === "credits"
+                    ? "Riprova errori da crediti"
+                    : scope === "transient"
+                      ? "Riprova errori transitori"
+                      : scope === "other"
+                        ? "Riprova altri errori"
+                        : "Riprova TUTTI gli errori";
+                const variant = scope === "all" ? "outline" : "default";
+                return (
+                  <Button
+                    key={scope}
+                    size="sm"
+                    variant={variant as any}
+                    disabled={retrying !== null || !count}
+                    onClick={async () => {
+                      if (scope === "all" && !confirm("Resettare TUTTI gli errori a pending?")) return;
+                      setRetrying(scope);
+                      setRetryResult(null);
+                      try {
+                        const r = await runRetryErrors({ data: { scope } });
+                        setRetryResult(
+                          `Resettati ${r.reset} URL (${scope}) → ora sono pending. Lancia "Importa prossimo batch" per riprocessarli.`,
+                        );
+                        await Promise.all([refetchErrorBreakdown(), refetchQueueStats()]);
+                      } catch (e) {
+                        setRetryResult(`Errore: ${(e as Error).message}`);
+                      } finally {
+                        setRetrying(null);
+                      }
+                    }}
+                    className="gap-1.5"
+                  >
+                    {retrying === scope ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Flame className="h-4 w-4" />
+                    )}
+                    {label} {count ? `(${count})` : ""}
+                  </Button>
+                );
+              })}
+            </div>
+            {retryResult && (
+              <div className="rounded-md border bg-surface px-4 py-3 text-sm">{retryResult}</div>
+            )}
+          </div>
+
+          <Separator className="my-5" />
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="max-w-2xl text-sm">
               <div className="font-medium">3) Ripara atti con testo vuoto</div>
