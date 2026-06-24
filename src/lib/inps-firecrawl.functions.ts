@@ -210,6 +210,91 @@ function guessTopicTags(text: string): string[] {
   return out;
 }
 
+// ---------- Estrazione "Oggetto" dal markdown ----------
+// Le pagine INPS di circolari/messaggi hanno la sezione "Oggetto" subito
+// prima del "Testo Completo". Tipicamente in markdown appare come:
+//   Oggetto
+//
+//   **Testo dell'oggetto in grassetto su una o più righe**
+//
+//   ## Testo Completo
+// Cerchiamo prima quel pattern; in fallback proviamo varianti inline
+// ("Oggetto: ..." / "OGGETTO - ...") e infine il primo paragrafo in grassetto
+// dopo l'intestazione delle "Direzioni Centrali".
+
+function cleanOggettoText(s: string): string {
+  return s
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // markdown link → testo
+    .replace(/[*_`>#]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s\-–—:.]+|[\s\-–—:.]+$/g, "")
+    .trim();
+}
+
+export function extractOggetto(md: string): string | null {
+  if (!md) return null;
+  // 1) "Oggetto" su riga propria, poi paragrafo in **grassetto**
+  const m1 = md.match(/(?:^|\n)\s*\*{0,2}\s*oggetto\s*\*{0,2}\s*:?\s*\n+\s*\*\*([\s\S]+?)\*\*/i);
+  if (m1) {
+    const t = cleanOggettoText(m1[1]);
+    if (t.length >= 8) return t.slice(0, 280);
+  }
+  // 2) "Oggetto: ...." inline (fino a fine riga o doppio newline)
+  const m2 = md.match(/(?:^|\n)\s*\*{0,2}\s*oggetto\s*\*{0,2}\s*[:\-–]\s*([^\n]{8,600})/i);
+  if (m2) {
+    const t = cleanOggettoText(m2[1]);
+    if (t.length >= 8) return t.slice(0, 280);
+  }
+  // 3) Primo paragrafo in **grassetto** prima di "## Testo Completo"
+  const idx = md.search(/##\s*testo\s+completo/i);
+  if (idx > 0) {
+    const head = md.slice(0, idx);
+    const m3 = head.match(/\*\*([^*][\s\S]{20,500}?)\*\*\s*$/);
+    if (m3) {
+      const t = cleanOggettoText(m3[1]);
+      if (t.length >= 8) return t.slice(0, 280);
+    }
+  }
+  return null;
+}
+
+function formatItDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+// Costruisce il titolo "parlante": "Circolare n. 109 del 09-12-2008 — Oggetto…"
+// Se non troviamo l'oggetto, manteniamo il numero/data ripuliti dal suffisso
+// "| Dettaglio di Circolari, Messaggi e Normativa".
+export function buildInpsTitle(
+  meta: AttoMeta,
+  rawScrapedTitle: string | undefined,
+  markdown: string,
+): string {
+  const oggetto = extractOggetto(markdown);
+  const tipo =
+    meta.kind === "circolare" ? "Circolare"
+    : meta.kind === "messaggio" ? "Messaggio"
+    : meta.kind === "decreto" ? "Decreto"
+    : meta.kind === "normativa" ? "Normativa"
+    : "Atto";
+  const dateIt = formatItDate(meta.date);
+  const head =
+    meta.number && dateIt ? `${tipo} n. ${meta.number} del ${dateIt}`
+    : meta.number ? `${tipo} n. ${meta.number}`
+    : tipo;
+  if (oggetto) return `${head} — ${oggetto}`;
+  // Fallback: usa il titolo scrapato ripulito o l'header costruito.
+  const cleaned = (rawScrapedTitle ?? "")
+    .replace(/\s+\|\s+INPS.*$/i, "")
+    .replace(/\s+\|\s+Dettaglio.*$/i, "")
+    .trim();
+  return cleaned || head;
+}
+
 // ---------- ingest single URL via Firecrawl ----------
 
 async function ingestSingleInps(url: string): Promise<
@@ -233,7 +318,7 @@ async function ingestSingleInps(url: string): Promise<
   const md = scraped.markdown;
   if (md.length < 400) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)${scraped.pdfUrl ? ` · PDF tentato: ${scraped.pdfUrl}` : " · nessun PDF trovato"}` };
 
-  const title = scraped.title?.replace(/\s+\|\s+INPS.*$/i, "").trim() || `INPS ${meta.kind} ${meta.number ?? ""}`.trim();
+  const title = buildInpsTitle(meta, scraped.title, md);
   const fullText = md.slice(0, 60000);
   const date = detectDateFromText(`${title}\n${md.slice(0, 2000)}`, meta.date);
   const description = scraped.description?.slice(0, 500) ?? "";
@@ -809,11 +894,14 @@ export const repairEmptyInpsFullText = createServerFn({ method: "POST" })
           continue;
         }
         const fullText = md.slice(0, 60000);
+        const meta = parseInpsUrl(url);
+        const newTitle = buildInpsTitle(meta, undefined, fullText);
         const { error: updErr } = await supabaseAdmin
           .from("sources")
           .update({
             full_text: fullText,
             excerpt: fullText.slice(0, 800),
+            title: newTitle,
           })
           .eq("id", r.id);
         if (updErr) {
@@ -921,3 +1009,74 @@ export const retryInpsErrors = createServerFn({ method: "POST" })
     }
     return { reset, scope: data.scope };
   });
+
+// ---------------------------------------------------------------------------
+// Rigenera i titoli "parlanti" includendo l'oggetto della circolare/messaggio.
+// Non chiama Firecrawl: usa solo il full_text già salvato. Sicuro da rieseguire.
+// Aggiorna in batch e ritorna conteggi (changed / skipped / noOggetto).
+// ---------------------------------------------------------------------------
+
+const RebuildTitlesInput = z.object({
+  limit: z.number().int().min(1).max(5000).default(2000),
+  onlyGeneric: z.boolean().default(true),
+});
+
+export const rebuildInpsTitles = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => RebuildTitlesInput.parse(data ?? {}))
+  .handler(async ({ data }) => {
+    // Pesca atti circolari/messaggi/decreti con un full_text non vuoto.
+    // Se onlyGeneric, filtriamo solo titoli ancora "grezzi"
+    // (contengono " | Dettaglio" oppure non hanno "—" / oggetto).
+    const PAGE = 1000;
+    let from = 0;
+    const rows: Array<{ id: string; title: string; official_url: string | null; full_text: string | null }> = [];
+    while (rows.length < data.limit) {
+      const to = from + PAGE - 1;
+      const { data: page, error } = await supabaseAdmin
+        .from("sources")
+        .select("id, title, official_url, full_text")
+        .in("source_type", ["circolare", "messaggio", "decreto"])
+        .not("full_text", "is", null)
+        .order("publication_date", { ascending: false })
+        .range(from, to);
+      if (error) throw new Error(error.message);
+      const got = page ?? [];
+      rows.push(...got);
+      if (got.length < PAGE) break;
+      from += PAGE;
+    }
+
+    let scanned = 0;
+    let changed = 0;
+    let noOggetto = 0;
+    let skipped = 0;
+    const samples: Array<{ id: string; before: string; after: string }> = [];
+
+    for (const r of rows) {
+      if (scanned >= data.limit) break;
+      scanned++;
+      const before = r.title ?? "";
+      if (data.onlyGeneric) {
+        const looksGeneric =
+          /\|\s*Dettaglio/i.test(before) ||
+          !before.includes("—");
+        if (!looksGeneric) { skipped++; continue; }
+      }
+      const meta = r.official_url ? parseInpsUrl(r.official_url) : ({
+        kind: "circolare", number: null, year: null, date: null,
+      } as AttoMeta);
+      const next = buildInpsTitle(meta, before, r.full_text ?? "");
+      if (!next || next === before) { skipped++; continue; }
+      if (!next.includes("—")) { noOggetto++; continue; }
+      const { error: upErr } = await supabaseAdmin
+        .from("sources")
+        .update({ title: next })
+        .eq("id", r.id);
+      if (upErr) { skipped++; continue; }
+      changed++;
+      if (samples.length < 5) samples.push({ id: r.id, before, after: next });
+    }
+
+    return { scanned, changed, noOggetto, skipped, samples };
+  });
+
