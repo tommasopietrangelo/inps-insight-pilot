@@ -1009,3 +1009,74 @@ export const retryInpsErrors = createServerFn({ method: "POST" })
     }
     return { reset, scope: data.scope };
   });
+
+// ---------------------------------------------------------------------------
+// Rigenera i titoli "parlanti" includendo l'oggetto della circolare/messaggio.
+// Non chiama Firecrawl: usa solo il full_text già salvato. Sicuro da rieseguire.
+// Aggiorna in batch e ritorna conteggi (changed / skipped / noOggetto).
+// ---------------------------------------------------------------------------
+
+const RebuildTitlesInput = z.object({
+  limit: z.number().int().min(1).max(5000).default(2000),
+  onlyGeneric: z.boolean().default(true),
+});
+
+export const rebuildInpsTitles = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => RebuildTitlesInput.parse(data ?? {}))
+  .handler(async ({ data }) => {
+    // Pesca atti circolari/messaggi/decreti con un full_text non vuoto.
+    // Se onlyGeneric, filtriamo solo titoli ancora "grezzi"
+    // (contengono " | Dettaglio" oppure non hanno "—" / oggetto).
+    const PAGE = 1000;
+    let from = 0;
+    const rows: Array<{ id: string; title: string; official_url: string | null; full_text: string | null }> = [];
+    while (rows.length < data.limit) {
+      const to = from + PAGE - 1;
+      const { data: page, error } = await supabaseAdmin
+        .from("sources")
+        .select("id, title, official_url, full_text")
+        .in("source_type", ["circolare", "messaggio", "decreto"])
+        .not("full_text", "is", null)
+        .order("publication_date", { ascending: false })
+        .range(from, to);
+      if (error) throw new Error(error.message);
+      const got = page ?? [];
+      rows.push(...got);
+      if (got.length < PAGE) break;
+      from += PAGE;
+    }
+
+    let scanned = 0;
+    let changed = 0;
+    let noOggetto = 0;
+    let skipped = 0;
+    const samples: Array<{ id: string; before: string; after: string }> = [];
+
+    for (const r of rows) {
+      if (scanned >= data.limit) break;
+      scanned++;
+      const before = r.title ?? "";
+      if (data.onlyGeneric) {
+        const looksGeneric =
+          /\|\s*Dettaglio/i.test(before) ||
+          !before.includes("—");
+        if (!looksGeneric) { skipped++; continue; }
+      }
+      const meta = r.official_url ? parseInpsUrl(r.official_url) : ({
+        kind: "circolare", number: null, year: null, date: null,
+      } as AttoMeta);
+      const next = buildInpsTitle(meta, before, r.full_text ?? "");
+      if (!next || next === before) { skipped++; continue; }
+      if (!next.includes("—")) { noOggetto++; continue; }
+      const { error: upErr } = await supabaseAdmin
+        .from("sources")
+        .update({ title: next })
+        .eq("id", r.id);
+      if (upErr) { skipped++; continue; }
+      changed++;
+      if (samples.length < 5) samples.push({ id: r.id, before, after: next });
+    }
+
+    return { scanned, changed, noOggetto, skipped, samples };
+  });
+
