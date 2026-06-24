@@ -894,11 +894,14 @@ export const repairEmptyInpsFullText = createServerFn({ method: "POST" })
           continue;
         }
         const fullText = md.slice(0, 60000);
+        const meta = parseInpsUrl(url);
+        const newTitle = buildInpsTitle(meta, undefined, fullText);
         const { error: updErr } = await supabaseAdmin
           .from("sources")
           .update({
             full_text: fullText,
             excerpt: fullText.slice(0, 800),
+            title: newTitle,
           })
           .eq("id", r.id);
         if (updErr) {
