@@ -585,7 +585,51 @@ function Settings() {
           {repairResult && (
             <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{repairResult}</div>
           )}
+
+          <Separator className="my-5" />
+
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-2xl text-sm">
+              <div className="font-medium">4) Rigenera titoli con "oggetto"</div>
+              <div className="text-muted-foreground">
+                Riscrive i titoli di circolari/messaggi/decreti già nel corpus aggiungendo l'oggetto
+                estratto dal testo (es. <em>"Circolare n. 109 del 09-12-2008 — Novità bonus mamme"</em>).
+                Non consuma crediti Firecrawl: usa solo il testo già salvato. Idempotente,
+                lo puoi rilanciare in sicurezza.
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={rebuildingTitles}
+              onClick={async () => {
+                setRebuildingTitles(true);
+                setRebuildTitlesResult(null);
+                try {
+                  const r = await runRebuildTitles({ data: { limit: 5000, onlyGeneric: true } });
+                  const ex = r.samples.length
+                    ? ` Esempi: ${r.samples.map((s) => `"${s.after}"`).slice(0, 2).join(" · ")}`
+                    : "";
+                  setRebuildTitlesResult(
+                    `Esaminati ${r.scanned} · aggiornati ${r.changed} · senza oggetto ${r.noOggetto} · invariati ${r.skipped}.${ex}`,
+                  );
+                } catch (e) {
+                  setRebuildTitlesResult(`Errore: ${(e as Error).message}`);
+                } finally {
+                  setRebuildingTitles(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {rebuildingTitles ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Rigenera titoli con oggetto
+            </Button>
+          </div>
+          {rebuildTitlesResult && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{rebuildTitlesResult}</div>
+          )}
         </Card>
+
 
         {/* Layer OPERATIVO per-sezione: discovery + batch indipendenti */}
         <Card className="p-6 lg:col-span-2">
