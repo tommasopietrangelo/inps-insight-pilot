@@ -318,7 +318,7 @@ async function ingestSingleInps(url: string): Promise<
   const md = scraped.markdown;
   if (md.length < 400) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)${scraped.pdfUrl ? ` · PDF tentato: ${scraped.pdfUrl}` : " · nessun PDF trovato"}` };
 
-  const title = scraped.title?.replace(/\s+\|\s+INPS.*$/i, "").trim() || `INPS ${meta.kind} ${meta.number ?? ""}`.trim();
+  const title = buildInpsTitle(meta, scraped.title, md);
   const fullText = md.slice(0, 60000);
   const date = detectDateFromText(`${title}\n${md.slice(0, 2000)}`, meta.date);
   const description = scraped.description?.slice(0, 500) ?? "";
