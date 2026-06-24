@@ -210,6 +210,91 @@ function guessTopicTags(text: string): string[] {
   return out;
 }
 
+// ---------- Estrazione "Oggetto" dal markdown ----------
+// Le pagine INPS di circolari/messaggi hanno la sezione "Oggetto" subito
+// prima del "Testo Completo". Tipicamente in markdown appare come:
+//   Oggetto
+//
+//   **Testo dell'oggetto in grassetto su una o più righe**
+//
+//   ## Testo Completo
+// Cerchiamo prima quel pattern; in fallback proviamo varianti inline
+// ("Oggetto: ..." / "OGGETTO - ...") e infine il primo paragrafo in grassetto
+// dopo l'intestazione delle "Direzioni Centrali".
+
+function cleanOggettoText(s: string): string {
+  return s
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // markdown link → testo
+    .replace(/[*_`>#]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s\-–—:.]+|[\s\-–—:.]+$/g, "")
+    .trim();
+}
+
+export function extractOggetto(md: string): string | null {
+  if (!md) return null;
+  // 1) "Oggetto" su riga propria, poi paragrafo in **grassetto**
+  const m1 = md.match(/(?:^|\n)\s*\*{0,2}\s*oggetto\s*\*{0,2}\s*:?\s*\n+\s*\*\*([\s\S]+?)\*\*/i);
+  if (m1) {
+    const t = cleanOggettoText(m1[1]);
+    if (t.length >= 8) return t.slice(0, 280);
+  }
+  // 2) "Oggetto: ...." inline (fino a fine riga o doppio newline)
+  const m2 = md.match(/(?:^|\n)\s*\*{0,2}\s*oggetto\s*\*{0,2}\s*[:\-–]\s*([^\n]{8,600})/i);
+  if (m2) {
+    const t = cleanOggettoText(m2[1]);
+    if (t.length >= 8) return t.slice(0, 280);
+  }
+  // 3) Primo paragrafo in **grassetto** prima di "## Testo Completo"
+  const idx = md.search(/##\s*testo\s+completo/i);
+  if (idx > 0) {
+    const head = md.slice(0, idx);
+    const m3 = head.match(/\*\*([^*][\s\S]{20,500}?)\*\*\s*$/);
+    if (m3) {
+      const t = cleanOggettoText(m3[1]);
+      if (t.length >= 8) return t.slice(0, 280);
+    }
+  }
+  return null;
+}
+
+function formatItDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+// Costruisce il titolo "parlante": "Circolare n. 109 del 09-12-2008 — Oggetto…"
+// Se non troviamo l'oggetto, manteniamo il numero/data ripuliti dal suffisso
+// "| Dettaglio di Circolari, Messaggi e Normativa".
+export function buildInpsTitle(
+  meta: AttoMeta,
+  rawScrapedTitle: string | undefined,
+  markdown: string,
+): string {
+  const oggetto = extractOggetto(markdown);
+  const tipo =
+    meta.kind === "circolare" ? "Circolare"
+    : meta.kind === "messaggio" ? "Messaggio"
+    : meta.kind === "decreto" ? "Decreto"
+    : meta.kind === "normativa" ? "Normativa"
+    : "Atto";
+  const dateIt = formatItDate(meta.date);
+  const head =
+    meta.number && dateIt ? `${tipo} n. ${meta.number} del ${dateIt}`
+    : meta.number ? `${tipo} n. ${meta.number}`
+    : tipo;
+  if (oggetto) return `${head} — ${oggetto}`;
+  // Fallback: usa il titolo scrapato ripulito o l'header costruito.
+  const cleaned = (rawScrapedTitle ?? "")
+    .replace(/\s+\|\s+INPS.*$/i, "")
+    .replace(/\s+\|\s+Dettaglio.*$/i, "")
+    .trim();
+  return cleaned || head;
+}
+
 // ---------- ingest single URL via Firecrawl ----------
 
 async function ingestSingleInps(url: string): Promise<
