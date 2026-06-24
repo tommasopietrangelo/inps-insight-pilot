@@ -109,6 +109,11 @@ function Settings() {
   const [retrying, setRetrying] = useState<null | "all" | "credits" | "transient" | "other">(null);
   const [retryResult, setRetryResult] = useState<string | null>(null);
 
+  // Rigenera titoli con "oggetto"
+  const runRebuildTitles = useServerFn(rebuildInpsTitles);
+  const [rebuildingTitles, setRebuildingTitles] = useState(false);
+  const [rebuildTitlesResult, setRebuildTitlesResult] = useState<string | null>(null);
+
 
   // Layer operativo per-sezione (controllo manuale dalle Impostazioni)
   const runOpDiscover = useServerFn(discoverInpsSection);
