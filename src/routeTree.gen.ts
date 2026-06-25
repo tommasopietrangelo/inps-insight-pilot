@@ -27,6 +27,7 @@ import { Route as AppshellAnalyzeRouteImport } from './routes/_appshell.analyze'
 import { Route as AppshellAlertsRouteImport } from './routes/_appshell.alerts'
 import { Route as AppshellSourceIdRouteImport } from './routes/_appshell.source.$id'
 import { Route as ApiPublicHooksRunAlertsRouteImport } from './routes/api/public/hooks/run-alerts'
+import { Route as ApiPublicHooksIngestInpsNewsRouteImport } from './routes/api/public/hooks/ingest-inps-news'
 import { Route as ApiPublicHooksIngestInpsRouteImport } from './routes/api/public/hooks/ingest-inps'
 
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -118,6 +119,12 @@ const ApiPublicHooksRunAlertsRoute = ApiPublicHooksRunAlertsRouteImport.update({
   path: '/api/public/hooks/run-alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksIngestInpsNewsRoute =
+  ApiPublicHooksIngestInpsNewsRouteImport.update({
+    id: '/api/public/hooks/ingest-inps-news',
+    path: '/api/public/hooks/ingest-inps-news',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksIngestInpsRoute =
   ApiPublicHooksIngestInpsRouteImport.update({
     id: '/api/public/hooks/ingest-inps',
@@ -143,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof AppshellWorkspaceRoute
   '/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
+  '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
   '/api/public/hooks/run-alerts': typeof ApiPublicHooksRunAlertsRoute
 }
 export interface FileRoutesByTo {
@@ -163,6 +171,7 @@ export interface FileRoutesByTo {
   '/workspace': typeof AppshellWorkspaceRoute
   '/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
+  '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
   '/api/public/hooks/run-alerts': typeof ApiPublicHooksRunAlertsRoute
 }
 export interface FileRoutesById {
@@ -185,6 +194,7 @@ export interface FileRoutesById {
   '/_appshell/workspace': typeof AppshellWorkspaceRoute
   '/_appshell/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
+  '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
   '/api/public/hooks/run-alerts': typeof ApiPublicHooksRunAlertsRoute
 }
 export interface FileRouteTypes {
@@ -207,6 +217,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/source/$id'
     | '/api/public/hooks/ingest-inps'
+    | '/api/public/hooks/ingest-inps-news'
     | '/api/public/hooks/run-alerts'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/source/$id'
     | '/api/public/hooks/ingest-inps'
+    | '/api/public/hooks/ingest-inps-news'
     | '/api/public/hooks/run-alerts'
   id:
     | '__root__'
@@ -248,6 +260,7 @@ export interface FileRouteTypes {
     | '/_appshell/workspace'
     | '/_appshell/source/$id'
     | '/api/public/hooks/ingest-inps'
+    | '/api/public/hooks/ingest-inps-news'
     | '/api/public/hooks/run-alerts'
   fileRoutesById: FileRoutesById
 }
@@ -258,6 +271,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   ApiPublicHooksIngestInpsRoute: typeof ApiPublicHooksIngestInpsRoute
+  ApiPublicHooksIngestInpsNewsRoute: typeof ApiPublicHooksIngestInpsNewsRoute
   ApiPublicHooksRunAlertsRoute: typeof ApiPublicHooksRunAlertsRoute
 }
 
@@ -389,6 +403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksRunAlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/ingest-inps-news': {
+      id: '/api/public/hooks/ingest-inps-news'
+      path: '/api/public/hooks/ingest-inps-news'
+      fullPath: '/api/public/hooks/ingest-inps-news'
+      preLoaderRoute: typeof ApiPublicHooksIngestInpsNewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/ingest-inps': {
       id: '/api/public/hooks/ingest-inps'
       path: '/api/public/hooks/ingest-inps'
@@ -440,6 +461,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   ApiPublicHooksIngestInpsRoute: ApiPublicHooksIngestInpsRoute,
+  ApiPublicHooksIngestInpsNewsRoute: ApiPublicHooksIngestInpsNewsRoute,
   ApiPublicHooksRunAlertsRoute: ApiPublicHooksRunAlertsRoute,
 }
 export const routeTree = rootRouteImport
