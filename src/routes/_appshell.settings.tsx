@@ -20,6 +20,11 @@ import {
   processInpsSectionBatch,
   getInpsSectionsStats,
 } from "@/lib/inps-operational.functions";
+import {
+  discoverInpsNews,
+  batchIngestNews,
+  getNewsQueueStats,
+} from "@/lib/inps-news.functions";
 
 import { Database as DatabaseIcon } from "lucide-react";
 import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
@@ -31,7 +36,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame, BookMarked, Layers } from "lucide-react";
+import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame, BookMarked, Layers, Newspaper } from "lucide-react";
 import { TeamCard } from "@/components/team-card";
 
 export const Route = createFileRoute("/_appshell/settings")({
@@ -143,6 +148,20 @@ function Settings() {
     queryKey: ["inps-op-sections-stats"],
     queryFn: () => fetchOpStats(),
   });
+
+  // Notizie INPS (sezione dedicata)
+  const runNewsDiscover = useServerFn(discoverInpsNews);
+  const runNewsBatch = useServerFn(batchIngestNews);
+  const fetchNewsStats = useServerFn(getNewsQueueStats);
+  const { data: newsStats, refetch: refetchNewsStats } = useQuery({
+    queryKey: ["inps-news-stats"],
+    queryFn: () => fetchNewsStats(),
+  });
+  const [newsBusy, setNewsBusy] = useState<"discover" | "batch" | null>(null);
+  const [newsMsg, setNewsMsg] = useState<string | null>(null);
+  const [newsBatchSize, setNewsBatchSize] = useState(200);
+
+
 
 
   const { data: sourcesByIngestion, isLoading: sourcesByIngestionLoading } = useQuery({
@@ -630,6 +649,106 @@ function Settings() {
           )}
         </Card>
 
+
+        {/* Notizie INPS — discovery + batch dedicato per /inps-comunica/notizie/ */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <Newspaper className="h-4 w-4 text-primary" /> Notizie INPS · /inps-comunica/notizie
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Discovery via Firecrawl <code>map</code> sulla landing notizie di inps.it
+                (~3000 articoli storici), filtra i link con pattern <code>/notizie/...html</code> e li accoda.
+                Poi <strong>Batch</strong> esegue scrape + upsert in corpus con <code>source_type = notizia</code>.
+                Costi a carico dei crediti Firecrawl (non Lovable). Dedup automatico per URL.
+              </p>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="news-bs" className="text-xs">Batch totale</Label>
+                <Input id="news-bs" type="number" min={1} max={3000} value={newsBatchSize}
+                  onChange={(e) => setNewsBatchSize(Math.max(1, Math.min(3000, Number(e.target.value) || 200)))} className="w-24" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <Badge variant="outline" className="font-mono">notizie in corpus {newsStats?.corpusTotal ?? "—"}</Badge>
+            <Badge variant="outline" className="font-mono">coda totale {newsStats?.total ?? 0}</Badge>
+            <Badge variant="outline" className="font-mono">pend {newsStats?.pending ?? 0}</Badge>
+            <Badge variant="outline" className="font-mono">ok {newsStats?.done ?? 0}</Badge>
+            <Badge variant="outline" className="font-mono">dup {newsStats?.skipped ?? 0}</Badge>
+            <Badge variant="outline" className="font-mono">err {newsStats?.error ?? 0}</Badge>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={newsBusy !== null}
+              onClick={async () => {
+                setNewsBusy("discover");
+                setNewsMsg("Discovery in corso (può richiedere 30–60s)…");
+                try {
+                  const r = await runNewsDiscover({ data: { limit: 5000 } });
+                  setNewsMsg(
+                    `Discovery completata: trovati ${r.totalLinksSeen} link · match ${r.matched} · già in corpus ${r.inCorpus} · nuovi accodati ${r.newEnqueued}${r.errors.length ? ` · ${r.errors.length} errori` : ""}.`,
+                  );
+                  await refetchNewsStats();
+                } catch (e) {
+                  setNewsMsg(`Errore discovery: ${(e as Error).message}`);
+                } finally {
+                  setNewsBusy(null);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {newsBusy === "discover" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Newspaper className="h-3.5 w-3.5" />}
+              Discovery notizie
+            </Button>
+            <Button
+              size="sm"
+              disabled={newsBusy !== null || (newsStats?.pending ?? 0) === 0}
+              onClick={async () => {
+                setNewsBusy("batch");
+                const totals = { processed: 0, created: 0, skipped: 0, failed: 0 };
+                const CHUNK = 20;
+                try {
+                  while (totals.processed < newsBatchSize) {
+                    const remaining = newsBatchSize - totals.processed;
+                    const limit = Math.min(CHUNK, remaining);
+                    const r = await runNewsBatch({ data: { limit, concurrency: 4 } });
+                    totals.processed += r.processed;
+                    totals.created += r.created;
+                    totals.skipped += r.skipped;
+                    totals.failed += r.failed;
+                    setNewsMsg(
+                      `Batch ${totals.processed}/${newsBatchSize} · nuovi ${totals.created} · dup ${totals.skipped} · err ${totals.failed} · ${r.remaining} ancora pendenti`,
+                    );
+                    await refetchNewsStats();
+                    if (r.processed === 0) break;
+                  }
+                  setNewsMsg(
+                    `Batch completato: ${totals.processed} URL · ${totals.created} nuovi · ${totals.skipped} già presenti · ${totals.failed} errori. Lancia "Aggiorna indice" per gli embedding.`,
+                  );
+                } catch (e) {
+                  setNewsMsg(`Errore batch a ${totals.processed}: ${(e as Error).message}`);
+                } finally {
+                  setNewsBusy(null);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {newsBusy === "batch" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flame className="h-3.5 w-3.5" />}
+              Esegui batch
+            </Button>
+          </div>
+
+          {newsMsg && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{newsMsg}</div>
+          )}
+        </Card>
 
         {/* Layer OPERATIVO per-sezione: discovery + batch indipendenti */}
         <Card className="p-6 lg:col-span-2">

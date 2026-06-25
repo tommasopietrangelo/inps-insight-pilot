@@ -192,6 +192,39 @@ export type Database = {
         }
         Relationships: []
       }
+      inps_news_queue: {
+        Row: {
+          attempts: number
+          discovered_at: string
+          error: string | null
+          external_id: string | null
+          id: string
+          processed_at: string | null
+          status: string
+          url: string
+        }
+        Insert: {
+          attempts?: number
+          discovered_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: string
+          url: string
+        }
+        Update: {
+          attempts?: number
+          discovered_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: string
+          url?: string
+        }
+        Relationships: []
+      }
       inps_operational_queue: {
         Row: {
           attempts: number
@@ -739,6 +772,7 @@ export type Database = {
         | "decreto"
         | "pagina_servizio"
         | "normativa"
+        | "notizia"
       workspace_member_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
@@ -878,6 +912,7 @@ export const Constants = {
         "decreto",
         "pagina_servizio",
         "normativa",
+        "notizia",
       ],
       workspace_member_role: ["owner", "admin", "member"],
     },
