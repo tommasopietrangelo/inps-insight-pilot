@@ -149,6 +149,20 @@ function Settings() {
     queryFn: () => fetchOpStats(),
   });
 
+  // Notizie INPS (sezione dedicata)
+  const runNewsDiscover = useServerFn(discoverInpsNews);
+  const runNewsBatch = useServerFn(batchIngestNews);
+  const fetchNewsStats = useServerFn(getNewsQueueStats);
+  const { data: newsStats, refetch: refetchNewsStats } = useQuery({
+    queryKey: ["inps-news-stats"],
+    queryFn: () => fetchNewsStats(),
+  });
+  const [newsBusy, setNewsBusy] = useState<"discover" | "batch" | null>(null);
+  const [newsMsg, setNewsMsg] = useState<string | null>(null);
+  const [newsBatchSize, setNewsBatchSize] = useState(200);
+
+
+
 
   const { data: sourcesByIngestion, isLoading: sourcesByIngestionLoading } = useQuery({
     queryKey: ["sources-by-ingestion"],
