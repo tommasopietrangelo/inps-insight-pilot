@@ -45,37 +45,48 @@ function toUI(s: SourceRow): UISource {
   };
 }
 
+// Colonne leggere per la lista (no full_text/excerpt): payload ~20x più piccolo
+const LIST_COLUMNS =
+  "id,external_id,title,source_type,publication_date,document_number,topic_tags,summary,official_url";
+
 export function useSources(limit?: number) {
   return useQuery({
     queryKey: ["sources", limit ?? "all"],
+    staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<UISource[]> => {
       if (limit) {
         const { data, error } = await supabase
           .from("sources")
-          .select("*")
+          .select(LIST_COLUMNS)
           .order("publication_date", { ascending: false })
           .limit(limit);
         if (error) throw error;
-        return (data ?? []).map(toUI);
+        return (data ?? []).map((r: any) => toUI({ ...r, full_text: "", excerpt: "" }));
       }
-      // Paginazione: PostgREST limita a 1000 righe per chiamata
+      // Paginazione parallela: PostgREST limita a 1000 righe per chiamata
       const PAGE = 1000;
+      const { count } = await supabase
+        .from("sources")
+        .select("*", { count: "exact", head: true });
+      const total = count ?? 0;
+      const pages = Math.max(1, Math.ceil(total / PAGE));
+      const results = await Promise.all(
+        Array.from({ length: pages }, (_, i) => {
+          const from = i * PAGE;
+          const to = from + PAGE - 1;
+          return supabase
+            .from("sources")
+            .select(LIST_COLUMNS)
+            .order("publication_date", { ascending: false })
+            .range(from, to);
+        }),
+      );
       const all: any[] = [];
-      let from = 0;
-      for (;;) {
-        const to = from + PAGE - 1;
-        const { data, error } = await supabase
-          .from("sources")
-          .select("*")
-          .order("publication_date", { ascending: false })
-          .range(from, to);
-        if (error) throw error;
-        const rows = data ?? [];
-        all.push(...rows);
-        if (rows.length < PAGE) break;
-        from += PAGE;
+      for (const r of results) {
+        if (r.error) throw r.error;
+        all.push(...(r.data ?? []));
       }
-      return all.map(toUI);
+      return all.map((r: any) => toUI({ ...r, full_text: "", excerpt: "" }));
     },
   });
 }
