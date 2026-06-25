@@ -27,6 +27,7 @@ const TYPE_LABEL: Record<SourceRow["source_type"], SourceTypeLabel> = {
   decreto: "Decreto",
   pagina_servizio: "Pagina servizio",
   normativa: "Normativa",
+  notizia: "Notizia",
 };
 
 function toUI(s: SourceRow): UISource {
