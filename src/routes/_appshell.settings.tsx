@@ -20,6 +20,11 @@ import {
   processInpsSectionBatch,
   getInpsSectionsStats,
 } from "@/lib/inps-operational.functions";
+import {
+  discoverInpsNews,
+  batchIngestNews,
+  getNewsQueueStats,
+} from "@/lib/inps-news.functions";
 
 import { Database as DatabaseIcon } from "lucide-react";
 import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
