@@ -5,7 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 type SourceRow = Database["public"]["Tables"]["sources"]["Row"];
 type TopicRow = Database["public"]["Tables"]["topics"]["Row"];
 
-export type SourceTypeLabel = "Circolare" | "Messaggio" | "Decreto" | "Pagina servizio" | "Normativa";
+export type SourceTypeLabel = "Circolare" | "Messaggio" | "Decreto" | "Pagina servizio" | "Normativa" | "Notizia";
 
 export interface UISource {
   id: string; // external_id used as URL slug
