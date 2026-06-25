@@ -353,3 +353,117 @@ export const getNewsQueueStats = createServerFn({ method: "GET" })
       .eq("source_type" as any, "notizia");
     return { ...stats, corpusTotal: corpusCount ?? 0 };
   });
+
+// ---------------------------------------------------------------------------
+// Daily auto-ingest (cron)
+// Discovery + batch automatico delle notizie INPS. Lanciato dal cron quando
+// `ingest-news-daily` è attivo. Limita gli scrape giornalieri per non
+// esplodere i crediti Firecrawl.
+// ---------------------------------------------------------------------------
+
+const DailyInput = z.object({
+  scrapeLimit: z.number().int().min(0).max(200).default(30),
+  concurrency: z.number().int().min(1).max(6).default(3),
+});
+
+export const ingestNewsDaily = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => DailyInput.parse(data ?? {}))
+  .handler(async ({ data }) => {
+    // 1) Discovery
+    let discovery: { totalLinksSeen: number; matched: number; newEnqueued: number; errors: string[] } = {
+      totalLinksSeen: 0, matched: 0, newEnqueued: 0, errors: [],
+    };
+    try {
+      const allSeen = new Set<string>();
+      const matched = new Set<string>();
+      const normalize = (raw: string) => raw.split("#")[0].split("?")[0];
+      const isInps = (u: string) => /^https?:\/\/(www\.)?inps\.it\//i.test(u);
+      const errors: string[] = [];
+      const calls: Array<{ url: string; search?: string; label: string }> = [
+        { url: ENTRY, search: undefined, label: "entry" },
+        { url: BASE, search: "notizia comunicato stampa news inps-comunica", label: "base+search" },
+      ];
+      for (const c of calls) {
+        try {
+          const links = await firecrawlMap(c.url, c.search, 5000);
+          for (const raw of links) {
+            const clean = normalize(raw);
+            if (!isInps(clean)) continue;
+            allSeen.add(clean);
+            const path = clean.replace(/^https?:\/\/(www\.)?inps\.it/i, "");
+            if (NEWS_URL_REGEX.test(path)) matched.add(clean);
+          }
+        } catch (e) {
+          errors.push(`${c.label}: ${(e as Error).message}`);
+        }
+      }
+      const rows = Array.from(matched).map((url) => ({ url, status: "pending" }));
+      let newEnqueued = 0;
+      const CHUNK = 500;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const slice = rows.slice(i, i + CHUNK);
+        const { data: ins, error } = await (supabaseAdmin as any).from(QUEUE)
+          .upsert(slice, { onConflict: "url", ignoreDuplicates: true })
+          .select("id");
+        if (error) errors.push(`enqueue ${i}: ${error.message}`);
+        else newEnqueued += (ins as unknown[] | null)?.length ?? 0;
+      }
+      discovery = {
+        totalLinksSeen: allSeen.size,
+        matched: matched.size,
+        newEnqueued,
+        errors: errors.slice(0, 5),
+      };
+    } catch (e) {
+      discovery.errors.push((e as Error).message);
+    }
+
+    // 2) Batch ingest (al massimo `scrapeLimit` URL pending)
+    let created = 0, skipped = 0, failed = 0;
+    if (data.scrapeLimit > 0) {
+      const { data: pending } = await (supabaseAdmin as any).from(QUEUE)
+        .select("id, url")
+        .eq("status", "pending")
+        .order("discovered_at", { ascending: false })
+        .limit(data.scrapeLimit);
+      const rows = (pending as Array<{ id: string; url: string }> | null) ?? [];
+      let idx = 0;
+      const worker = async () => {
+        while (true) {
+          const i = idx++;
+          if (i >= rows.length) return;
+          const row = rows[i];
+          try {
+            const r = await ingestSingle(row.url);
+            if (r.ok) {
+              await (supabaseAdmin as any).from(QUEUE).update({
+                status: r.created ? "done" : "skipped",
+                external_id: r.external_id,
+                processed_at: new Date().toISOString(),
+                error: null,
+              }).eq("id", row.id);
+              if (r.created) created++; else skipped++;
+            } else {
+              failed++;
+              await (supabaseAdmin as any).from(QUEUE).update({
+                status: "error",
+                error: r.reason.slice(0, 500),
+                processed_at: new Date().toISOString(),
+              }).eq("id", row.id);
+            }
+          } catch (e) {
+            failed++;
+            await (supabaseAdmin as any).from(QUEUE).update({
+              status: "error",
+              error: (e as Error).message.slice(0, 500),
+              processed_at: new Date().toISOString(),
+            }).eq("id", row.id);
+          }
+        }
+      };
+      const pool = Math.min(data.concurrency, rows.length);
+      await Promise.all(Array.from({ length: pool }, () => worker()));
+    }
+
+    return { discovery, ingest: { created, skipped, failed } };
+  });
