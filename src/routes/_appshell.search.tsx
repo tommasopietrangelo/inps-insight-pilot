@@ -135,33 +135,70 @@ function renderInline(line: string, byN: Map<number, SourceItem>) {
   return parts;
 }
 
+type Turn = {
+  id: string;
+  question: string;
+  answer: string;
+  sources: SourceItem[];
+};
+
 function SearchPage() {
   const { q: urlQ } = Route.useSearch();
   const [q, setQ] = useState(urlQ ?? "Nuove regole ADI 2026 per nuclei con minori");
+  const [followUp, setFollowUp] = useState("");
+  const [thread, setThread] = useState<Turn[]>([]);
   const { current } = useWorkspace();
   const qc = useQueryClient();
   const runSearch = useServerFn(groundedSearch);
   const saveFn = useServerFn(createSavedSearch);
-  const mutation = useMutation<SearchResult, Error, string>({
-    mutationFn: (query: string) => runSearch({ data: { query } }),
+  const threadEndRef = useRef<HTMLDivElement>(null);
+
+  const mutation = useMutation<
+    SearchResult,
+    Error,
+    { query: string; isFollowUp: boolean }
+  >({
+    mutationFn: ({ query, isFollowUp }) => {
+      const history = isFollowUp
+        ? thread.flatMap((t) => [
+            { role: "user" as const, content: t.question },
+            { role: "assistant" as const, content: t.answer },
+          ])
+        : [];
+      return runSearch({ data: { query, history } });
+    },
+    onSuccess: (data, vars) => {
+      const turn: Turn = {
+        id: crypto.randomUUID(),
+        question: vars.query,
+        answer: data.answer,
+        sources: data.sources,
+      };
+      setThread((prev) => (vars.isFollowUp ? [...prev, turn] : [turn]));
+      if (vars.isFollowUp) setFollowUp("");
+      setTimeout(() => threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 50);
+    },
   });
+
   const lastRunRef = useRef<string | null>(null);
   useEffect(() => {
     const trimmed = (urlQ ?? "").trim();
     if (trimmed.length >= 2 && lastRunRef.current !== trimmed) {
       lastRunRef.current = trimmed;
       setQ(urlQ ?? "");
-      mutation.mutate(trimmed);
+      setThread([]);
+      mutation.mutate({ query: trimmed, isFollowUp: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlQ]);
+
   const saveMut = useMutation({
     mutationFn: () =>
       saveFn({
         data: {
           query: q.trim(),
           workspaceId: current?.id ?? null,
-          resultsCount: mutation.data?.sources.length ?? 0,
+          resultsCount: thread[thread.length - 1]?.sources.length ?? 0,
         },
       }),
     onSuccess: () => {
@@ -172,9 +209,22 @@ function SearchPage() {
   });
 
   const submit = (query: string) => {
-    if (query.trim().length < 2) return;
-    mutation.mutate(query);
+    if (query.trim().length < 2 || mutation.isPending) return;
+    setThread([]);
+    mutation.mutate({ query: query.trim(), isFollowUp: false });
   };
+
+  const submitFollowUp = (query: string) => {
+    if (query.trim().length < 2 || mutation.isPending || thread.length === 0) return;
+    mutation.mutate({ query: query.trim(), isFollowUp: true });
+  };
+
+  const resetThread = () => {
+    setThread([]);
+    setFollowUp("");
+    lastRunRef.current = null;
+  };
+
 
 
   const result = mutation.data;
