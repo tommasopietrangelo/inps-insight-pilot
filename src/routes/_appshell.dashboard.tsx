@@ -18,7 +18,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useSources, useTopics, useCorpusStats } from "@/lib/data";
+import { useSources, useTopics, useCorpusStats, useLatestUpdates } from "@/lib/data";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
