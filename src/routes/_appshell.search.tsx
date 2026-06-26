@@ -19,6 +19,8 @@ import {
   RotateCcw,
   Eye,
   ArrowRight,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
