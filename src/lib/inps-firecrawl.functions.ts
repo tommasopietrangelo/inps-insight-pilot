@@ -234,19 +234,34 @@ function cleanOggettoText(s: string): string {
 
 export function extractOggetto(md: string): string | null {
   if (!md) return null;
-  // 1) "Oggetto" su riga propria, poi paragrafo in **grassetto**
+  // 1) "## Oggetto" come heading markdown, contenuto sulle righe seguenti fino al prossimo heading
+  const m0 = md.match(/##\s*oggetto\s*\n+([^\n#][^\n]{0,400}(?:\n[^\n#][^\n]{0,400})*)/i);
+  if (m0) {
+    const t = cleanOggettoText(m0[1]);
+    // Scarta quando l'oggetto è solo l'autodescrizione del documento
+    if (t.length >= 10 && !/^(circolare|messaggio|decreto)\s+(numero|n\.)/i.test(t)) {
+      return t.slice(0, 280);
+    }
+  }
+  // 2) "Oggetto" su riga propria, poi paragrafo in **grassetto**
   const m1 = md.match(/(?:^|\n)\s*\*{0,2}\s*oggetto\s*\*{0,2}\s*:?\s*\n+\s*\*\*([\s\S]+?)\*\*/i);
   if (m1) {
     const t = cleanOggettoText(m1[1]);
     if (t.length >= 8) return t.slice(0, 280);
   }
-  // 2) "Oggetto: ...." inline (fino a fine riga o doppio newline)
+  // 3) "Oggetto: ...." inline (fino a fine riga o doppio newline)
   const m2 = md.match(/(?:^|\n)\s*\*{0,2}\s*oggetto\s*\*{0,2}\s*[:\-–]\s*([^\n]{8,600})/i);
   if (m2) {
     const t = cleanOggettoText(m2[1]);
     if (t.length >= 8) return t.slice(0, 280);
   }
-  // 3) Primo paragrafo in **grassetto** prima di "## Testo Completo"
+  // 4) Riga di tabella stile "| OGGETTO: | **testo** |" (documenti vecchi)
+  const m4 = md.match(/OGGETTO[^|]*\|\s*\*\*([^*]+)\*\*/i);
+  if (m4) {
+    const t = cleanOggettoText(m4[1].replace(/<br\s*\/?>/gi, " "));
+    if (t.length >= 8) return t.slice(0, 280);
+  }
+  // 5) Primo paragrafo in **grassetto** prima di "## Testo Completo"
   const idx = md.search(/##\s*testo\s+completo/i);
   if (idx > 0) {
     const head = md.slice(0, idx);
