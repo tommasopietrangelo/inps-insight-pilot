@@ -140,7 +140,7 @@ function Dashboard() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <div className="font-display text-base font-semibold">Ultimi aggiornamenti INPS</div>
-              <p className="text-xs text-muted-foreground">Circolari e messaggi pubblicati di recente</p>
+              <p className="text-xs text-muted-foreground">Circolari, messaggi, normativa e notizie in ordine cronologico</p>
             </div>
             <Button variant="ghost" size="sm" asChild>
               <Link to="/sources">Vedi tutti</Link>
