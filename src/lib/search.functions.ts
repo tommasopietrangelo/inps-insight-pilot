@@ -417,7 +417,14 @@ export const groundedSearch = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("LOVABLE_API_KEY non configurata");
 
-    const signals = extractSearchSignals(data.query);
+    const history = data.history ?? [];
+    // For follow-ups, augment retrieval query with recent user turns so
+    // pronouns/anaphora ("ok ma per i minori?") still pull relevant chunks.
+    const priorUserTurns = history.filter((t) => t.role === "user").slice(-2).map((t) => t.content);
+    const retrievalQuery = priorUserTurns.length > 0
+      ? `${priorUserTurns.join(" \n ")} \n ${data.query}`
+      : data.query;
+    const signals = extractSearchSignals(retrievalQuery);
     const isProceduralAdiQuery =
       signals.topicFilters.includes("ADI") &&
       /(adi-com|sentenza|giudicato|condanna|comunicazione|modello)/.test(signals.normalized);
