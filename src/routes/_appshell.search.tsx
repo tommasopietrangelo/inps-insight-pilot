@@ -19,6 +19,8 @@ import {
   RotateCcw,
   Eye,
   ArrowRight,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -135,33 +137,70 @@ function renderInline(line: string, byN: Map<number, SourceItem>) {
   return parts;
 }
 
+type Turn = {
+  id: string;
+  question: string;
+  answer: string;
+  sources: SourceItem[];
+};
+
 function SearchPage() {
   const { q: urlQ } = Route.useSearch();
   const [q, setQ] = useState(urlQ ?? "Nuove regole ADI 2026 per nuclei con minori");
+  const [followUp, setFollowUp] = useState("");
+  const [thread, setThread] = useState<Turn[]>([]);
   const { current } = useWorkspace();
   const qc = useQueryClient();
   const runSearch = useServerFn(groundedSearch);
   const saveFn = useServerFn(createSavedSearch);
-  const mutation = useMutation<SearchResult, Error, string>({
-    mutationFn: (query: string) => runSearch({ data: { query } }),
+  const threadEndRef = useRef<HTMLDivElement>(null);
+
+  const mutation = useMutation<
+    SearchResult,
+    Error,
+    { query: string; isFollowUp: boolean }
+  >({
+    mutationFn: ({ query, isFollowUp }) => {
+      const history = isFollowUp
+        ? thread.flatMap((t) => [
+            { role: "user" as const, content: t.question },
+            { role: "assistant" as const, content: t.answer },
+          ])
+        : [];
+      return runSearch({ data: { query, history } });
+    },
+    onSuccess: (data, vars) => {
+      const turn: Turn = {
+        id: crypto.randomUUID(),
+        question: vars.query,
+        answer: data.answer,
+        sources: data.sources,
+      };
+      setThread((prev) => (vars.isFollowUp ? [...prev, turn] : [turn]));
+      if (vars.isFollowUp) setFollowUp("");
+      setTimeout(() => threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 50);
+    },
   });
+
   const lastRunRef = useRef<string | null>(null);
   useEffect(() => {
     const trimmed = (urlQ ?? "").trim();
     if (trimmed.length >= 2 && lastRunRef.current !== trimmed) {
       lastRunRef.current = trimmed;
       setQ(urlQ ?? "");
-      mutation.mutate(trimmed);
+      setThread([]);
+      mutation.mutate({ query: trimmed, isFollowUp: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlQ]);
+
   const saveMut = useMutation({
     mutationFn: () =>
       saveFn({
         data: {
           query: q.trim(),
           workspaceId: current?.id ?? null,
-          resultsCount: mutation.data?.sources.length ?? 0,
+          resultsCount: thread[thread.length - 1]?.sources.length ?? 0,
         },
       }),
     onSuccess: () => {
@@ -172,13 +211,27 @@ function SearchPage() {
   });
 
   const submit = (query: string) => {
-    if (query.trim().length < 2) return;
-    mutation.mutate(query);
+    if (query.trim().length < 2 || mutation.isPending) return;
+    setThread([]);
+    mutation.mutate({ query: query.trim(), isFollowUp: false });
+  };
+
+  const submitFollowUp = (query: string) => {
+    if (query.trim().length < 2 || mutation.isPending || thread.length === 0) return;
+    mutation.mutate({ query: query.trim(), isFollowUp: true });
+  };
+
+  const resetThread = () => {
+    setThread([]);
+    setFollowUp("");
+    lastRunRef.current = null;
   };
 
 
-  const result = mutation.data;
-  const sources = result?.sources ?? [];
+
+  const latestTurn = thread[thread.length - 1];
+  const sources = latestTurn?.sources ?? [];
+  const hasThread = thread.length > 0;
 
   // Memoria AI (mock UI only)
   const isPro = true; // toggle to false to preview the locked state
@@ -335,128 +388,138 @@ function SearchPage() {
         </Card>
       )}
 
-      {result && !mutation.isPending && (
+      {hasThread && (
         <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
-          {/* Answer */}
-          <Card className="p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="gap-1.5 border-primary/30 bg-primary/5 text-primary">
-                  <ShieldCheck className="h-3 w-3" />
-                  Basato su {sources.length} font{sources.length === 1 ? "e" : "i"} ufficial{sources.length === 1 ? "e" : "i"} INPS
-                </Badge>
-                {sources[0]?.similarity != null && (
-                  <Badge variant="secondary" className="gap-1">
-                    Top match {(sources[0].similarity * 100).toFixed(0)}%
-                  </Badge>
-                )}
+          {/* Thread + composer */}
+          <div className="space-y-5">
+            {thread.map((turn, idx) => (
+              <div key={turn.id} className="space-y-3">
+                {/* User question bubble */}
+                <div className="flex justify-end">
+                  <div className="max-w-[92%] rounded-2xl rounded-br-sm bg-primary/90 px-4 py-2.5 text-sm text-primary-foreground">
+                    {turn.question}
+                  </div>
+                </div>
+                {/* Assistant answer card */}
+                <Card className="p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="gap-1.5 border-primary/30 bg-primary/5 text-primary">
+                        <ShieldCheck className="h-3 w-3" />
+                        {turn.sources.length} font{turn.sources.length === 1 ? "e" : "i"} ufficial{turn.sources.length === 1 ? "e" : "i"} INPS
+                      </Badge>
+                      {turn.sources[0]?.similarity != null && (
+                        <Badge variant="secondary" className="gap-1">
+                          Top match {(turn.sources[0].similarity * 100).toFixed(0)}%
+                        </Badge>
+                      )}
+                      {idx > 0 && (
+                        <Badge variant="secondary" className="text-[10px]">Follow-up</Badge>
+                      )}
+                    </div>
+                    {idx === thread.length - 1 && (
+                      <div className="flex gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => saveMut.mutate()}
+                          disabled={saveMut.isPending}
+                        >
+                          {saveMut.isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Bookmark className="h-3.5 w-3.5" />
+                          )}
+                          Salva
+                        </Button>
+                        <Button variant="outline" size="sm" className="gap-1.5" disabled>
+                          <Download className="h-3.5 w-3.5" /> Esporta
+                        </Button>
+                        <Button variant="outline" size="sm" className="gap-1.5" disabled>
+                          <PenSquare className="h-3.5 w-3.5" /> A nota
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 space-y-1">{renderAnswer(turn.answer, turn.sources)}</div>
+                </Card>
               </div>
-              <div className="flex gap-1.5">
+            ))}
+
+            {mutation.isPending && hasThread && (
+              <div className="flex items-center gap-2 rounded-md border bg-surface px-4 py-3 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                Sto consultando il corpus INPS per la tua nuova domanda…
+              </div>
+            )}
+
+            <div ref={threadEndRef} />
+
+            {/* Follow-up composer */}
+            <Card className="p-2">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submitFollowUp(followUp);
+                }}
+                className="flex items-start gap-2"
+              >
+                <MessageCircle className="ml-3 mt-3 h-5 w-5 shrink-0 text-muted-foreground" />
+                <textarea
+                  value={followUp}
+                  onChange={(e) => setFollowUp(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      submitFollowUp(followUp);
+                    }
+                  }}
+                  rows={2}
+                  placeholder="Continua la conversazione… (es. ‘E se il nucleo ha un minore disabile?’)"
+                  className="min-h-11 max-h-64 flex-1 resize-y bg-transparent py-2.5 text-base outline-none placeholder:text-muted-foreground"
+                />
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => saveMut.mutate()}
-                  disabled={saveMut.isPending || !mutation.data}
+                  type="submit"
+                  className="mt-1 gap-1.5"
+                  disabled={mutation.isPending || followUp.trim().length < 2}
                 >
-                  {saveMut.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Bookmark className="h-3.5 w-3.5" />
-                  )}
-                  Salva
+                  {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Invia
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5" disabled>
-                  <Download className="h-3.5 w-3.5" /> Esporta
-                </Button>
-                <Button variant="outline" size="sm" className="gap-1.5" disabled>
-                  <PenSquare className="h-3.5 w-3.5" /> A nota
-                </Button>
+              </form>
+              <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
+                <span>
+                  {thread.length} turn{thread.length === 1 ? "o" : "i"} in questa conversazione
+                </span>
+                <button
+                  type="button"
+                  onClick={resetThread}
+                  className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                >
+                  <RotateCcw className="h-3 w-3" /> Nuova conversazione
+                </button>
               </div>
+            </Card>
 
-            </div>
-
-            <h2 className="mt-5 font-display text-xl font-semibold">Risposta</h2>
-            <div className="mt-2 space-y-1">{renderAnswer(result.answer, sources)}</div>
-
-            <div className="mt-6 rounded-md border-l-2 border-primary bg-surface-muted p-4 text-sm">
+            <div className="rounded-md border-l-2 border-primary bg-surface-muted p-4 text-sm">
               <div className="font-medium">Avvertenza</div>
               <p className="mt-1 text-muted-foreground">
-                Questa sintesi è generata automaticamente sulla base delle fonti indicate. Verifica sempre il testo
+                Le risposte sono generate automaticamente sulla base delle fonti citate. Verifica sempre il testo
                 ufficiale prima di un atto formale.
               </p>
             </div>
+          </div>
 
-            {useMemory && isPro && (
-              <div className="mt-4 rounded-lg border border-orange-500/40 bg-orange-500/5 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-orange-500 text-white">
-                      <Brain className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-orange-700 dark:text-orange-400">
-                        Memoria applicata
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Questa risposta tiene conto di 3 ricerche recenti e 2 pratiche correlate.
-                      </p>
-                    </div>
-                  </div>
-                  <Badge className="gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] text-white hover:from-amber-500 hover:to-orange-500">
-                    <Sparkles className="h-3 w-3" /> PRO
-                  </Badge>
-                </div>
-
-                <div className="mt-3">
-                  <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Correlati dal tuo studio
-                  </div>
-                  <div className="mt-2 space-y-1.5">
-                    {memorySuggestions.map((s) => (
-                      <Link
-                        key={s.label}
-                        to={s.to}
-                        className="group flex items-center justify-between rounded-md border border-orange-500/20 bg-background/60 px-3 py-2 text-sm hover:border-orange-500/50"
-                      >
-                        <span className="text-foreground/90">{s.label}</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-orange-500" />
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 border-orange-500/40 text-orange-700 hover:bg-orange-500/10 hover:text-orange-700 dark:text-orange-400"
-                    onClick={() => {
-                      setUseMemory(false);
-                      submit(q);
-                    }}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" /> Rifai risposta senza memoria
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="gap-1.5 text-orange-700 hover:bg-orange-500/10 hover:text-orange-700 dark:text-orange-400"
-                    onClick={() => toast.info("Memoria: 3 ricerche e 2 pratiche correlate utilizzate")}
-                  >
-                    <Eye className="h-3.5 w-3.5" /> Vedi cosa ha usato
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* Sources */}
-          <Card className="p-5">
+          {/* Sources for latest turn */}
+          <Card className="p-5 h-fit lg:sticky lg:top-4">
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <div className="font-display text-base font-semibold">Fonti citate</div>
-                <p className="text-xs text-muted-foreground">{sources.length} atti ufficiali INPS</p>
+                <p className="text-xs text-muted-foreground">
+                  {sources.length} atti per l'ultima risposta
+                </p>
               </div>
               <Badge variant="outline" className="text-xs">
                 Ordine per pertinenza

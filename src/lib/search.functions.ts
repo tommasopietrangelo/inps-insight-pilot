@@ -402,7 +402,14 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
     };
   });
 
-const SearchInput = z.object({ query: z.string().min(2).max(8000) });
+const ChatTurnSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().max(20000),
+});
+const SearchInput = z.object({
+  query: z.string().min(2).max(8000),
+  history: z.array(ChatTurnSchema).max(40).optional(),
+});
 
 export const groundedSearch = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => SearchInput.parse(data))
@@ -410,7 +417,14 @@ export const groundedSearch = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("LOVABLE_API_KEY non configurata");
 
-    const signals = extractSearchSignals(data.query);
+    const history = data.history ?? [];
+    // For follow-ups, augment retrieval query with recent user turns so
+    // pronouns/anaphora ("ok ma per i minori?") still pull relevant chunks.
+    const priorUserTurns = history.filter((t) => t.role === "user").slice(-2).map((t) => t.content);
+    const retrievalQuery = priorUserTurns.length > 0
+      ? `${priorUserTurns.join(" \n ")} \n ${data.query}`
+      : data.query;
+    const signals = extractSearchSignals(retrievalQuery);
     const isProceduralAdiQuery =
       signals.topicFilters.includes("ADI") &&
       /(adi-com|sentenza|giudicato|condanna|comunicazione|modello)/.test(signals.normalized);
@@ -522,8 +536,10 @@ export const groundedSearch = createServerFn({ method: "POST" })
       "Se una fonte cita espressamente il modulo o la comunicazione richiesta, valorizzala chiaramente. " +
       "Struttura la risposta con: Sintesi, Cosa fare, Chi è coinvolto, Rischi o attenzioni, Note operative per il CAF.";
 
-    const user = `Domanda: ${data.query}\n\nFonti disponibili:\n${context}`;
+    const user = `Domanda${history.length > 0 ? " di follow-up" : ""}: ${data.query}\n\nFonti disponibili per questa risposta:\n${context}`;
 
+    // Cap history to last 12 turns to keep token usage bounded.
+    const trimmedHistory = history.slice(-12).map((t) => ({ role: t.role, content: t.content }));
 
     const res = await fetch(`${GATEWAY}/chat/completions`, {
       method: "POST",
@@ -532,6 +548,7 @@ export const groundedSearch = createServerFn({ method: "POST" })
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: system },
+          ...trimmedHistory,
           { role: "user", content: user },
         ],
       }),
