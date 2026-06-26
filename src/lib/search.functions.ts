@@ -536,8 +536,10 @@ export const groundedSearch = createServerFn({ method: "POST" })
       "Se una fonte cita espressamente il modulo o la comunicazione richiesta, valorizzala chiaramente. " +
       "Struttura la risposta con: Sintesi, Cosa fare, Chi è coinvolto, Rischi o attenzioni, Note operative per il CAF.";
 
-    const user = `Domanda: ${data.query}\n\nFonti disponibili:\n${context}`;
+    const user = `Domanda${history.length > 0 ? " di follow-up" : ""}: ${data.query}\n\nFonti disponibili per questa risposta:\n${context}`;
 
+    // Cap history to last 12 turns to keep token usage bounded.
+    const trimmedHistory = history.slice(-12).map((t) => ({ role: t.role, content: t.content }));
 
     const res = await fetch(`${GATEWAY}/chat/completions`, {
       method: "POST",
@@ -546,6 +548,7 @@ export const groundedSearch = createServerFn({ method: "POST" })
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: system },
+          ...trimmedHistory,
           { role: "user", content: user },
         ],
       }),
