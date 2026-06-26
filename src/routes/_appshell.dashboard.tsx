@@ -67,7 +67,7 @@ function Dashboard() {
   const activeAlerts = alerts.filter((a) => a.is_active);
   const highPriorityAlerts = activeAlerts.filter((a) => a.priority === "alta");
 
-  const { data: sources = [] } = useSources(6);
+  const { data: sources = [] } = useLatestUpdates(6);
   const { data: topics = [] } = useTopics();
   const { data: stats } = useCorpusStats();
 
