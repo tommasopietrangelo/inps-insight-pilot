@@ -402,7 +402,14 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
     };
   });
 
-const SearchInput = z.object({ query: z.string().min(2).max(8000) });
+const ChatTurnSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().max(20000),
+});
+const SearchInput = z.object({
+  query: z.string().min(2).max(8000),
+  history: z.array(ChatTurnSchema).max(40).optional(),
+});
 
 export const groundedSearch = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => SearchInput.parse(data))
