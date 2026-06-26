@@ -227,8 +227,9 @@ function SearchPage() {
 
 
 
-  const result = mutation.data;
-  const sources = result?.sources ?? [];
+  const latestTurn = thread[thread.length - 1];
+  const sources = latestTurn?.sources ?? [];
+  const hasThread = thread.length > 0;
 
   // Memoria AI (mock UI only)
   const isPro = true; // toggle to false to preview the locked state
