@@ -92,6 +92,25 @@ export function useSources(limit?: number) {
   });
 }
 
+// Ultimi aggiornamenti INPS per il cruscotto: solo tipi "novità" (esclude
+// pagine servizio statiche), ordinati per data di pubblicazione decrescente.
+export function useLatestUpdates(limit = 6) {
+  return useQuery({
+    queryKey: ["latest-updates", limit],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<UISource[]> => {
+      const { data, error } = await supabase
+        .from("sources")
+        .select(LIST_COLUMNS)
+        .in("source_type", ["circolare", "messaggio", "normativa", "notizia"])
+        .order("publication_date", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return (data ?? []).map((r: any) => toUI({ ...r, full_text: "", excerpt: "" }));
+    },
+  });
+}
+
 export function useSourceBySlug(slugOrId: string) {
   return useQuery({
     queryKey: ["source", slugOrId],

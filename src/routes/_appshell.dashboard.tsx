@@ -18,7 +18,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useSources, useTopics, useCorpusStats } from "@/lib/data";
+import { useTopics, useCorpusStats, useLatestUpdates } from "@/lib/data";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -67,7 +67,7 @@ function Dashboard() {
   const activeAlerts = alerts.filter((a) => a.is_active);
   const highPriorityAlerts = activeAlerts.filter((a) => a.priority === "alta");
 
-  const { data: sources = [] } = useSources(6);
+  const { data: sources = [] } = useLatestUpdates(6);
   const { data: topics = [] } = useTopics();
   const { data: stats } = useCorpusStats();
 
@@ -140,7 +140,7 @@ function Dashboard() {
           <div className="mb-4 flex items-center justify-between">
             <div>
               <div className="font-display text-base font-semibold">Ultimi aggiornamenti INPS</div>
-              <p className="text-xs text-muted-foreground">Circolari e messaggi pubblicati di recente</p>
+              <p className="text-xs text-muted-foreground">Circolari, messaggi, normativa e notizie in ordine cronologico</p>
             </div>
             <Button variant="ghost" size="sm" asChild>
               <Link to="/sources">Vedi tutti</Link>
