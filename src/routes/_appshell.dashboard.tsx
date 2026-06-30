@@ -348,38 +348,47 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Memoria AI — sober institutional banner */}
+      {/* Memoria AI — premium gradient banner */}
       <Link
         to="/memory"
-        className="group flex flex-wrap items-center justify-between gap-6 rounded-lg border border-primary/20 bg-primary p-6 text-primary-foreground transition-colors hover:border-primary/40"
+        className="group relative flex flex-wrap items-center justify-between gap-6 overflow-hidden rounded-2xl bg-navy-gradient p-8 text-primary-foreground shadow-premium transition-transform hover:-translate-y-px"
       >
-        <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "radial-gradient(60% 80% at 100% 0%, oklch(0.85 0.12 50 / 0.45), transparent 60%), radial-gradient(40% 60% at 0% 100%, oklch(0.75 0.14 30 / 0.30), transparent 70%)",
+          }}
+          aria-hidden
+        />
+        <div className="relative flex items-start gap-5">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 backdrop-blur">
             <Brain className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="rounded-sm border border-white/30 bg-white/5 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]">
+              <span className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
                 <Sparkles className="mr-1 inline h-2.5 w-2.5" />
                 Premium
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-70">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
                 Nuovo
               </span>
             </div>
-            <h2 className="mt-1.5 font-display text-lg font-semibold tracking-tight">
+            <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight">
               Memoria AI
             </h2>
-            <p className="mt-1 max-w-xl text-sm opacity-80">
+            <p className="mt-1.5 max-w-xl text-sm leading-relaxed opacity-80">
               Apprende dal lavoro del tuo studio e costruisce conoscenza nel tempo: normative,
               pratiche, casi particolari e procedure interne.
             </p>
           </div>
         </div>
-        <Button variant="secondary" className="gap-1.5 shadow-none">
+        <Button variant="secondary" size="lg" className="relative gap-1.5 shadow-elevated">
           Apri Memoria <ArrowUpRight className="h-4 w-4" />
         </Button>
       </Link>
+
     </div>
   );
 }
