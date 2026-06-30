@@ -755,6 +755,19 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      sources_missing_embeddings: {
+        Args: { limit_count?: number }
+        Returns: {
+          document_number: string
+          excerpt: string
+          full_text: string
+          id: string
+          summary: string
+          title: string
+          topic_tags: string[]
+        }[]
+      }
+      sources_missing_embeddings_count: { Args: never; Returns: number }
       workspace_role: {
         Args: { _user_id: string; _workspace_id: string }
         Returns: Database["public"]["Enums"]["workspace_member_role"]
