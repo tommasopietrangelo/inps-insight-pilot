@@ -293,43 +293,31 @@ function mergeRetrievalMatches(semanticMatches: any[], keywordMatches: any[], li
     .slice(0, limit);
 }
 
-// Massimo numero di atti elaborati per singola chiamata: serve a stare entro
-// il timeout del worker. La UI richiama la funzione finché `remaining` > 0.
-const INGEST_BATCH = 40;
-const PAGE = 1000;
-
-async function fetchAllPaged<T>(
-  loader: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
-  const out: T[] = [];
-  let from = 0;
-  for (;;) {
-    const to = from + PAGE - 1;
-    const { data, error } = await loader(from, to);
-    if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    out.push(...rows);
-    if (rows.length < PAGE) break;
-    from += PAGE;
-  }
-  return out;
-}
+// Batch piccolo per stare sotto il limite memoria del worker.
+const INGEST_BATCH = 10;
+// Tronca testi molto lunghi prima dell'embedding (rimane comunque indicizzato il titolo + metadati).
+const MAX_EMBED_CHARS = 12000;
 
 export const ingestEmbeddings = createServerFn({ method: "POST" })
   .handler(async () => {
-    // 1) Tutti i source_id già indicizzati (paginati per superare il limite 1000 di PostgREST)
-    const existing = await fetchAllPaged<{ source_id: string }>(async (from, to) => {
-      const res = await supabaseAdmin.from("chunks").select("source_id").range(from, to);
-      return { data: res.data, error: res.error };
-    });
-    const hasChunks = new Set(existing.map((r) => r.source_id));
-
-    // 2) Conteggio totale per reporting
+    // Conteggio totale fonti (reporting)
     const { count: total } = await supabaseAdmin
       .from("sources")
       .select("*", { count: "exact", head: true });
 
-    // 3) Scorri le sources a pagine finché non hai raccolto INGEST_BATCH da indicizzare
+    // Fonti senza embedding via RPC (NOT EXISTS lato DB → nessun caricamento di chunks in memoria)
+    const { data: missingRows, error: missingErr } = await supabaseAdmin.rpc(
+      "sources_missing_embeddings" as any,
+      { limit_count: INGEST_BATCH },
+    );
+    if (missingErr) throw new Error(missingErr.message);
+
+    const { data: remainingCountRow, error: countErr } = await supabaseAdmin.rpc(
+      "sources_missing_embeddings_count" as any,
+    );
+    if (countErr) throw new Error(countErr.message);
+    const remainingTotal = Number(remainingCountRow ?? 0);
+
     type Src = {
       id: string;
       title: string | null;
@@ -339,33 +327,10 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
       document_number: string | null;
       topic_tags: string[] | null;
     };
-    const todo: Src[] = [];
-    let scanned = 0;
-    let remainingTotal = 0;
-    let from = 0;
-    for (;;) {
-      const to = from + PAGE - 1;
-      const { data, error } = await supabaseAdmin
-        .from("sources")
-        .select("id, title, summary, excerpt, full_text, document_number, topic_tags")
-        .order("publication_date", { ascending: false })
-        .range(from, to);
-      if (error) throw new Error(error.message);
-      const rows = (data ?? []) as Src[];
-      if (rows.length === 0) break;
-      scanned += rows.length;
-      for (const s of rows) {
-        if (hasChunks.has(s.id)) continue;
-        remainingTotal++;
-        if (todo.length < INGEST_BATCH) todo.push(s);
-      }
-      if (rows.length < PAGE) break;
-      from += PAGE;
-    }
-
+    const todo = (missingRows ?? []) as Src[];
     let processed = 0;
     for (const s of todo) {
-      const text = [
+      const fullText = [
         s.title,
         s.document_number,
         (s.topic_tags ?? []).join(", "),
@@ -375,6 +340,7 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
       ]
         .filter(Boolean)
         .join("\n\n");
+      const text = fullText.length > MAX_EMBED_CHARS ? fullText.slice(0, MAX_EMBED_CHARS) : fullText;
       try {
         const emb = await embed(text);
         const { error: insErr } = await supabaseAdmin.from("chunks").insert({
@@ -396,11 +362,12 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
     const remaining = Math.max(0, remainingTotal - processed);
     return {
       processed,
-      total: total ?? scanned,
-      skipped: hasChunks.size,
+      total: total ?? 0,
+      skipped: Math.max(0, (total ?? 0) - remainingTotal),
       remaining,
     };
   });
+
 
 const ChatTurnSchema = z.object({
   role: z.enum(["user", "assistant"]),
