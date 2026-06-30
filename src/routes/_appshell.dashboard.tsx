@@ -79,44 +79,52 @@ function Dashboard() {
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Cruscotto
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight">
-            Buongiorno, {displayName}.
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            12 nuovi atti pubblicati questa settimana · 4 riguardano i tuoi topic.
-          </p>
+    <div className="space-y-10">
+      {/* Hero with aurora gradient — Stripe-like */}
+      <div className="relative -mx-6 -mt-6 overflow-hidden border-b bg-surface px-6 pb-10 pt-10 lg:-mx-8 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 bg-aurora opacity-90" aria-hidden />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+              Cruscotto
+            </p>
+            <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+              Buongiorno, {displayName}.
+            </h1>
+            <p className="mt-3 max-w-xl text-base text-muted-foreground">
+              12 nuovi atti pubblicati questa settimana · 4 riguardano i tuoi topic.
+            </p>
+          </div>
+          <Button asChild size="lg" className="shadow-elevated">
+            <Link to="/search">
+              <Search className="mr-1.5 h-4 w-4" /> Nuova ricerca
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link to="/search">
-            <Search className="mr-1.5 h-4 w-4" /> Nuova ricerca
-          </Link>
-        </Button>
       </div>
 
-      {/* KPIs — compact editorial strip */}
-      <div className="grid gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-2 lg:grid-cols-4">
+      {/* KPIs — premium grid with elevated surface */}
+      <div className="grid gap-px overflow-hidden rounded-xl border bg-border shadow-card md:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => (
-          <div key={k.label} className="bg-surface p-5">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              {k.label}
+          <div key={k.label} className="group bg-surface p-6 transition-colors hover:bg-surface-muted/40">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                {k.label}
+              </div>
+              <k.icon className="h-3.5 w-3.5 text-muted-foreground/60" />
             </div>
-            <div className="mt-3 font-display text-3xl font-semibold tracking-tight tabular-nums">
+            <div className="mt-4 font-display text-[2.5rem] font-semibold leading-none tracking-tight tabular-nums">
               {k.value}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">{k.hint}</div>
+            <div className="mt-2 text-xs text-muted-foreground">{k.hint}</div>
           </div>
         ))}
       </div>
 
+
       {/* Quick actions */}
-      <Card className="p-5 shadow-none">
-        <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      <Card className="p-6 shadow-card">
+        <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Azioni rapide
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
@@ -130,7 +138,7 @@ function Dashboard() {
             <Button
               key={a.t}
               variant="outline"
-              className="h-auto justify-start gap-3 px-4 py-3 shadow-none"
+              className="h-auto justify-start gap-3 px-4 py-3 shadow-none transition-all hover:border-primary/30 hover:shadow-card"
               asChild
             >
               <Link to={a.to}>
@@ -141,6 +149,7 @@ function Dashboard() {
           ))}
         </div>
       </Card>
+
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Latest updates — editorial cards */}
@@ -165,8 +174,9 @@ function Dashboard() {
                 key={s.id}
                 to="/source/$id"
                 params={{ id: s.id }}
-                className="group block rounded-lg border bg-surface p-5 transition-colors hover:border-primary/40"
+                className="group block rounded-xl border bg-surface p-6 shadow-card transition-all hover:-translate-y-px hover:border-primary/40 hover:shadow-elevated"
               >
+
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-sm border border-primary/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
@@ -216,7 +226,7 @@ function Dashboard() {
 
         {/* Right column — auxiliary panels */}
         <div className="space-y-4">
-          <Card className="p-5 shadow-none">
+          <Card className="p-6 shadow-card">
             <div className="mb-4 flex items-center gap-2">
               <TrendingUp className="h-3.5 w-3.5 text-primary" />
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -241,7 +251,7 @@ function Dashboard() {
             </div>
           </Card>
 
-          <Card className="p-5 shadow-none">
+          <Card className="p-6 shadow-card">
             <div className="mb-4 flex items-center justify-between">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Ricerche salvate
@@ -285,7 +295,7 @@ function Dashboard() {
             </div>
           </Card>
 
-          <Card className="p-5 shadow-none">
+          <Card className="p-6 shadow-card">
             <div className="mb-4 flex items-center justify-between">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Note interne recenti
@@ -338,38 +348,47 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Memoria AI — sober institutional banner */}
+      {/* Memoria AI — premium gradient banner */}
       <Link
         to="/memory"
-        className="group flex flex-wrap items-center justify-between gap-6 rounded-lg border border-primary/20 bg-primary p-6 text-primary-foreground transition-colors hover:border-primary/40"
+        className="group relative flex flex-wrap items-center justify-between gap-6 overflow-hidden rounded-2xl bg-navy-gradient p-8 text-primary-foreground shadow-premium transition-transform hover:-translate-y-px"
       >
-        <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-white/15 bg-white/5">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "radial-gradient(60% 80% at 100% 0%, oklch(0.85 0.12 50 / 0.45), transparent 60%), radial-gradient(40% 60% at 0% 100%, oklch(0.75 0.14 30 / 0.30), transparent 70%)",
+          }}
+          aria-hidden
+        />
+        <div className="relative flex items-start gap-5">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 backdrop-blur">
             <Brain className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="rounded-sm border border-white/30 bg-white/5 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]">
+              <span className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
                 <Sparkles className="mr-1 inline h-2.5 w-2.5" />
                 Premium
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-70">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] opacity-70">
                 Nuovo
               </span>
             </div>
-            <h2 className="mt-1.5 font-display text-lg font-semibold tracking-tight">
+            <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight">
               Memoria AI
             </h2>
-            <p className="mt-1 max-w-xl text-sm opacity-80">
+            <p className="mt-1.5 max-w-xl text-sm leading-relaxed opacity-80">
               Apprende dal lavoro del tuo studio e costruisce conoscenza nel tempo: normative,
               pratiche, casi particolari e procedure interne.
             </p>
           </div>
         </div>
-        <Button variant="secondary" className="gap-1.5 shadow-none">
+        <Button variant="secondary" size="lg" className="relative gap-1.5 shadow-elevated">
           Apri Memoria <ArrowUpRight className="h-4 w-4" />
         </Button>
       </Link>
+
     </div>
   );
 }
