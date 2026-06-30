@@ -244,16 +244,22 @@ function SearchPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Ricerca</p>
-        <h1 className="font-display text-2xl font-semibold">Chiedi in linguaggio naturale.</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Le risposte sono sempre basate su circolari, messaggi e normativa ufficiale INPS.
-        </p>
+    <div className="space-y-8">
+      <div className="relative -mx-6 -mt-6 overflow-hidden border-b bg-surface px-6 pb-10 pt-10 lg:-mx-8 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 bg-aurora opacity-80" aria-hidden />
+        <div className="relative max-w-3xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">Ricerca</p>
+          <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight sm:text-5xl">
+            Chiedi in linguaggio naturale.
+          </h1>
+          <p className="mt-3 max-w-xl text-base text-muted-foreground">
+            Le risposte sono sempre basate su circolari, messaggi e normativa ufficiale INPS.
+          </p>
+        </div>
       </div>
 
-      <Card className="p-2">
+      <Card className="p-2 shadow-elevated">
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
