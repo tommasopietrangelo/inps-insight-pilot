@@ -181,6 +181,14 @@
   }
   h1, h2, h3, h4, h5, h6, .font-display {
     font-family: var(--font-display);
-    letter-spacing: -0.015em;
+    letter-spacing: -0.022em;
+    font-feature-settings: "ss01", "cv11";
   }
 }
+
+@utility shadow-card { box-shadow: var(--shadow-card); }
+@utility shadow-elevated { box-shadow: var(--shadow-elevated); }
+@utility shadow-premium { box-shadow: var(--shadow-premium); }
+@utility bg-aurora { background-image: var(--gradient-aurora); }
+@utility bg-navy-gradient { background-image: var(--gradient-navy); }
+
