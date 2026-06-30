@@ -328,42 +328,9 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
       topic_tags: string[] | null;
     };
     const todo = (missingRows ?? []) as Src[];
-    type Src = {
-      id: string;
-      title: string | null;
-      summary: string | null;
-      excerpt: string | null;
-      full_text: string | null;
-      document_number: string | null;
-      topic_tags: string[] | null;
-    };
-    const todo: Src[] = [];
-    let scanned = 0;
-    let remainingTotal = 0;
-    let from = 0;
-    for (;;) {
-      const to = from + PAGE - 1;
-      const { data, error } = await supabaseAdmin
-        .from("sources")
-        .select("id, title, summary, excerpt, full_text, document_number, topic_tags")
-        .order("publication_date", { ascending: false })
-        .range(from, to);
-      if (error) throw new Error(error.message);
-      const rows = (data ?? []) as Src[];
-      if (rows.length === 0) break;
-      scanned += rows.length;
-      for (const s of rows) {
-        if (hasChunks.has(s.id)) continue;
-        remainingTotal++;
-        if (todo.length < INGEST_BATCH) todo.push(s);
-      }
-      if (rows.length < PAGE) break;
-      from += PAGE;
-    }
-
     let processed = 0;
     for (const s of todo) {
-      const text = [
+      const fullText = [
         s.title,
         s.document_number,
         (s.topic_tags ?? []).join(", "),
@@ -373,6 +340,7 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
       ]
         .filter(Boolean)
         .join("\n\n");
+      const text = fullText.length > MAX_EMBED_CHARS ? fullText.slice(0, MAX_EMBED_CHARS) : fullText;
       try {
         const emb = await embed(text);
         const { error: insErr } = await supabaseAdmin.from("chunks").insert({
@@ -394,11 +362,12 @@ export const ingestEmbeddings = createServerFn({ method: "POST" })
     const remaining = Math.max(0, remainingTotal - processed);
     return {
       processed,
-      total: total ?? scanned,
-      skipped: hasChunks.size,
+      total: total ?? 0,
+      skipped: Math.max(0, (total ?? 0) - remainingTotal),
       remaining,
     };
   });
+
 
 const ChatTurnSchema = z.object({
   role: z.enum(["user", "assistant"]),
