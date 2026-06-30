@@ -79,40 +79,48 @@ function Dashboard() {
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Cruscotto
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight">
-            Buongiorno, {displayName}.
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            12 nuovi atti pubblicati questa settimana · 4 riguardano i tuoi topic.
-          </p>
+    <div className="space-y-10">
+      {/* Hero with aurora gradient — Stripe-like */}
+      <div className="relative -mx-6 -mt-6 overflow-hidden border-b bg-surface px-6 pb-10 pt-10 lg:-mx-8 lg:px-8">
+        <div className="pointer-events-none absolute inset-0 bg-aurora opacity-90" aria-hidden />
+        <div className="relative flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+              Cruscotto
+            </p>
+            <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+              Buongiorno, {displayName}.
+            </h1>
+            <p className="mt-3 max-w-xl text-base text-muted-foreground">
+              12 nuovi atti pubblicati questa settimana · 4 riguardano i tuoi topic.
+            </p>
+          </div>
+          <Button asChild size="lg" className="shadow-elevated">
+            <Link to="/search">
+              <Search className="mr-1.5 h-4 w-4" /> Nuova ricerca
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link to="/search">
-            <Search className="mr-1.5 h-4 w-4" /> Nuova ricerca
-          </Link>
-        </Button>
       </div>
 
-      {/* KPIs — compact editorial strip */}
-      <div className="grid gap-px overflow-hidden rounded-lg border bg-border md:grid-cols-2 lg:grid-cols-4">
+      {/* KPIs — premium grid with elevated surface */}
+      <div className="grid gap-px overflow-hidden rounded-xl border bg-border shadow-card md:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => (
-          <div key={k.label} className="bg-surface p-5">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              {k.label}
+          <div key={k.label} className="group bg-surface p-6 transition-colors hover:bg-surface-muted/40">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                {k.label}
+              </div>
+              <k.icon className="h-3.5 w-3.5 text-muted-foreground/60" />
             </div>
-            <div className="mt-3 font-display text-3xl font-semibold tracking-tight tabular-nums">
+            <div className="mt-4 font-display text-[2.5rem] font-semibold leading-none tracking-tight tabular-nums">
               {k.value}
             </div>
-            <div className="mt-1 text-xs text-muted-foreground">{k.hint}</div>
+            <div className="mt-2 text-xs text-muted-foreground">{k.hint}</div>
           </div>
         ))}
       </div>
+
 
       {/* Quick actions */}
       <Card className="p-5 shadow-none">
