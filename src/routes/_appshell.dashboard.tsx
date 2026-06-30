@@ -123,8 +123,8 @@ function Dashboard() {
 
 
       {/* Quick actions */}
-      <Card className="p-5 shadow-none">
-        <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      <Card className="p-6 shadow-card">
+        <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Azioni rapide
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
@@ -138,7 +138,7 @@ function Dashboard() {
             <Button
               key={a.t}
               variant="outline"
-              className="h-auto justify-start gap-3 px-4 py-3 shadow-none"
+              className="h-auto justify-start gap-3 px-4 py-3 shadow-none transition-all hover:border-primary/30 hover:shadow-card"
               asChild
             >
               <Link to={a.to}>
@@ -149,6 +149,7 @@ function Dashboard() {
           ))}
         </div>
       </Card>
+
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Latest updates — editorial cards */}
