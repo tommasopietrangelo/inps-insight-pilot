@@ -226,7 +226,7 @@ function Dashboard() {
 
         {/* Right column — auxiliary panels */}
         <div className="space-y-4">
-          <Card className="p-5 shadow-none">
+          <Card className="p-6 shadow-card">
             <div className="mb-4 flex items-center gap-2">
               <TrendingUp className="h-3.5 w-3.5 text-primary" />
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -251,7 +251,7 @@ function Dashboard() {
             </div>
           </Card>
 
-          <Card className="p-5 shadow-none">
+          <Card className="p-6 shadow-card">
             <div className="mb-4 flex items-center justify-between">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Ricerche salvate
@@ -295,7 +295,7 @@ function Dashboard() {
             </div>
           </Card>
 
-          <Card className="p-5 shadow-none">
+          <Card className="p-6 shadow-card">
             <div className="mb-4 flex items-center justify-between">
               <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Note interne recenti
