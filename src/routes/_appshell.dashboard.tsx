@@ -174,8 +174,9 @@ function Dashboard() {
                 key={s.id}
                 to="/source/$id"
                 params={{ id: s.id }}
-                className="group block rounded-lg border bg-surface p-5 transition-colors hover:border-primary/40"
+                className="group block rounded-xl border bg-surface p-6 shadow-card transition-all hover:-translate-y-px hover:border-primary/40 hover:shadow-elevated"
               >
+
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-sm border border-primary/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-primary">
