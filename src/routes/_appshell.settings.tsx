@@ -83,6 +83,9 @@ function Settings() {
   const runNormative = useServerFn(ingestNormativeCardine);
   const [normLoading, setNormLoading] = useState(false);
   const [normResult, setNormResult] = useState<string | null>(null);
+  const runTestFirecrawl = useServerFn(testFirecrawlConnection);
+  const [testingFc, setTestingFc] = useState(false);
+  const [fcTestResult, setFcTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // Backfill massivo via coda
   const runDiscover = useServerFn(discoverInpsCorpus);
