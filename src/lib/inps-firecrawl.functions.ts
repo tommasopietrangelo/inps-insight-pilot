@@ -1117,16 +1117,18 @@ export const testFirecrawlConnection = createServerFn({ method: "POST" })
         headers: { Authorization: `Bearer ${key}` },
       });
       const text = await res.text();
-      let json: { success?: boolean; data?: { remaining_credits?: number; plan_credits?: number }; error?: string } = {};
+      let json: {
+        success?: boolean;
+        data?: {
+          remainingCredits?: number;
+          planCredits?: number;
+          billingPeriodStart?: string;
+          billingPeriodEnd?: string;
+        };
+        error?: string;
+      } = {};
       try { json = JSON.parse(text); } catch { /* non-JSON body */ }
 
-      if (res.status === 402) {
-        return {
-          ok: false as const,
-          status: 402,
-          error: "Crediti Firecrawl esauriti (HTTP 402). Ricarica dal pannello Firecrawl.",
-        };
-      }
       if (res.status === 401 || res.status === 403) {
         return {
           ok: false as const,
@@ -1141,13 +1143,17 @@ export const testFirecrawlConnection = createServerFn({ method: "POST" })
           error: `Firecrawl ha risposto ${res.status}: ${text.slice(0, 200)}`,
         };
       }
-      const remaining = json?.data?.remaining_credits;
-      const plan = json?.data?.plan_credits;
+      const remaining = json?.data?.remainingCredits;
+      const plan = json?.data?.planCredits;
+      const periodEnd = json?.data?.billingPeriodEnd ?? null;
+      const periodStart = json?.data?.billingPeriodStart ?? null;
       return {
         ok: true as const,
         status: 200,
         remainingCredits: typeof remaining === "number" ? remaining : null,
         planCredits: typeof plan === "number" ? plan : null,
+        billingPeriodStart: periodStart,
+        billingPeriodEnd: periodEnd,
       };
     } catch (e) {
       return {

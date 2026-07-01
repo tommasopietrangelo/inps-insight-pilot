@@ -939,13 +939,25 @@ function Settings() {
                 try {
                   const r = await runTestFirecrawl({});
                   if (r.ok) {
-                    const parts: string[] = ["Connessione OK."];
-                    if (r.remainingCredits !== null) {
-                      parts.push(`Crediti residui: ${r.remainingCredits.toLocaleString("it-IT")}${r.planCredits ? ` / ${r.planCredits.toLocaleString("it-IT")}` : ""}.`);
+                    const parts: string[] = [];
+                    const rem = r.remainingCredits;
+                    const plan = r.planCredits;
+                    if (rem !== null) {
+                      parts.push(`Crediti residui: ${rem.toLocaleString("it-IT")}${plan ? ` / ${plan.toLocaleString("it-IT")}` : ""}.`);
                     } else {
-                      parts.push("Crediti disponibili (dettaglio non fornito dall'API).");
+                      parts.push("Connessione OK (dettaglio crediti non fornito dall'API).");
                     }
-                    setFcTestResult({ ok: true, msg: parts.join(" ") });
+                    if (r.billingPeriodEnd) {
+                      const d = new Date(r.billingPeriodEnd);
+                      parts.push(`Rinnovo piano: ${d.toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" })}.`);
+                    }
+                    const isEmpty = rem === 0;
+                    setFcTestResult({
+                      ok: !isEmpty,
+                      msg: isEmpty
+                        ? `Crediti esauriti. ${parts.join(" ")} Fino al rinnovo i batch che richiedono scraping falliranno con errore 402.`
+                        : parts.join(" "),
+                    });
                   } else {
                     setFcTestResult({ ok: false, msg: r.error });
                   }
