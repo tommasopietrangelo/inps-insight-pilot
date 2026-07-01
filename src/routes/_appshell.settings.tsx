@@ -354,10 +354,9 @@ function Settings() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Importa progressivamente l'intero archivio circolari + messaggi (~15.000 atti)
                 pubblicato su inps.it. Funziona in due fasi:
-                <strong> 1) Discovery</strong> — scopre via Firecrawl tutti gli URL per anno e li
-                accoda in DB (costo ~2 crediti/anno, ignora URL già in coda).
-                <strong> 2) Batch</strong> — scarica e indicizza 200–500 atti per run, saltando i
-                duplicati PRIMA dello scraping (zero credito per quelli già nel corpus).
+                <strong> 1) Discovery</strong> — usa l'indice JSON pubblico INPS per anno e accoda gli URL in DB.
+                <strong> 2) Batch</strong> — scarica e indicizza gli atti dal dettaglio JSON pubblico INPS,
+                saltando i duplicati PRIMA del download. Non consuma crediti Firecrawl per gli atti standard.
                 Puoi rilanciare il batch più volte fino a esaurimento coda.
               </p>
             </div>
@@ -495,7 +494,7 @@ function Settings() {
               <div className="font-medium">2bis) Recupero errori coda</div>
               <div className="text-muted-foreground">
                 Resetta a <code>pending</code> gli URL falliti così il prossimo batch li riprocessa.
-                Utile dopo aver ricaricato i crediti Firecrawl o quando un picco di rate-limit ha
+                Utile dopo aver sbloccato la causa dell'errore o quando un picco di rate-limit ha
                 lasciato indietro molte righe.
               </div>
             </div>

@@ -114,6 +114,106 @@ async function scrapeWithPdfFallback(url: string): Promise<{
   };
 }
 
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function htmlToPlainText(value: unknown): string {
+  if (value == null) return "";
+  const raw = typeof value === "string" ? safeDecodeURIComponent(value) : String(value);
+  return raw
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h\d|tr)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/\r/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+type InpsDetailField = { value?: unknown; label?: string; type?: string };
+type InpsDetailJson = {
+  titolo?: InpsDetailField;
+  oggetto?: InpsDetailField;
+  sommario?: InpsDetailField;
+  mittenti?: InpsDetailField;
+  destinatari?: InpsDetailField;
+  testoCompleto?: InpsDetailField;
+  tipo?: InpsDetailField;
+  numero?: InpsDetailField;
+};
+
+function inpsDetailJsonUrl(url: string): string {
+  return url
+    .split("#")[0]
+    .split("?")[0]
+    .replace("/dettaglio.", "/dettaglio.content-fragment-detail.")
+    .replace(/\.html$/i, ".json");
+}
+
+async function scrapeInpsDetailJson(url: string): Promise<{
+  markdown: string;
+  title: string | undefined;
+  description: string | undefined;
+  pdfUrl: string | null;
+}> {
+  const res = await fetch(inpsDetailJsonUrl(url), {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; INPS-Insight/1.0)" },
+  });
+  if (!res.ok) throw new Error(`INPS detail JSON ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  const json = (await res.json()) as InpsDetailJson;
+  const title = htmlToPlainText(json.titolo?.value);
+  const tipo = htmlToPlainText(json.tipo?.value);
+  const numero = htmlToPlainText(json.numero?.value);
+  const oggetto = htmlToPlainText(json.oggetto?.value);
+  const sommario = htmlToPlainText(json.sommario?.value);
+  const mittenti = htmlToPlainText(json.mittenti?.value);
+  const destinatari = htmlToPlainText(json.destinatari?.value);
+  const testoCompleto = htmlToPlainText(json.testoCompleto?.value);
+
+  const sections = [
+    title ? `# ${title}` : "",
+    tipo || numero ? `Tipo: ${tipo || "Atto"}${numero ? ` n. ${numero}` : ""}` : "",
+    oggetto ? `## Oggetto\n\n${oggetto}` : "",
+    sommario ? `## Sommario\n\n${sommario}` : "",
+    mittenti ? `## Mittenti\n\n${mittenti}` : "",
+    destinatari ? `## Destinatari\n\n${destinatari}` : "",
+    testoCompleto ? `## Testo Completo\n\n${testoCompleto}` : "",
+  ].filter(Boolean);
+
+  return {
+    markdown: sections.join("\n\n").trim(),
+    title: title || undefined,
+    description: oggetto || sommario || undefined,
+    pdfUrl: null,
+  };
+}
+
+async function scrapeInpsAct(url: string): Promise<{
+  markdown: string;
+  title: string | undefined;
+  description: string | undefined;
+  pdfUrl: string | null;
+}> {
+  if (/\/inps-comunica\/atti\/circolari-messaggi-e-normativa\/dettaglio\./i.test(url)) {
+    return scrapeInpsDetailJson(url);
+  }
+  return scrapeWithPdfFallback(url);
+}
+
 async function firecrawlMap(url: string, search: string, limit = 200): Promise<string[]> {
   const key = requireFirecrawlKey();
   // Retry automatico sui 429 (rate limit Firecrawl: 6 req/min sul piano standard).
@@ -329,7 +429,7 @@ async function ingestSingleInps(url: string): Promise<
     .maybeSingle();
   if (existing) return { ok: true, created: false, external_id, title: existing.title };
 
-  const scraped = await scrapeWithPdfFallback(url);
+  const scraped = await scrapeInpsAct(url);
   const md = scraped.markdown;
   if (md.length < 400) return { ok: false, url, reason: `markdown vuoto (${md.length} chars)${scraped.pdfUrl ? ` · PDF tentato: ${scraped.pdfUrl}` : " · nessun PDF trovato"}` };
 
@@ -612,14 +712,15 @@ export const backfillInpsOlder = createServerFn({ method: "POST" })
 //
 // L'archivio INPS contiene ~15k atti; non possiamo scoprirli e ingerirli tutti
 // in una run (timeout + crediti Firecrawl). Strategia:
-//   1) "Discovery": chiamate `map` per (kind × anno) → enqueue URL in
+//   1) "Discovery": endpoint JSON pubblico INPS → enqueue URL in
 //      `inps_ingest_queue` (status=pending). Idempotente: l'unique constraint
-//      su url scarta i duplicati. Costo: ~2 crediti per anno coperto.
+//      su url scarta i duplicati. Costo: zero crediti Firecrawl.
 //   2) "Processing": l'utente avvia batch da 200–500 URL alla volta.
-//      Per ogni URL: dedup PRIMA dello scrape (controllo external_id sulle
-//      sources già in DB, niente credito) → scrape + insert se nuovo →
-//      aggiornamento riga di coda. Costo: 1 credito per atto effettivamente
-//      scaricato (gli skip non costano).
+//      Per ogni URL: dedup PRIMA del download (controllo external_id sulle
+//      sources già in DB) → endpoint JSON pubblico INPS + insert se nuovo →
+//      aggiornamento riga di coda. Costo: zero crediti Firecrawl per gli atti
+//      INPS con content-fragment JSON; Firecrawl resta solo come fallback per
+//      eventuali URL fuori da quel formato.
 // ---------------------------------------------------------------------------
 
 type QueueRow = { id: string; url: string; status: string };
