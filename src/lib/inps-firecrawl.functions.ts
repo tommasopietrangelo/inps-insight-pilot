@@ -1095,3 +1095,65 @@ export const rebuildInpsTitles = createServerFn({ method: "POST" })
     return { scanned, changed, noOggetto, skipped, samples };
   });
 
+
+// ---------------------------------------------------------------------------
+// Test connessione Firecrawl: verifica che l'API key sia configurata,
+// che le credenziali siano valide e che ci siano crediti disponibili.
+// Usa l'endpoint ufficiale GET /v2/team/credit-usage (1 chiamata, 0 crediti).
+// ---------------------------------------------------------------------------
+export const testFirecrawlConnection = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const key = process.env.FIRECRAWL_API_KEY;
+    if (!key) {
+      return {
+        ok: false as const,
+        status: 0,
+        error: "FIRECRAWL_API_KEY non configurata sul server.",
+      };
+    }
+    try {
+      const res = await fetch(`${FIRECRAWL_BASE}/team/credit-usage`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      const text = await res.text();
+      let json: { success?: boolean; data?: { remaining_credits?: number; plan_credits?: number }; error?: string } = {};
+      try { json = JSON.parse(text); } catch { /* non-JSON body */ }
+
+      if (res.status === 402) {
+        return {
+          ok: false as const,
+          status: 402,
+          error: "Crediti Firecrawl esauriti (HTTP 402). Ricarica dal pannello Firecrawl.",
+        };
+      }
+      if (res.status === 401 || res.status === 403) {
+        return {
+          ok: false as const,
+          status: res.status,
+          error: `API key Firecrawl non valida (HTTP ${res.status}).`,
+        };
+      }
+      if (!res.ok) {
+        return {
+          ok: false as const,
+          status: res.status,
+          error: `Firecrawl ha risposto ${res.status}: ${text.slice(0, 200)}`,
+        };
+      }
+      const remaining = json?.data?.remaining_credits;
+      const plan = json?.data?.plan_credits;
+      return {
+        ok: true as const,
+        status: 200,
+        remainingCredits: typeof remaining === "number" ? remaining : null,
+        planCredits: typeof plan === "number" ? plan : null,
+      };
+    } catch (e) {
+      return {
+        ok: false as const,
+        status: 0,
+        error: `Errore di rete verso Firecrawl: ${(e as Error).message}`,
+      };
+    }
+  });

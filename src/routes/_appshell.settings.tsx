@@ -14,6 +14,7 @@ import {
   getInpsErrorBreakdown,
   retryInpsErrors,
   rebuildInpsTitles,
+  testFirecrawlConnection,
 } from "@/lib/inps-firecrawl.functions";
 import {
   discoverInpsSection,
@@ -82,6 +83,9 @@ function Settings() {
   const runNormative = useServerFn(ingestNormativeCardine);
   const [normLoading, setNormLoading] = useState(false);
   const [normResult, setNormResult] = useState<string | null>(null);
+  const runTestFirecrawl = useServerFn(testFirecrawlConnection);
+  const [testingFc, setTestingFc] = useState(false);
+  const [fcTestResult, setFcTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // Backfill massivo via coda
   const runDiscover = useServerFn(discoverInpsCorpus);
@@ -912,7 +916,67 @@ function Settings() {
         </Card>
 
 
+        {/* Test connessione Firecrawl */}
+        <Card className="p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <Flame className="h-4 w-4 text-primary" /> Test connessione Firecrawl
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Verifica che l'API key sia valida e che ci siano crediti disponibili
+                (chiama <code>/team/credit-usage</code>, non consuma crediti).
+                Usalo se i batch falliscono con errori 402 o 401.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={testingFc}
+              onClick={async () => {
+                setTestingFc(true);
+                setFcTestResult(null);
+                try {
+                  const r = await runTestFirecrawl({});
+                  if (r.ok) {
+                    const parts: string[] = ["Connessione OK."];
+                    if (r.remainingCredits !== null) {
+                      parts.push(`Crediti residui: ${r.remainingCredits.toLocaleString("it-IT")}${r.planCredits ? ` / ${r.planCredits.toLocaleString("it-IT")}` : ""}.`);
+                    } else {
+                      parts.push("Crediti disponibili (dettaglio non fornito dall'API).");
+                    }
+                    setFcTestResult({ ok: true, msg: parts.join(" ") });
+                  } else {
+                    setFcTestResult({ ok: false, msg: r.error });
+                  }
+                } catch (e) {
+                  setFcTestResult({ ok: false, msg: (e as Error).message });
+                } finally {
+                  setTestingFc(false);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {testingFc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flame className="h-4 w-4" />}
+              {testingFc ? "Test in corso…" : "Testa connessione"}
+            </Button>
+          </div>
+          {fcTestResult && (
+            <div
+              className={`mt-3 rounded-md border px-4 py-3 text-sm ${
+                fcTestResult.ok
+                  ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
+                  : "border-destructive/30 bg-destructive/5 text-destructive"
+              }`}
+            >
+              {fcTestResult.msg}
+            </div>
+          )}
+        </Card>
+
         {/* Firecrawl backfill */}
+
+
 
         <Card className="p-6 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
