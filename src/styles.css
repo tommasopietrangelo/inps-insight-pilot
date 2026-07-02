@@ -192,6 +192,77 @@
 @utility shadow-card { box-shadow: var(--shadow-card); }
 @utility shadow-elevated { box-shadow: var(--shadow-elevated); }
 @utility shadow-premium { box-shadow: var(--shadow-premium); }
+@utility shadow-inset-neu { box-shadow: var(--shadow-inset); }
 @utility bg-aurora { background-image: var(--gradient-aurora); }
 @utility bg-navy-gradient { background-image: var(--gradient-navy); }
+
+/* ---- Neumorphism polish (light mode only) ---- */
+@layer components {
+  :root:not(.dark) [data-slot="card"],
+  :root:not(.dark) .rounded-xl.border.bg-card,
+  :root:not(.dark) .rounded-lg.border.bg-card {
+    background-color: var(--card);
+    border-color: transparent;
+    box-shadow: var(--shadow-elevated);
+    border-radius: var(--radius-xl);
+  }
+
+  /* Inputs, textareas, selects: soft inset well */
+  :root:not(.dark) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  :root:not(.dark) textarea,
+  :root:not(.dark) select,
+  :root:not(.dark) [data-slot="select-trigger"] {
+    background-color: var(--surface-muted);
+    border-color: transparent !important;
+    box-shadow: var(--shadow-inset);
+  }
+  :root:not(.dark) input:focus-visible,
+  :root:not(.dark) textarea:focus-visible,
+  :root:not(.dark) [data-slot="select-trigger"]:focus-visible {
+    box-shadow: var(--shadow-inset), 0 0 0 2px oklch(0.30 0.060 255 / 0.25);
+  }
+
+  /* Secondary / outline / ghost buttons: extruded soft pillow */
+  :root:not(.dark) button[data-slot="button"]:where(.bg-secondary, [class*="variant-secondary"]),
+  :root:not(.dark) .btn-neu {
+    background-color: var(--surface);
+    box-shadow: var(--shadow-card);
+    border-color: transparent;
+    transition: box-shadow 160ms ease, transform 160ms ease;
+  }
+  :root:not(.dark) button[data-slot="button"]:where(.bg-secondary, [class*="variant-secondary"]):active,
+  :root:not(.dark) .btn-neu:active {
+    box-shadow: var(--shadow-inset);
+  }
+
+  /* Sidebar: seamless with background, subtle rim */
+  :root:not(.dark) [data-sidebar="sidebar"] {
+    background-color: var(--sidebar);
+    border-color: transparent;
+    box-shadow: 4px 0 12px -8px var(--neu-dark);
+  }
+
+  /* Badges: soft chips */
+  :root:not(.dark) [data-slot="badge"]:where(.bg-secondary, .bg-muted, [class*="variant-secondary"], [class*="variant-outline"]) {
+    background-color: var(--surface);
+    border-color: transparent;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Popover, dropdown, dialog surfaces */
+  :root:not(.dark) [data-slot="popover-content"],
+  :root:not(.dark) [data-slot="dropdown-menu-content"],
+  :root:not(.dark) [data-slot="dialog-content"],
+  :root:not(.dark) [data-slot="sheet-content"] {
+    background-color: var(--popover);
+    border-color: transparent;
+    box-shadow: var(--shadow-premium);
+  }
+
+  /* Tables: kill hard lines, use subtle separators */
+  :root:not(.dark) table tr {
+    border-color: oklch(0.90 0.005 260 / 0.4);
+  }
+}
+
 
