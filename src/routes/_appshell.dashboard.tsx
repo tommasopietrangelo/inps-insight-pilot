@@ -26,6 +26,7 @@ import { listSavedSearches } from "@/lib/saved-searches.functions";
 import { listNotes } from "@/lib/notes.functions";
 import { listAlerts } from "@/lib/alerts.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { RecurringFlowsSection } from "@/components/recurring-flows-section";
 
 export const Route = createFileRoute("/_appshell/dashboard")({
   head: () => ({ meta: [{ title: "Cruscotto · INPS Copilot" }] }),
