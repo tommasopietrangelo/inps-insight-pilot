@@ -41,6 +41,8 @@ import { createSavedSearch } from "@/lib/saved-searches.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { toast } from "sonner";
 
+import { ChatQuickActions } from "@/components/chat-quick-actions";
+
 export const Route = createFileRoute("/_appshell/search")({
   head: () => ({ meta: [{ title: "Ricerca · INPS Copilot" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
@@ -48,6 +50,7 @@ export const Route = createFileRoute("/_appshell/search")({
   }),
   component: SearchPage,
 });
+
 
 const EXAMPLES = [
   "Nuove regole ADI 2026",
