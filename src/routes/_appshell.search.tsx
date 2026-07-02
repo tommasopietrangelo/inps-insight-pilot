@@ -41,6 +41,8 @@ import { createSavedSearch } from "@/lib/saved-searches.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { toast } from "sonner";
 
+import { ChatQuickActions } from "@/components/chat-quick-actions";
+
 export const Route = createFileRoute("/_appshell/search")({
   head: () => ({ meta: [{ title: "Ricerca · INPS Copilot" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
@@ -48,6 +50,7 @@ export const Route = createFileRoute("/_appshell/search")({
   }),
   component: SearchPage,
 });
+
 
 const EXAMPLES = [
   "Nuove regole ADI 2026",
@@ -450,9 +453,26 @@ function SearchPage() {
                   </div>
 
                   <div className="mt-4 space-y-1">{renderAnswer(turn.answer, turn.sources)}</div>
+
+                  {idx === thread.length - 1 && !mutation.isPending && (
+                    <ChatQuickActions
+                      question={turn.question}
+                      answer={turn.answer}
+                      sources={turn.sources.map((s) => ({
+                        n: s.n,
+                        source_id: s.source_id,
+                        title: s.title,
+                        source_type: s.source_type,
+                        document_number: s.document_number,
+                      }))}
+                      onFollowUp={(prompt) => submitFollowUp(prompt)}
+                      followUpPending={mutation.isPending}
+                    />
+                  )}
                 </Card>
               </div>
             ))}
+
 
             {mutation.isPending && hasThread && (
               <div className="flex items-center gap-2 rounded-md border bg-surface px-4 py-3 text-xs text-muted-foreground">

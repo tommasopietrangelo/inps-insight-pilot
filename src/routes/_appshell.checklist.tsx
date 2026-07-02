@@ -41,9 +41,11 @@ export const Route = createFileRoute("/_appshell/checklist")({
   head: () => ({ meta: [{ title: "Crea checklist pratica · INPS Copilot" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     flowId: typeof search.flowId === "string" ? search.flowId : undefined,
+    fromChat: typeof search.fromChat === "string" ? search.fromChat : undefined,
   }),
   component: ChecklistPage,
 });
+
 
 type LoadedFile = { name: string; text: string; chars: number };
 
@@ -128,6 +130,61 @@ function ChecklistPage() {
     setChecked(new Set());
     setCurrentId(null);
   }, [flowId, flowsQuery.data]);
+
+  const { fromChat } = Route.useSearch();
+  useEffect(() => {
+    if (!fromChat) return;
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem("chatChecklistPrefill");
+      if (!raw) return;
+      const data = JSON.parse(raw) as {
+        title?: string;
+        query?: string;
+        items?: string[];
+        sources?: Array<{
+          n: number;
+          source_id: string;
+          title: string;
+          source_type: string;
+          document_number: string | null;
+        }>;
+        answerExcerpt?: string;
+      };
+      setQuery(data.query ?? "");
+      const draftItems: ChecklistItem[] = (data.items ?? []).map((title, idx) => ({
+        id: `chat-${idx}`,
+        section: "controlli" as ChecklistSection,
+        title,
+        status: "da_verificare" as ChecklistStatus,
+        explanation: "Voce precompilata dalla risposta chat — da rivedere e integrare.",
+        citations: [],
+      }));
+      setResult({
+        practiceType: data.title ?? "Pratica dalla risposta chat",
+        summary:
+          "Bozza checklist generata dal contesto della risposta AI. Clicca «Crea checklist pratica» qui sopra per generare l'analisi completa con riferimenti INPS aggiornati.",
+        disclaimer:
+          "Bozza operativa — verifica sempre con le fonti INPS più recenti prima di procedere.",
+        items: draftItems,
+        usedSources: (data.sources ?? []).map((s) => ({
+          id: s.source_id,
+          title: s.title,
+          source_type: s.source_type,
+          document_number: s.document_number,
+          publication_date: "",
+          official_url: null,
+        })),
+      });
+      setChecked(new Set());
+      setCurrentId(null);
+      sessionStorage.removeItem("chatChecklistPrefill");
+      toast.info("Checklist precompilata dalla risposta chat");
+    } catch {
+      /* ignore parse errors */
+    }
+  }, [fromChat]);
+
 
   const callGenerate = useServerFn(generateChecklist);
   const generate = useMutation({
