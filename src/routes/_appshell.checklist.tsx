@@ -38,6 +38,9 @@ import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/checklist")({
   head: () => ({ meta: [{ title: "Crea checklist pratica · INPS Copilot" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    flowId: typeof search.flowId === "string" ? search.flowId : undefined,
+  }),
   component: ChecklistPage,
 });
 
