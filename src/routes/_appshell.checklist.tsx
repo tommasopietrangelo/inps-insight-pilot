@@ -107,10 +107,10 @@ function ChecklistPage() {
 
   useEffect(() => {
     if (!flowId || !flowsQuery.data) return;
-    const flow = flowsQuery.data.find((f) => f.id === flowId);
+    const flow = flowsQuery.data.find((f: OperationalFlow) => f.id === flowId);
     if (!flow) return;
     setQuery(flow.query);
-    const items: ChecklistItem[] = flow.checklist_items.map((title, idx) => ({
+    const items: ChecklistItem[] = flow.checklist_items.map((title: string, idx: number) => ({
       id: `flow-${flow.id}-${idx}`,
       section: "documenti" as ChecklistSection,
       title,
