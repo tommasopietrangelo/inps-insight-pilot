@@ -34,6 +34,7 @@ import {
 } from "@/lib/checklist.functions";
 import { extractTextFromFile, downloadAsPdf } from "@/lib/doc-io";
 import { listPractices, savePractice, deletePractice } from "@/lib/practices.functions";
+import { listOperationalFlows, type OperationalFlow } from "@/lib/operational-flows.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/checklist")({
