@@ -318,6 +318,56 @@ export type Database = {
           },
         ]
       }
+      operational_flows: {
+        Row: {
+          checklist_items: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_default: boolean
+          query: string
+          title: string
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          checklist_items?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean
+          query?: string
+          title: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          checklist_items?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_default?: boolean
+          query?: string
+          title?: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operational_flows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practices: {
         Row: {
           checked: string[]
