@@ -88,6 +88,7 @@ function ChecklistPage() {
   const listFn = useServerFn(listPractices);
   const saveFn = useServerFn(savePractice);
   const delFn = useServerFn(deletePractice);
+  const listFlowsFn = useServerFn(listOperationalFlows);
 
   const savedQuery = useQuery({
     queryKey: ["practices", wsId, "checklist"],
@@ -95,6 +96,37 @@ function ChecklistPage() {
     enabled: !!wsId,
   });
   const saved = savedQuery.data ?? [];
+
+  const { flowId } = Route.useSearch();
+  const flowsQuery = useQuery({
+    queryKey: ["operational-flows", wsId],
+    queryFn: () => listFlowsFn({ data: { workspaceId: wsId } }),
+    enabled: !!wsId && !!flowId,
+  });
+
+  useEffect(() => {
+    if (!flowId || !flowsQuery.data) return;
+    const flow = flowsQuery.data.find((f) => f.id === flowId);
+    if (!flow) return;
+    setQuery(flow.query);
+    const items: ChecklistItem[] = flow.checklist_items.map((title, idx) => ({
+      id: `flow-${flow.id}-${idx}`,
+      section: "documenti" as ChecklistSection,
+      title,
+      status: "da_verificare" as ChecklistStatus,
+      explanation: "",
+      citations: [],
+    }));
+    setResult({
+      practiceType: flow.title,
+      summary: flow.description ?? "Flusso operativo preimpostato. Puoi generare l'analisi AI per arricchire con riferimenti INPS.",
+      disclaimer: "Preset da flusso ricorrente — verifica sempre con le fonti INPS più recenti.",
+      items,
+      usedSources: [],
+    });
+    setChecked(new Set());
+    setCurrentId(null);
+  }, [flowId, flowsQuery.data]);
 
   const callGenerate = useServerFn(generateChecklist);
   const generate = useMutation({
