@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   Brain,
   Sparkles,
+  Workflow,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 const nav = [
   { title: "Cruscotto", url: "/dashboard", icon: LayoutDashboard },
   { title: "Ricerca", url: "/search", icon: Search },
+  { title: "Flussi operativi", url: "/flows", icon: Workflow },
   { title: "Analizza documento", url: "/analyze", icon: FileSearch },
   { title: "Checklist pratica", url: "/checklist", icon: ClipboardCheck },
   { title: "Fonti", url: "/sources", icon: FileText },
