@@ -41,9 +41,11 @@ export const Route = createFileRoute("/_appshell/checklist")({
   head: () => ({ meta: [{ title: "Crea checklist pratica · INPS Copilot" }] }),
   validateSearch: (search: Record<string, unknown>) => ({
     flowId: typeof search.flowId === "string" ? search.flowId : undefined,
+    fromChat: typeof search.fromChat === "string" ? search.fromChat : undefined,
   }),
   component: ChecklistPage,
 });
+
 
 type LoadedFile = { name: string; text: string; chars: number };
 
