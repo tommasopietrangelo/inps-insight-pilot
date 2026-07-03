@@ -142,6 +142,7 @@ function ChecklistPage() {
         title?: string;
         query?: string;
         items?: string[];
+        generatedResult?: ChecklistResult | null;
         sources?: Array<{
           n: number;
           source_id: string;
@@ -152,6 +153,14 @@ function ChecklistPage() {
         answerExcerpt?: string;
       };
       setQuery(data.query ?? "");
+      if (data.generatedResult?.items?.length) {
+        setResult(data.generatedResult);
+        setChecked(new Set());
+        setCurrentId(null);
+        sessionStorage.removeItem("chatChecklistPrefill");
+        toast.info("Checklist completa importata dalla risposta chat");
+        return;
+      }
       const draftItems: ChecklistItem[] = (data.items ?? []).map((title, idx) => ({
         id: `chat-${idx}`,
         section: "controlli" as ChecklistSection,
@@ -278,7 +287,13 @@ function ChecklistPage() {
     onError: (err) => toast.error(`Errore salvataggio: ${(err as Error).message}`),
   });
 
-  const savePratica = () => saveMutation.mutate({});
+  const savePratica = () => {
+    if (!result?.items?.length) {
+      toast.error("Nessuna voce da salvare: genera prima una checklist completa.");
+      return;
+    }
+    saveMutation.mutate({});
+  };
 
   const deleteSaved = async (id: string) => {
     try {

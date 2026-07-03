@@ -242,14 +242,16 @@ function ChecklistFromAnswerDialog({
 
   const openInChecklistPage = () => {
     // Prefill via sessionStorage; il route legge e applica.
+    const cleanItems = items.filter((i) => i.trim());
     try {
       sessionStorage.setItem(
         "chatChecklistPrefill",
         JSON.stringify({
-          title,
+          title: generated?.practiceType || title,
           query: `${title}\n\n${summary}`,
-          items: items.filter((i) => i.trim()),
+          items: cleanItems,
           sources,
+          generatedResult: generated,
           answerExcerpt: answer.slice(0, 4000),
           ts: Date.now(),
         }),
