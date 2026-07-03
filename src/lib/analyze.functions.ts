@@ -64,42 +64,48 @@ function extractTokens(text: string): { keywords: Set<string>; docNumbers: Set<s
 async function pickRelevantSources(text: string, limit = 15) {
   const { keywords, docNumbers } = extractTokens(text);
 
-  // Scansiona TUTTO il corpus (paginato), non solo gli ultimi 200
+  // Fase 1: scoring leggero SENZA full_text/excerpt (per evitare statement timeout)
   const PAGE = 1000;
-  const { count } = await supabaseAdmin
-    .from("sources")
-    .select("*", { count: "exact", head: true });
-  const total = count ?? 0;
-  const pages = Math.max(1, Math.ceil(total / PAGE));
-  const all: any[] = [];
-  for (let i = 0; i < pages; i++) {
-    const from = i * PAGE;
+  const MAX_ROWS = 5000; // cap difensivo
+  const light: any[] = [];
+  for (let from = 0; from < MAX_ROWS; from += PAGE) {
     const to = from + PAGE - 1;
     const { data, error } = await supabaseAdmin
       .from("sources")
-      .select("id, title, source_type, document_number, publication_date, summary, excerpt, full_text, topic_tags")
+      .select("id, title, source_type, document_number, publication_date, summary, topic_tags")
       .order("publication_date", { ascending: false })
       .range(from, to);
     if (error) throw new Error(error.message);
-    if (data) all.push(...data);
+    if (!data || data.length === 0) break;
+    light.push(...data);
+    if (data.length < PAGE) break;
   }
 
-  const scored = all.map((s) => {
+  const scored = light.map((s) => {
     const docNum = (s.document_number ?? "").toLowerCase();
-    const hay = `${s.title} ${docNum} ${s.summary ?? ""} ${(s.topic_tags ?? []).join(" ")} ${(s.excerpt ?? "").slice(0, 600)}`.toLowerCase();
+    const hay = `${s.title} ${docNum} ${s.summary ?? ""} ${(s.topic_tags ?? []).join(" ")}`.toLowerCase();
     let score = 0;
     for (const t of keywords) if (hay.includes(t)) score += 1;
-    // boost forte per match esatto sul numero del documento
     for (const n of docNumbers) {
       if (docNum.includes(n)) score += 10;
       if ((s.title ?? "").toLowerCase().includes(n)) score += 5;
     }
-    // leggero boost per atti recenti (a parità di score)
     const year = parseInt((s.publication_date ?? "0").slice(0, 4), 10) || 0;
     return { s, score, year };
   });
   scored.sort((a, b) => b.score - a.score || b.year - a.year);
-  return scored.filter((x) => x.score > 0).slice(0, limit).map((x) => x.s);
+  const top = scored.filter((x) => x.score > 0).slice(0, limit).map((x) => x.s);
+  if (top.length === 0) return [];
+
+  // Fase 2: hydrate solo i top con excerpt/full_text
+  const ids = top.map((s) => s.id);
+  const { data: hydrated, error: hErr } = await supabaseAdmin
+    .from("sources")
+    .select("id, title, source_type, document_number, publication_date, summary, excerpt, full_text, topic_tags")
+    .in("id", ids);
+  if (hErr) throw new Error(hErr.message);
+  const byId = new Map((hydrated ?? []).map((r: any) => [r.id, r]));
+  return top.map((s) => byId.get(s.id) ?? s);
 }
 
 const AnalyzeInput = z.object({
