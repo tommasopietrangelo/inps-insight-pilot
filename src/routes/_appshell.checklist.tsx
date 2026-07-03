@@ -287,7 +287,13 @@ function ChecklistPage() {
     onError: (err) => toast.error(`Errore salvataggio: ${(err as Error).message}`),
   });
 
-  const savePratica = () => saveMutation.mutate({});
+  const savePratica = () => {
+    if (!result?.items?.length) {
+      toast.error("Nessuna voce da salvare: genera prima una checklist completa.");
+      return;
+    }
+    saveMutation.mutate({});
+  };
 
   const deleteSaved = async (id: string) => {
     try {
