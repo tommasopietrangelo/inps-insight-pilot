@@ -84,7 +84,9 @@ function AnalyzePage() {
   const runAnalyze = () => {
     if (docText.trim().length < 50) return;
     analyze.mutate({ text: docText, title: fileName });
+    enrich.mutate({ text: docText, title: fileName });
   };
+
 
   return (
     <div className="space-y-5">
