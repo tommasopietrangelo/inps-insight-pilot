@@ -244,7 +244,8 @@ export const chatAboutDocument = createServerFn({ method: "POST" })
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "google/gemini-2.5-flash", messages }),
-  });
+    });
+
 
 // ============================================================
 // Enrichment: annotate passages linked to corpus + AI suggestions
