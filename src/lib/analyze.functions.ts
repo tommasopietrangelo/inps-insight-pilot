@@ -244,7 +244,163 @@ export const chatAboutDocument = createServerFn({ method: "POST" })
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "google/gemini-2.5-flash", messages }),
+  });
+
+// ============================================================
+// Enrichment: annotate passages linked to corpus + AI suggestions
+// ============================================================
+
+export type EnrichAnnotation = {
+  excerpt: string;
+  note: string;
+  citations: { sourceId?: string; label: string }[];
+};
+
+export type EnrichSuggestion = {
+  id: string;
+  type: "insert" | "replace" | "delete";
+  anchor: string; // testo esistente nel documento (per posizionare)
+  newText?: string; // per insert / replace
+  rationale: string;
+  citations: { sourceId?: string; label: string }[];
+};
+
+export type EnrichResult = {
+  annotations: EnrichAnnotation[];
+  suggestions: EnrichSuggestion[];
+  usedSources: {
+    id: string;
+    title: string;
+    source_type: string;
+    document_number: string | null;
+    publication_date: string;
+  }[];
+};
+
+const EnrichInput = z.object({
+  text: z.string().min(50).max(60000),
+  title: z.string().max(300).optional(),
+});
+
+export const enrichDocument = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => EnrichInput.parse(d))
+  .handler(async ({ data }): Promise<EnrichResult> => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("LOVABLE_API_KEY non configurata");
+
+    const text = data.text.slice(0, 24000);
+    const candidates = await pickRelevantSources(text, 12);
+    const corpusBlock = candidates
+      .map((s, i) => {
+        const body = (s.summary ?? "").slice(0, 700);
+        const extra = (s.excerpt ?? s.full_text ?? "").slice(0, 1200);
+        return `[S${i + 1}] (${s.id}) ${s.source_type.toUpperCase()} ${s.document_number ?? ""} — ${s.title} (${s.publication_date})\nSommario: ${body}\nEstratto: ${extra}`;
+      })
+      .join("\n\n---\n\n");
+
+    const system =
+      "Sei un revisore esperto INPS per CAF e patronati. Ricevi un documento professionale e un sottoinsieme del corpus normativo. " +
+      "Il tuo compito è duplice:\n" +
+      "1) ANNOTAZIONI: individua i passaggi del documento (frasi/frammenti letterali, max 220 caratteri) che si collegano ad atti del corpus e spiega brevemente il collegamento.\n" +
+      "2) SUGGERIMENTI AI: proponi aggiunte, riscritture o rimozioni concrete per migliorare il documento in base al corpus. Ogni suggerimento deve indicare un 'anchor' = un frammento LETTERALE presente nel documento vicino a cui inserire/sostituire/eliminare.\n" +
+      "Cita SEMPRE le fonti del corpus con [S#]. Se un elemento non è supportato da una fonte del sottoinsieme, ometti la citazione ma non inventare fonti. " +
+      "Restituisci SOLO JSON valido nello schema indicato.";
+
+    const user =
+      `TITOLO: ${data.title ?? "Documento"}\n\n` +
+      `CORPUS DI RIFERIMENTO (sottoinsieme rilevante):\n${corpusBlock || "(nessuna fonte rilevante recuperata)"}\n\n` +
+      `DOCUMENTO:\n${text}\n\n` +
+      `Produci JSON con questa forma:\n` +
+      `{\n` +
+      `  "annotations": [{\n` +
+      `    "excerpt": "frammento letterale del documento (max 220 caratteri, copia esatta)",\n` +
+      `    "note": "perché è rilevante e cosa dice il corpus in merito",\n` +
+      `    "citations": [{"sourceRef":"S1","label":"Circ. 12/2024 art.3"}]\n` +
+      `  }],\n` +
+      `  "suggestions": [{\n` +
+      `    "type": "insert|replace|delete",\n` +
+      `    "anchor": "frammento LETTERALE presente nel documento (max 220 caratteri, copia esatta) accanto a cui applicare la modifica",\n` +
+      `    "newText": "testo nuovo (per insert e replace)",\n` +
+      `    "rationale": "motivazione operativa basata sul corpus",\n` +
+      `    "citations": [{"sourceRef":"S2","label":"Msg 1234/2025"}]\n` +
+      `  }]\n` +
+      `}`;
+
+    const res = await fetch(`${GATEWAY}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        response_format: { type: "json_object" },
+      }),
     });
+    if (!res.ok) {
+      const txt = await res.text();
+      if (res.status === 429) throw new Error("Limite di richieste raggiunto, riprova fra poco.");
+      if (res.status === 402) throw new Error("Crediti AI esauriti.");
+      throw new Error(`AI gateway ${res.status}: ${txt}`);
+    }
+    const json = await res.json();
+    const content = json.choices?.[0]?.message?.content ?? "{}";
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      const m = content.match(/\{[\s\S]*\}/);
+      parsed = m ? JSON.parse(m[0]) : {};
+    }
+
+    const mapCites = (arr: any[]) =>
+      (arr ?? []).map((c: any) => {
+        const ref = String(c.sourceRef ?? c.ref ?? "").replace(/[^0-9]/g, "");
+        const idx = ref ? parseInt(ref, 10) - 1 : -1;
+        const src = idx >= 0 ? candidates[idx] : undefined;
+        return {
+          sourceId: src?.id,
+          label:
+            c.label ??
+            (src ? `${src.source_type} ${src.document_number ?? ""}`.trim() : ""),
+        };
+      });
+
+    const annotations: EnrichAnnotation[] = (parsed.annotations ?? [])
+      .map((a: any) => ({
+        excerpt: String(a.excerpt ?? "").trim(),
+        note: String(a.note ?? "").trim(),
+        citations: mapCites(a.citations),
+      }))
+      .filter((a: EnrichAnnotation) => a.excerpt.length > 3);
+
+    const suggestions: EnrichSuggestion[] = (parsed.suggestions ?? [])
+      .map((s: any, i: number) => ({
+        id: `sg-${i}`,
+        type: (["insert", "replace", "delete"] as const).includes(s.type)
+          ? s.type
+          : "insert",
+        anchor: String(s.anchor ?? "").trim(),
+        newText: s.newText ? String(s.newText) : undefined,
+        rationale: String(s.rationale ?? "").trim(),
+        citations: mapCites(s.citations),
+      }))
+      .filter((s: EnrichSuggestion) => s.anchor.length > 3);
+
+    return {
+      annotations,
+      suggestions,
+      usedSources: candidates.map((s) => ({
+        id: s.id,
+        title: s.title,
+        source_type: s.source_type,
+        document_number: s.document_number,
+        publication_date: s.publication_date,
+      })),
+    };
+  });
+
     if (!res.ok) {
       const txt = await res.text();
       if (res.status === 429) throw new Error("Limite di richieste raggiunto, riprova fra poco.");
