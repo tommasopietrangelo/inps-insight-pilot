@@ -58,10 +58,11 @@ function vecLit(v: number[]) {
 }
 
 const Input = z.object({
-  query: z.string().max(2000).optional().default(""),
+  query: z.string().max(8000).optional().default(""),
   documentText: z.string().max(60000).optional().default(""),
   documentTitle: z.string().max(300).optional().default(""),
 });
+
 
 export const generateChecklist = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => Input.parse(d))
