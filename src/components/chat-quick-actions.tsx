@@ -231,7 +231,7 @@ function ChecklistFromAnswerDialog({
         `${question}\n\n` +
         (draft ? `Bozza checklist iniziale proposta dall'operatore:\n${draft}\n\n` : "") +
         `Contesto risposta precedente (estratto):\n${answer.slice(0, 4000)}`;
-      return genFn({ data: { query: context, documentText: "", documentTitle: title } });
+      return genFn({ data: { query: context.slice(0, 8000), documentText: "", documentTitle: title } });
     },
     onSuccess: (res) => {
       setGenerated(res);
