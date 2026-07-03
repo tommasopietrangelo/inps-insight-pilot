@@ -245,11 +245,21 @@ export const chatAboutDocument = createServerFn({ method: "POST" })
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "google/gemini-2.5-flash", messages }),
     });
-
+    if (!res.ok) {
+      const txt = await res.text();
+      if (res.status === 429) throw new Error("Limite di richieste raggiunto, riprova fra poco.");
+      if (res.status === 402) throw new Error("Crediti AI esauriti.");
+      throw new Error(`AI gateway ${res.status}: ${txt}`);
+    }
+    const json = await res.json();
+    return { answer: json.choices?.[0]?.message?.content ?? "" };
+  });
 
 // ============================================================
 // Enrichment: annotate passages linked to corpus + AI suggestions
 // ============================================================
+
+
 
 export type EnrichAnnotation = {
   excerpt: string;
