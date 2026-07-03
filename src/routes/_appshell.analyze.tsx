@@ -30,11 +30,16 @@ import {
 import {
   analyzeDocument,
   chatAboutDocument,
+  enrichDocument,
   type AnalysisResult,
   type ChatMessage,
+  type EnrichResult,
 } from "@/lib/analyze.functions";
 import { extractTextFromFile, downloadAsPdf, downloadAsDocx } from "@/lib/doc-io";
 import { SavePracticeButton } from "@/components/save-practice-button";
+import { EnrichmentView } from "@/components/enrichment-view";
+import { Wand2 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_appshell/analyze")({
   head: () => ({ meta: [{ title: "Analizza un documento · INPS Copilot" }] }),
