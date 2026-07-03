@@ -30,11 +30,16 @@ import {
 import {
   analyzeDocument,
   chatAboutDocument,
+  enrichDocument,
   type AnalysisResult,
   type ChatMessage,
+  type EnrichResult,
 } from "@/lib/analyze.functions";
 import { extractTextFromFile, downloadAsPdf, downloadAsDocx } from "@/lib/doc-io";
 import { SavePracticeButton } from "@/components/save-practice-button";
+import { EnrichmentView } from "@/components/enrichment-view";
+import { Wand2 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_appshell/analyze")({
   head: () => ({ meta: [{ title: "Analizza un documento · INPS Copilot" }] }),
@@ -53,6 +58,12 @@ function AnalyzePage() {
     mutationFn: (input: { text: string; title?: string }) => callAnalyze({ data: input }),
     onSuccess: (res) => setEditedText(res.correctedText),
   });
+
+  const callEnrich = useServerFn(enrichDocument);
+  const enrich = useMutation({
+    mutationFn: (input: { text: string; title?: string }) => callEnrich({ data: input }),
+  });
+
 
   const onFile = async (file: File | null) => {
     if (!file) return;
@@ -73,7 +84,9 @@ function AnalyzePage() {
   const runAnalyze = () => {
     if (docText.trim().length < 50) return;
     analyze.mutate({ text: docText, title: fileName });
+    enrich.mutate({ text: docText, title: fileName });
   };
+
 
   return (
     <div className="space-y-5">
@@ -136,8 +149,12 @@ function AnalyzePage() {
       )}
 
       {(docText || analyze.data) && (
-        <Tabs defaultValue={analyze.data ? "review" : "edit"}>
+        <Tabs defaultValue={enrich.data ? "enrich" : analyze.data ? "review" : "edit"}>
           <TabsList>
+            <TabsTrigger value="enrich" className="gap-1.5" disabled={!enrich.data && !enrich.isPending}>
+              <Wand2 className="h-3.5 w-3.5" /> Arricchimento
+              {enrich.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+            </TabsTrigger>
             <TabsTrigger value="review" className="gap-1.5" disabled={!analyze.data}>
               <FileSearch className="h-3.5 w-3.5" /> Revisione
             </TabsTrigger>
@@ -149,6 +166,20 @@ function AnalyzePage() {
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="enrich" className="mt-4">
+            {enrich.isPending ? (
+              <Card className="p-6 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Arricchimento in corso: sto collegando i passaggi al corpus…
+              </Card>
+            ) : enrich.error ? (
+              <Card className="p-4 text-sm text-destructive">
+                Errore arricchimento: {(enrich.error as Error).message}
+              </Card>
+            ) : enrich.data ? (
+              <EnrichmentView result={enrich.data as EnrichResult} originalText={docText} fileName={fileName} />
+            ) : null}
+          </TabsContent>
+
           {analyze.data && (
             <TabsContent value="review" className="mt-4">
               <ReviewPanel
@@ -158,6 +189,7 @@ function AnalyzePage() {
               />
             </TabsContent>
           )}
+
 
           <TabsContent value="edit" className="mt-4 space-y-3">
             <Card className="p-5">
