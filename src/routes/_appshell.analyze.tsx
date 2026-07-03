@@ -59,6 +59,12 @@ function AnalyzePage() {
     onSuccess: (res) => setEditedText(res.correctedText),
   });
 
+  const callEnrich = useServerFn(enrichDocument);
+  const enrich = useMutation({
+    mutationFn: (input: { text: string; title?: string }) => callEnrich({ data: input }),
+  });
+
+
   const onFile = async (file: File | null) => {
     if (!file) return;
     setExtractError("");
