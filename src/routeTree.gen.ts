@@ -28,6 +28,7 @@ import { Route as AppshellAnalyzeRouteImport } from './routes/_appshell.analyze'
 import { Route as AppshellAlertsRouteImport } from './routes/_appshell.alerts'
 import { Route as AppshellSourceIdRouteImport } from './routes/_appshell.source.$id'
 import { Route as ApiPublicHooksRunAlertsRouteImport } from './routes/api/public/hooks/run-alerts'
+import { Route as ApiPublicHooksRediscoverInpsOperationalRouteImport } from './routes/api/public/hooks/rediscover-inps-operational'
 import { Route as ApiPublicHooksIngestInpsNewsRouteImport } from './routes/api/public/hooks/ingest-inps-news'
 import { Route as ApiPublicHooksIngestInpsRouteImport } from './routes/api/public/hooks/ingest-inps'
 
@@ -125,6 +126,12 @@ const ApiPublicHooksRunAlertsRoute = ApiPublicHooksRunAlertsRouteImport.update({
   path: '/api/public/hooks/run-alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksRediscoverInpsOperationalRoute =
+  ApiPublicHooksRediscoverInpsOperationalRouteImport.update({
+    id: '/api/public/hooks/rediscover-inps-operational',
+    path: '/api/public/hooks/rediscover-inps-operational',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksIngestInpsNewsRoute =
   ApiPublicHooksIngestInpsNewsRouteImport.update({
     id: '/api/public/hooks/ingest-inps-news',
@@ -158,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
+  '/api/public/hooks/rediscover-inps-operational': typeof ApiPublicHooksRediscoverInpsOperationalRoute
   '/api/public/hooks/run-alerts': typeof ApiPublicHooksRunAlertsRoute
 }
 export interface FileRoutesByTo {
@@ -180,6 +188,7 @@ export interface FileRoutesByTo {
   '/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
+  '/api/public/hooks/rediscover-inps-operational': typeof ApiPublicHooksRediscoverInpsOperationalRoute
   '/api/public/hooks/run-alerts': typeof ApiPublicHooksRunAlertsRoute
 }
 export interface FileRoutesById {
@@ -204,6 +213,7 @@ export interface FileRoutesById {
   '/_appshell/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
+  '/api/public/hooks/rediscover-inps-operational': typeof ApiPublicHooksRediscoverInpsOperationalRoute
   '/api/public/hooks/run-alerts': typeof ApiPublicHooksRunAlertsRoute
 }
 export interface FileRouteTypes {
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/source/$id'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
+    | '/api/public/hooks/rediscover-inps-operational'
     | '/api/public/hooks/run-alerts'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/source/$id'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
+    | '/api/public/hooks/rediscover-inps-operational'
     | '/api/public/hooks/run-alerts'
   id:
     | '__root__'
@@ -273,6 +285,7 @@ export interface FileRouteTypes {
     | '/_appshell/source/$id'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
+    | '/api/public/hooks/rediscover-inps-operational'
     | '/api/public/hooks/run-alerts'
   fileRoutesById: FileRoutesById
 }
@@ -284,6 +297,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ApiPublicHooksIngestInpsRoute: typeof ApiPublicHooksIngestInpsRoute
   ApiPublicHooksIngestInpsNewsRoute: typeof ApiPublicHooksIngestInpsNewsRoute
+  ApiPublicHooksRediscoverInpsOperationalRoute: typeof ApiPublicHooksRediscoverInpsOperationalRoute
   ApiPublicHooksRunAlertsRoute: typeof ApiPublicHooksRunAlertsRoute
 }
 
@@ -422,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksRunAlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/rediscover-inps-operational': {
+      id: '/api/public/hooks/rediscover-inps-operational'
+      path: '/api/public/hooks/rediscover-inps-operational'
+      fullPath: '/api/public/hooks/rediscover-inps-operational'
+      preLoaderRoute: typeof ApiPublicHooksRediscoverInpsOperationalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/ingest-inps-news': {
       id: '/api/public/hooks/ingest-inps-news'
       path: '/api/public/hooks/ingest-inps-news'
@@ -483,18 +504,10 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ApiPublicHooksIngestInpsRoute: ApiPublicHooksIngestInpsRoute,
   ApiPublicHooksIngestInpsNewsRoute: ApiPublicHooksIngestInpsNewsRoute,
+  ApiPublicHooksRediscoverInpsOperationalRoute:
+    ApiPublicHooksRediscoverInpsOperationalRoute,
   ApiPublicHooksRunAlertsRoute: ApiPublicHooksRunAlertsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
