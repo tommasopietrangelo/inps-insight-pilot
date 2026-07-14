@@ -33,9 +33,16 @@ export const Route = createFileRoute("/_appshell/source/$id")({
 function SourceDetail() {
   const { id } = Route.useParams();
   const { data: src, isLoading } = useSourceBySlug(id);
+  const { current } = useWorkspace();
 
   const fetchKeyPoints = useServerFn(getSourceKeyPoints);
   const fetchRelated = useServerFn(getRelatedSources);
+  const trackView = useServerFn(trackSourceView);
+
+  useEffect(() => {
+    if (!src?.uuid || !current?.id) return;
+    trackView({ data: { workspaceId: current.id, sourceId: src.uuid } }).catch(() => {});
+  }, [src?.uuid, current?.id, trackView]);
 
   const keyPointsQuery = useQuery({
     queryKey: ["source-key-points", src?.uuid],
