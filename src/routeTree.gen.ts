@@ -26,6 +26,7 @@ import { Route as AppshellCompareRouteImport } from './routes/_appshell.compare'
 import { Route as AppshellChecklistRouteImport } from './routes/_appshell.checklist'
 import { Route as AppshellAnalyzeRouteImport } from './routes/_appshell.analyze'
 import { Route as AppshellAlertsRouteImport } from './routes/_appshell.alerts'
+import { Route as AppshellFlowsIndexRouteImport } from './routes/_appshell.flows.index'
 import { Route as AppshellSourceIdRouteImport } from './routes/_appshell.source.$id'
 import { Route as AppshellFlowsFlowIdRouteImport } from './routes/_appshell.flows.$flowId'
 import { Route as ApiPublicHooksRunAlertsRouteImport } from './routes/api/public/hooks/run-alerts'
@@ -118,6 +119,11 @@ const AppshellAlertsRoute = AppshellAlertsRouteImport.update({
   path: '/alerts',
   getParentRoute: () => AppshellRoute,
 } as any)
+const AppshellFlowsIndexRoute = AppshellFlowsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppshellFlowsRoute,
+} as any)
 const AppshellSourceIdRoute = AppshellSourceIdRouteImport.update({
   id: '/source/$id',
   path: '/source/$id',
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof AppshellWorkspaceRoute
   '/flows/$flowId': typeof AppshellFlowsFlowIdRouteWithChildren
   '/source/$id': typeof AppshellSourceIdRoute
+  '/flows/': typeof AppshellFlowsIndexRoute
   '/flows/$flowId/$runId': typeof AppshellFlowsFlowIdRunIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
@@ -193,7 +200,6 @@ export interface FileRoutesByTo {
   '/checklist': typeof AppshellChecklistRoute
   '/compare': typeof AppshellCompareRoute
   '/dashboard': typeof AppshellDashboardRoute
-  '/flows': typeof AppshellFlowsRouteWithChildren
   '/memory': typeof AppshellMemoryRoute
   '/search': typeof AppshellSearchRoute
   '/settings': typeof AppshellSettingsRoute
@@ -202,6 +208,7 @@ export interface FileRoutesByTo {
   '/workspace': typeof AppshellWorkspaceRoute
   '/flows/$flowId': typeof AppshellFlowsFlowIdRouteWithChildren
   '/source/$id': typeof AppshellSourceIdRoute
+  '/flows': typeof AppshellFlowsIndexRoute
   '/flows/$flowId/$runId': typeof AppshellFlowsFlowIdRunIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
@@ -229,6 +236,7 @@ export interface FileRoutesById {
   '/_appshell/workspace': typeof AppshellWorkspaceRoute
   '/_appshell/flows/$flowId': typeof AppshellFlowsFlowIdRouteWithChildren
   '/_appshell/source/$id': typeof AppshellSourceIdRoute
+  '/_appshell/flows/': typeof AppshellFlowsIndexRoute
   '/_appshell/flows/$flowId/$runId': typeof AppshellFlowsFlowIdRunIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
@@ -256,6 +264,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/flows/$flowId'
     | '/source/$id'
+    | '/flows/'
     | '/flows/$flowId/$runId'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
@@ -272,7 +281,6 @@ export interface FileRouteTypes {
     | '/checklist'
     | '/compare'
     | '/dashboard'
-    | '/flows'
     | '/memory'
     | '/search'
     | '/settings'
@@ -281,6 +289,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/flows/$flowId'
     | '/source/$id'
+    | '/flows'
     | '/flows/$flowId/$runId'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
@@ -307,6 +316,7 @@ export interface FileRouteTypes {
     | '/_appshell/workspace'
     | '/_appshell/flows/$flowId'
     | '/_appshell/source/$id'
+    | '/_appshell/flows/'
     | '/_appshell/flows/$flowId/$runId'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
@@ -447,6 +457,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppshellAlertsRouteImport
       parentRoute: typeof AppshellRoute
     }
+    '/_appshell/flows/': {
+      id: '/_appshell/flows/'
+      path: '/'
+      fullPath: '/flows/'
+      preLoaderRoute: typeof AppshellFlowsIndexRouteImport
+      parentRoute: typeof AppshellFlowsRoute
+    }
     '/_appshell/source/$id': {
       id: '/_appshell/source/$id'
       path: '/source/$id'
@@ -512,10 +529,12 @@ const AppshellFlowsFlowIdRouteWithChildren =
 
 interface AppshellFlowsRouteChildren {
   AppshellFlowsFlowIdRoute: typeof AppshellFlowsFlowIdRouteWithChildren
+  AppshellFlowsIndexRoute: typeof AppshellFlowsIndexRoute
 }
 
 const AppshellFlowsRouteChildren: AppshellFlowsRouteChildren = {
   AppshellFlowsFlowIdRoute: AppshellFlowsFlowIdRouteWithChildren,
+  AppshellFlowsIndexRoute: AppshellFlowsIndexRoute,
 }
 
 const AppshellFlowsRouteWithChildren = AppshellFlowsRoute._addFileChildren(
@@ -573,13 +592,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
