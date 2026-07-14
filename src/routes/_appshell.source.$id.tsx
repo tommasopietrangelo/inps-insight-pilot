@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,8 @@ import { Separator } from "@/components/ui/separator";
 import { NOTES } from "@/lib/mock-data";
 import { useSourceBySlug } from "@/lib/data";
 import { getSourceKeyPoints, getRelatedSources } from "@/lib/source-detail.functions";
+import { trackSourceView } from "@/lib/memory.functions";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/source/$id")({
   head: () => ({ meta: [{ title: "Fonte · INPS Copilot" }] }),
