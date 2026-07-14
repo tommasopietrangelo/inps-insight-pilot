@@ -129,9 +129,12 @@ function SourcesPage() {
 
       {sources && sources.length > 0 && (
         <Tabs defaultValue="inps" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="inps" className="gap-1.5">
               <FileStack className="h-3.5 w-3.5" /> Atti INPS ({inps.length})
+            </TabsTrigger>
+            <TabsTrigger value="news" className="gap-1.5">
+              <Newspaper className="h-3.5 w-3.5" /> Notizie INPS ({news.length})
             </TabsTrigger>
             <TabsTrigger value="normativa" className="gap-1.5">
               <Landmark className="h-3.5 w-3.5" /> Normativa cardine ({normative.length})
@@ -143,6 +146,22 @@ function SourcesPage() {
               Circolari, messaggi, decreti e pagine servizio INPS in ordine cronologico (più recenti in alto).
             </p>
             <SourceList items={inps} empty={urlQ ? `Nessun atto INPS corrisponde a "${urlQ}".` : "Nessun atto INPS nel corpus."} />
+          </TabsContent>
+
+          <TabsContent value="news" className="mt-4">
+            <p className="mb-2 text-xs text-muted-foreground">
+              Notizie e comunicati stampa dalla pagina{" "}
+              <a
+                href="https://www.inps.it/it/it/inps-comunica/notizie.html"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                inps.it/inps-comunica/notizie
+              </a>
+              , in ordine cronologico.
+            </p>
+            <SourceList items={news} empty={urlQ ? `Nessuna notizia corrisponde a "${urlQ}".` : "Nessuna notizia INPS nel corpus."} />
           </TabsContent>
 
           <TabsContent value="normativa" className="mt-4">
