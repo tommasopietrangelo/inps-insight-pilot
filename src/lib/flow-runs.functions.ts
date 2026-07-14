@@ -26,13 +26,13 @@ export const listFlowRuns = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { data: rows, error } = await supabase
-      .from("practices")
+      .from("practices" as never)
       .select("*")
-      .eq("workspace_id", data.workspaceId)
-      .eq("flow_id", data.flowId)
+      .eq("workspace_id" as never, data.workspaceId)
+      .eq("flow_id" as never, data.flowId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    return (rows ?? []) as unknown[];
   });
 
 export const createFlowRun = createServerFn({ method: "POST" })
