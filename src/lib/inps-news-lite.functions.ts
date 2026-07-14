@@ -64,16 +64,8 @@ function buildExternalId(url: string): string {
   return `inps-news-${hash}`;
 }
 
-function extractNewsLinks(html: string): string[] {
-  const out = new Set<string>();
-  const matches = html.match(NEWS_URL_REGEX) ?? [];
-  for (const raw of matches) {
-    const path = raw.split("#")[0].split("?")[0];
-    if (!path.toLowerCase().endsWith(".html")) continue;
-    out.add(`${BASE}${path.startsWith("/") ? path : `/${path}`}`);
-  }
-  return Array.from(out);
-}
+// (rimosso extractNewsLinks: la pagina notizie è AJAX, gli URL arrivano dal JSON)
+
 
 // Rimuove tag script/style e collassa i tag HTML in testo semplice
 function htmlToText(html: string): string {
