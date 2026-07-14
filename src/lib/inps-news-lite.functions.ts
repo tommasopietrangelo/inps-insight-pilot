@@ -13,12 +13,10 @@ import { createHash } from "crypto";
 // ---------------------------------------------------------------------------
 
 const BASE = "https://www.inps.it";
-const ENTRY = `${BASE}/it/it/inps-comunica/notizie.html`;
+const LIST_JSON = `${BASE}/it/it/inps-comunica/notizie.cfListDynamic.search.json`;
 const QUEUE = "inps_news_queue" as const;
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36";
-
-const NEWS_URL_REGEX = /\/it\/it\/inps-comunica\/notizie\/[^\s"'<>]+\.html/gi;
 
 async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, {
@@ -26,6 +24,39 @@ async function fetchHtml(url: string): Promise<string> {
   });
   if (!res.ok) throw new Error(`fetch ${url} → ${res.status}`);
   return await res.text();
+}
+
+// La lista notizie è caricata via AJAX dall'endpoint AEM cfListDynamic.
+// paginaDettaglio arriva come "/content/inps-site/it/it/..." → normalizziamo
+// all'URL pubblico "https://www.inps.it/it/it/...".
+type NewsListItem = {
+  paginaDettaglio?: string;
+  title?: string;
+  description?: string;
+  metadata?: { dataDiPubblicazione?: number };
+};
+type NewsListResponse = {
+  items: NewsListItem[];
+  totResult: number;
+  numPages: number;
+  currentPage: number;
+};
+
+async function fetchNewsListPage(pageNumber: number, maxItems = 100): Promise<NewsListResponse> {
+  const url = `${LIST_JSON}?pageNumber=${pageNumber}&maxItems=${maxItems}`;
+  const res = await fetch(url, {
+    headers: { "user-agent": UA, accept: "application/json,text/plain,*/*" },
+  });
+  if (!res.ok) throw new Error(`fetch ${url} → ${res.status}`);
+  return (await res.json()) as NewsListResponse;
+}
+
+function normalizeDetailUrl(paginaDettaglio: string | undefined): string | null {
+  if (!paginaDettaglio) return null;
+  let p = paginaDettaglio.replace(/^\/content\/inps-site/, "");
+  if (!p.startsWith("/")) p = `/${p}`;
+  if (!p.toLowerCase().endsWith(".html")) return null;
+  return `${BASE}${p}`;
 }
 
 function buildExternalId(url: string): string {
