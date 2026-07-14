@@ -247,7 +247,14 @@ export const updateMemoryCase = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      title?: string;
+      category?: string | null;
+      situation?: string;
+      solution?: string;
+      tags?: string[];
+      is_shared?: boolean;
+    } = {};
     if (data.title !== undefined) patch.title = data.title;
     if (data.category !== undefined) patch.category = data.category;
     if (data.situation !== undefined) patch.situation = data.situation;
