@@ -780,9 +780,9 @@ function Settings() {
             </div>
             <div className="flex flex-wrap items-end gap-2">
               <div className="space-y-1.5">
-                <Label htmlFor="news-lite-pages" className="text-xs">Pagine listing</Label>
-                <Input id="news-lite-pages" type="number" min={1} max={20} value={newsLitePages}
-                  onChange={(e) => setNewsLitePages(Math.max(1, Math.min(20, Number(e.target.value) || 1)))} className="w-20" />
+                <Label htmlFor="news-lite-pages" className="text-xs">Pagine listing (100 notizie/pag, max 40 = ~4000)</Label>
+                <Input id="news-lite-pages" type="number" min={1} max={40} value={newsLitePages}
+                  onChange={(e) => setNewsLitePages(Math.max(1, Math.min(40, Number(e.target.value) || 1)))} className="w-20" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="news-lite-bs" className="text-xs">Batch totale</Label>
