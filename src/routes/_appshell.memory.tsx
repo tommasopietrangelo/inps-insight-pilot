@@ -419,7 +419,7 @@ function CaseDialog({ editing, onSubmit, pending }: { editing: any | null; onSub
             category: category.trim() || null,
             situation: situation.trim(),
             solution: solution.trim(),
-            tags: tagsStr.split(",").map((t) => t.trim()).filter(Boolean),
+            tags: tagsStr.split(",").map((t: string) => t.trim()).filter(Boolean),
             isShared,
           })}
         >
