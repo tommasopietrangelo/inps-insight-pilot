@@ -12,7 +12,7 @@ import {
   listOperationalFlows,
   type OperationalFlow,
 } from "@/lib/operational-flows.functions";
-import { listFlowRuns, createFlowRun } from "@/lib/flow-runs.functions";
+import { listFlowRuns, createFlowRun, type FlowRunRow } from "@/lib/flow-runs.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/flows/$flowId")({
