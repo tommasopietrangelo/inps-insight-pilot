@@ -47,7 +47,7 @@ export const listFlowRuns = createServerFn({ method: "GET" })
       .eq("flow_id" as never, data.flowId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return (rows ?? []) as Array<Record<string, unknown>>;
+    return (rows ?? []) as unknown as FlowRunRow[];
   });
 
 export const createFlowRun = createServerFn({ method: "POST" })
