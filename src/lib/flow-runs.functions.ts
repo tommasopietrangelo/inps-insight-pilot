@@ -32,7 +32,7 @@ export const listFlowRuns = createServerFn({ method: "GET" })
       .eq("flow_id" as never, data.flowId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return (rows ?? []) as unknown[];
+    return (rows ?? []) as Array<Record<string, unknown>>;
   });
 
 export const createFlowRun = createServerFn({ method: "POST" })
