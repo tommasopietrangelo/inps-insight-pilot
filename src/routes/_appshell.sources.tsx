@@ -48,8 +48,9 @@ function SourcesPage() {
   }, [urlQ]);
 
   const filtered = useMemo(() => filterSources(sources ?? [], query), [sources, query]);
-  const inps = filtered.filter((s) => s.source_type !== "Normativa");
+  const news = filtered.filter((s) => s.source_type === "Notizia");
   const normative = filtered.filter((s) => s.source_type === "Normativa");
+  const inps = filtered.filter((s) => s.source_type !== "Normativa" && s.source_type !== "Notizia");
 
   const submit = (value: string) => {
     const v = value.trim();
