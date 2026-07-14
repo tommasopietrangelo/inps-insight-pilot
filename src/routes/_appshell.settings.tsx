@@ -26,6 +26,10 @@ import {
   batchIngestNews,
   getNewsQueueStats,
 } from "@/lib/inps-news.functions";
+import {
+  discoverInpsNewsLite,
+  batchIngestNewsLite,
+} from "@/lib/inps-news-lite.functions";
 
 import { Database as DatabaseIcon } from "lucide-react";
 import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
