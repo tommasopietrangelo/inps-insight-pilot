@@ -2,6 +2,21 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type FlowRunRow = {
+  id: string;
+  workspace_id: string;
+  flow_id: string | null;
+  practice_code: string | null;
+  title: string;
+  kind: string;
+  input: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  checked: string[] | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+};
+
 const STOPWORDS = new Set([
   "nuova","nuovo","domanda","valutazione","rinnovo","dopo","per","di","del","della",
   "la","il","con","gli","le","dei","al","alla","un","una","in","da","e",
