@@ -264,6 +264,152 @@ export type Database = {
         }
         Relationships: []
       }
+      memory_cases: {
+        Row: {
+          author_id: string
+          category: string | null
+          created_at: string
+          id: string
+          is_shared: boolean
+          reuses: number
+          situation: string
+          solution: string
+          source_id: string | null
+          source_ref: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          author_id: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_shared?: boolean
+          reuses?: number
+          situation: string
+          solution: string
+          source_id?: string | null
+          source_ref?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          author_id?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_shared?: boolean
+          reuses?: number
+          situation?: string
+          solution?: string
+          source_id?: string | null
+          source_ref?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memory_cases_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memory_cases_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memory_operator_prefs: {
+        Row: {
+          detail_level: string
+          notes: string | null
+          preferred_sources: string[]
+          preferred_topics: string[]
+          response_style: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          detail_level?: string
+          notes?: string | null
+          preferred_sources?: string[]
+          preferred_topics?: string[]
+          response_style?: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          detail_level?: string
+          notes?: string | null
+          preferred_sources?: string[]
+          preferred_topics?: string[]
+          response_style?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memory_operator_prefs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memory_source_views: {
+        Row: {
+          id: string
+          source_id: string
+          user_id: string
+          viewed_at: string
+          workspace_id: string
+        }
+        Insert: {
+          id?: string
+          source_id: string
+          user_id: string
+          viewed_at?: string
+          workspace_id: string
+        }
+        Update: {
+          id?: string
+          source_id?: string
+          user_id?: string
+          viewed_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memory_source_views_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memory_source_views_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           author_id: string
