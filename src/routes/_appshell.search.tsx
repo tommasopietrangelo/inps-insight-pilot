@@ -275,13 +275,13 @@ function SearchPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 submit(q);
               }
             }}
             rows={2}
-            placeholder="Fai una domanda completa in linguaggio naturale… (Cmd/Ctrl+Invio per inviare)"
+            placeholder="Fai una domanda completa in linguaggio naturale… (Invio per inviare, Shift+Invio per andare a capo)"
             className="min-h-11 max-h-64 flex-1 resize-y bg-transparent py-2.5 text-base outline-none placeholder:text-muted-foreground"
           />
           <Button variant="ghost" size="sm" className="mt-1 gap-1.5" type="button">
