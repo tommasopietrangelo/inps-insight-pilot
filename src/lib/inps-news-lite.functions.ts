@@ -13,12 +13,10 @@ import { createHash } from "crypto";
 // ---------------------------------------------------------------------------
 
 const BASE = "https://www.inps.it";
-const ENTRY = `${BASE}/it/it/inps-comunica/notizie.html`;
+const LIST_JSON = `${BASE}/it/it/inps-comunica/notizie.cfListDynamic.search.json`;
 const QUEUE = "inps_news_queue" as const;
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36";
-
-const NEWS_URL_REGEX = /\/it\/it\/inps-comunica\/notizie\/[^\s"'<>]+\.html/gi;
 
 async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, {
@@ -28,21 +26,46 @@ async function fetchHtml(url: string): Promise<string> {
   return await res.text();
 }
 
+// La lista notizie è caricata via AJAX dall'endpoint AEM cfListDynamic.
+// paginaDettaglio arriva come "/content/inps-site/it/it/..." → normalizziamo
+// all'URL pubblico "https://www.inps.it/it/it/...".
+type NewsListItem = {
+  paginaDettaglio?: string;
+  title?: string;
+  description?: string;
+  metadata?: { dataDiPubblicazione?: number };
+};
+type NewsListResponse = {
+  items: NewsListItem[];
+  totResult: number;
+  numPages: number;
+  currentPage: number;
+};
+
+async function fetchNewsListPage(pageNumber: number, maxItems = 100): Promise<NewsListResponse> {
+  const url = `${LIST_JSON}?pageNumber=${pageNumber}&maxItems=${maxItems}`;
+  const res = await fetch(url, {
+    headers: { "user-agent": UA, accept: "application/json,text/plain,*/*" },
+  });
+  if (!res.ok) throw new Error(`fetch ${url} → ${res.status}`);
+  return (await res.json()) as NewsListResponse;
+}
+
+function normalizeDetailUrl(paginaDettaglio: string | undefined): string | null {
+  if (!paginaDettaglio) return null;
+  let p = paginaDettaglio.replace(/^\/content\/inps-site/, "");
+  if (!p.startsWith("/")) p = `/${p}`;
+  if (!p.toLowerCase().endsWith(".html")) return null;
+  return `${BASE}${p}`;
+}
+
 function buildExternalId(url: string): string {
   const hash = createHash("sha256").update(url).digest("hex").slice(0, 24);
   return `inps-news-${hash}`;
 }
 
-function extractNewsLinks(html: string): string[] {
-  const out = new Set<string>();
-  const matches = html.match(NEWS_URL_REGEX) ?? [];
-  for (const raw of matches) {
-    const path = raw.split("#")[0].split("?")[0];
-    if (!path.toLowerCase().endsWith(".html")) continue;
-    out.add(`${BASE}${path.startsWith("/") ? path : `/${path}`}`);
-  }
-  return Array.from(out);
-}
+// (rimosso extractNewsLinks: la pagina notizie è AJAX, gli URL arrivano dal JSON)
+
 
 // Rimuove tag script/style e collassa i tag HTML in testo semplice
 function htmlToText(html: string): string {
@@ -116,10 +139,12 @@ function guessTopicTags(text: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Discovery lite: fetcha ENTRY (e opzionalmente pagine paginate) e collect URLs
+// Discovery lite: usa l'endpoint AEM cfListDynamic.search.json per elencare
+// tutte le notizie (paginazione 100 elementi/pagina, ordinate per data desc).
+// `pages` = quante pagine scaricare (default: tutte, fino a 40 = 4000 notizie).
 // ---------------------------------------------------------------------------
 const DiscoverInput = z.object({
-  pages: z.number().int().min(1).max(20).default(1),
+  pages: z.number().int().min(1).max(40).optional(),
 });
 
 export const discoverInpsNewsLite = createServerFn({ method: "POST" })
@@ -129,19 +154,31 @@ export const discoverInpsNewsLite = createServerFn({ method: "POST" })
     const errors: string[] = [];
     const found = new Set<string>();
 
-    const urls: string[] = [ENTRY];
-    // Prova varianti paginazione comuni (INPS usa spesso ?p= o pageNumber=)
-    for (let p = 1; p < data.pages; p++) {
-      urls.push(`${ENTRY}?p=${p}`);
-      urls.push(`${ENTRY}?pageNumber=${p}`);
+    // Prima pagina: ricava totale e numPages
+    let first: NewsListResponse;
+    try {
+      first = await fetchNewsListPage(1, 100);
+    } catch (e) {
+      throw new Error(`Impossibile leggere la lista notizie: ${(e as Error).message}`);
+    }
+    for (const it of first.items) {
+      const u = normalizeDetailUrl(it.paginaDettaglio);
+      if (u) found.add(u);
     }
 
-    for (const u of urls) {
+    const totalPages = Math.min(first.numPages ?? 1, 40);
+    const targetPages = Math.min(data.pages ?? totalPages, totalPages);
+
+    // Pagine successive (sequenziali per non stressare l'origine)
+    for (let p = 2; p <= targetPages; p++) {
       try {
-        const html = await fetchHtml(u);
-        for (const link of extractNewsLinks(html)) found.add(link);
+        const page = await fetchNewsListPage(p, 100);
+        for (const it of page.items) {
+          const u = normalizeDetailUrl(it.paginaDettaglio);
+          if (u) found.add(u);
+        }
       } catch (e) {
-        errors.push(`${u}: ${(e as Error).message}`);
+        errors.push(`page ${p}: ${(e as Error).message}`);
       }
     }
 
@@ -172,11 +209,14 @@ export const discoverInpsNewsLite = createServerFn({ method: "POST" })
     }
 
     return {
+      totResult: first.totResult,
+      pagesScanned: targetPages,
       totalLinksSeen: list.length,
       matched: list.length,
       inCorpus,
       newEnqueued,
       errors: errors.slice(0, 10),
+
     };
   });
 
