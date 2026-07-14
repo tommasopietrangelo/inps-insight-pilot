@@ -467,6 +467,7 @@ export type Database = {
       operational_flows: {
         Row: {
           checklist_items: Json
+          code_prefix: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -480,6 +481,7 @@ export type Database = {
         }
         Insert: {
           checklist_items?: Json
+          code_prefix?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -493,6 +495,7 @@ export type Database = {
         }
         Update: {
           checklist_items?: Json
+          code_prefix?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -519,9 +522,11 @@ export type Database = {
           checked: string[]
           created_at: string
           created_by: string
+          flow_id: string | null
           id: string
           input: Json
           kind: Database["public"]["Enums"]["practice_kind"]
+          practice_code: string | null
           result: Json
           title: string
           updated_at: string
@@ -531,9 +536,11 @@ export type Database = {
           checked?: string[]
           created_at?: string
           created_by: string
+          flow_id?: string | null
           id?: string
           input?: Json
           kind: Database["public"]["Enums"]["practice_kind"]
+          practice_code?: string | null
           result?: Json
           title: string
           updated_at?: string
@@ -543,15 +550,24 @@ export type Database = {
           checked?: string[]
           created_at?: string
           created_by?: string
+          flow_id?: string | null
           id?: string
           input?: Json
           kind?: Database["public"]["Enums"]["practice_kind"]
+          practice_code?: string | null
           result?: Json
           title?: string
           updated_at?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "practices_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "operational_flows"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "practices_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -974,7 +990,12 @@ export type Database = {
       alert_priority: "alta" | "media" | "bassa"
       app_role: "admin" | "editor" | "viewer"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
-      practice_kind: "checklist" | "analyze" | "summarize" | "compare"
+      practice_kind:
+        | "checklist"
+        | "analyze"
+        | "summarize"
+        | "compare"
+        | "flow_run"
       source_type:
         | "circolare"
         | "messaggio"
@@ -1114,7 +1135,13 @@ export const Constants = {
       alert_priority: ["alta", "media", "bassa"],
       app_role: ["admin", "editor", "viewer"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
-      practice_kind: ["checklist", "analyze", "summarize", "compare"],
+      practice_kind: [
+        "checklist",
+        "analyze",
+        "summarize",
+        "compare",
+        "flow_run",
+      ],
       source_type: [
         "circolare",
         "messaggio",

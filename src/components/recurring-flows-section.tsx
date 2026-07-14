@@ -295,8 +295,8 @@ export function RecurringFlowsSection() {
                 {f.checklist_items.length} voci checklist
               </div>
               <Link
-                to="/checklist"
-                search={{ flowId: f.id }}
+                to="/flows/$flowId"
+                params={{ flowId: f.id }}
                 className="mt-auto inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
               >
                 Apri flusso <ArrowRight className="h-3 w-3" />
