@@ -108,14 +108,14 @@ export const createFlowRun = createServerFn({ method: "POST" })
       .insert({
         workspace_id: data.workspaceId,
         created_by: userId,
-        kind: "flow_run" as never,
+        kind: "flow_run",
         flow_id: f.id,
         practice_code: code,
         title,
-        input: { query: f.query, flowTitle: f.title, label: data.label ?? null } as never,
-        result: seededResult as never,
+        input: { query: f.query, flowTitle: f.title, label: data.label ?? null },
+        result: seededResult,
         checked: [],
-      } as never)
+      })
       .select()
       .single();
     if (error) throw new Error(error.message);
