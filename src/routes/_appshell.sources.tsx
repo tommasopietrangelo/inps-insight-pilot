@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { FileText, Loader2, GitCompareArrows, Landmark, FileStack, Search, X } from "lucide-react";
+import { FileText, Loader2, GitCompareArrows, Landmark, FileStack, Search, X, Newspaper } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
