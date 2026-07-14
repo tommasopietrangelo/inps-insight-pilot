@@ -45,7 +45,7 @@ function FlowDetailPage() {
     queryFn: () => listRunsFn({ data: { workspaceId: wsId, flowId } }),
     enabled: !!wsId,
   });
-  const runs = runsQuery.data ?? [];
+  const runs: FlowRunRow[] = (runsQuery.data ?? []) as FlowRunRow[];
 
   const [label, setLabel] = useState("");
   const createRun = useMutation({
