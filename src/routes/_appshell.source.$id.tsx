@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,8 @@ import { Separator } from "@/components/ui/separator";
 import { NOTES } from "@/lib/mock-data";
 import { useSourceBySlug } from "@/lib/data";
 import { getSourceKeyPoints, getRelatedSources } from "@/lib/source-detail.functions";
+import { trackSourceView } from "@/lib/memory.functions";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export const Route = createFileRoute("/_appshell/source/$id")({
   head: () => ({ meta: [{ title: "Fonte · INPS Copilot" }] }),
@@ -30,9 +33,16 @@ export const Route = createFileRoute("/_appshell/source/$id")({
 function SourceDetail() {
   const { id } = Route.useParams();
   const { data: src, isLoading } = useSourceBySlug(id);
+  const { current } = useWorkspace();
 
   const fetchKeyPoints = useServerFn(getSourceKeyPoints);
   const fetchRelated = useServerFn(getRelatedSources);
+  const trackView = useServerFn(trackSourceView);
+
+  useEffect(() => {
+    if (!src?.uuid || !current?.id) return;
+    trackView({ data: { workspaceId: current.id, sourceId: src.uuid } }).catch(() => {});
+  }, [src?.uuid, current?.id, trackView]);
 
   const keyPointsQuery = useQuery({
     queryKey: ["source-key-points", src?.uuid],
