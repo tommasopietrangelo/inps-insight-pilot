@@ -448,7 +448,7 @@ function OperatoreTab({ wsId }: { wsId: string }) {
   const [notes, setNotes] = useState("");
 
   const loaded = q.data;
-  useMemo(() => {
+  useEffect(() => {
     if (loaded) {
       setStyle(loaded.response_style);
       setDetail(loaded.detail_level);
