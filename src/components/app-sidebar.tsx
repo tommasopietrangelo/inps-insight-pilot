@@ -33,7 +33,6 @@ const nav = [
   { title: "Ricerca", url: "/search", icon: Search },
   { title: "Flussi operativi", url: "/flows", icon: Workflow },
   { title: "Analizza documento", url: "/analyze", icon: FileSearch },
-  { title: "Checklist pratica", url: "/checklist", icon: ClipboardCheck },
   { title: "Fonti", url: "/sources", icon: FileText },
   { title: "Avvisi", url: "/alerts", icon: Bell },
   { title: "Spazio di lavoro", url: "/workspace", icon: Briefcase },
