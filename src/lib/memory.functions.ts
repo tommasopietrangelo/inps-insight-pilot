@@ -340,7 +340,15 @@ export const updateOperatorPrefs = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const payload: Record<string, unknown> = {
+    const payload: {
+      user_id: string;
+      workspace_id: string;
+      response_style?: string;
+      detail_level?: string;
+      preferred_sources?: string[];
+      preferred_topics?: string[];
+      notes?: string | null;
+    } = {
       user_id: userId,
       workspace_id: data.workspaceId,
     };
