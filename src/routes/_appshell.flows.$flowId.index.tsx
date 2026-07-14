@@ -15,7 +15,7 @@ import {
 import { listFlowRuns, createFlowRun, type FlowRunRow } from "@/lib/flow-runs.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
 
-export const Route = createFileRoute("/_appshell/flows/$flowId")({
+export const Route = createFileRoute("/_appshell/flows/$flowId/")({
   head: () => ({ meta: [{ title: "Flusso operativo · INPS Copilot" }] }),
   component: FlowDetailPage,
 });
