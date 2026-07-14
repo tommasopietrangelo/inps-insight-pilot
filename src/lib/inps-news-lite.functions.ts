@@ -139,10 +139,12 @@ function guessTopicTags(text: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Discovery lite: fetcha ENTRY (e opzionalmente pagine paginate) e collect URLs
+// Discovery lite: usa l'endpoint AEM cfListDynamic.search.json per elencare
+// tutte le notizie (paginazione 100 elementi/pagina, ordinate per data desc).
+// `pages` = quante pagine scaricare (default: tutte, fino a 40 = 4000 notizie).
 // ---------------------------------------------------------------------------
 const DiscoverInput = z.object({
-  pages: z.number().int().min(1).max(20).default(1),
+  pages: z.number().int().min(1).max(40).optional(),
 });
 
 export const discoverInpsNewsLite = createServerFn({ method: "POST" })
@@ -152,19 +154,31 @@ export const discoverInpsNewsLite = createServerFn({ method: "POST" })
     const errors: string[] = [];
     const found = new Set<string>();
 
-    const urls: string[] = [ENTRY];
-    // Prova varianti paginazione comuni (INPS usa spesso ?p= o pageNumber=)
-    for (let p = 1; p < data.pages; p++) {
-      urls.push(`${ENTRY}?p=${p}`);
-      urls.push(`${ENTRY}?pageNumber=${p}`);
+    // Prima pagina: ricava totale e numPages
+    let first: NewsListResponse;
+    try {
+      first = await fetchNewsListPage(1, 100);
+    } catch (e) {
+      throw new Error(`Impossibile leggere la lista notizie: ${(e as Error).message}`);
+    }
+    for (const it of first.items) {
+      const u = normalizeDetailUrl(it.paginaDettaglio);
+      if (u) found.add(u);
     }
 
-    for (const u of urls) {
+    const totalPages = Math.min(first.numPages ?? 1, 40);
+    const targetPages = Math.min(data.pages ?? totalPages, totalPages);
+
+    // Pagine successive (sequenziali per non stressare l'origine)
+    for (let p = 2; p <= targetPages; p++) {
       try {
-        const html = await fetchHtml(u);
-        for (const link of extractNewsLinks(html)) found.add(link);
+        const page = await fetchNewsListPage(p, 100);
+        for (const it of page.items) {
+          const u = normalizeDetailUrl(it.paginaDettaglio);
+          if (u) found.add(u);
+        }
       } catch (e) {
-        errors.push(`${u}: ${(e as Error).message}`);
+        errors.push(`page ${p}: ${(e as Error).message}`);
       }
     }
 
@@ -195,11 +209,14 @@ export const discoverInpsNewsLite = createServerFn({ method: "POST" })
     }
 
     return {
+      totResult: first.totResult,
+      pagesScanned: targetPages,
       totalLinksSeen: list.length,
       matched: list.length,
       inCorpus,
       newEnqueued,
       errors: errors.slice(0, 10),
+
     };
   });
 
