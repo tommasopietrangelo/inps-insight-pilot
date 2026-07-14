@@ -151,16 +151,9 @@ function FlowDetailPage() {
           </Card>
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2">
-            {runs.map((r) => {
-              const row = r as unknown as {
-                id: string;
-                title: string;
-                practice_code: string | null;
-                updated_at: string;
-                checked: string[] | null;
-                result: { items?: unknown[] } | null;
-              };
-              const items = row.result?.items?.length ?? 0;
+            {runs.map((row) => {
+              const res = row.result as { items?: unknown[] } | null;
+              const items = res?.items?.length ?? 0;
               const done = row.checked?.length ?? 0;
               return (
                 <li key={row.id}>
