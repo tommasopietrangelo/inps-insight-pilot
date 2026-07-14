@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const KindEnum = z.enum(["checklist", "analyze", "summarize", "compare"]);
+const KindEnum = z.enum(["checklist", "analyze", "summarize", "compare", "flow_run"]);
 export type PracticeKind = z.infer<typeof KindEnum>;
 
 export const listPractices = createServerFn({ method: "GET" })

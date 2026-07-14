@@ -32,6 +32,7 @@ import { Route as ApiPublicHooksRunAlertsRouteImport } from './routes/api/public
 import { Route as ApiPublicHooksRediscoverInpsOperationalRouteImport } from './routes/api/public/hooks/rediscover-inps-operational'
 import { Route as ApiPublicHooksIngestInpsNewsRouteImport } from './routes/api/public/hooks/ingest-inps-news'
 import { Route as ApiPublicHooksIngestInpsRouteImport } from './routes/api/public/hooks/ingest-inps'
+import { Route as AppshellFlowsFlowIdRunIdRouteImport } from './routes/_appshell.flows.$flowId.$runId'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -150,6 +151,12 @@ const ApiPublicHooksIngestInpsRoute =
     path: '/api/public/hooks/ingest-inps',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppshellFlowsFlowIdRunIdRoute =
+  AppshellFlowsFlowIdRunIdRouteImport.update({
+    id: '/$runId',
+    path: '/$runId',
+    getParentRoute: () => AppshellFlowsFlowIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -168,8 +175,9 @@ export interface FileRoutesByFullPath {
   '/sources': typeof AppshellSourcesRoute
   '/summarize': typeof AppshellSummarizeRoute
   '/workspace': typeof AppshellWorkspaceRoute
-  '/flows/$flowId': typeof AppshellFlowsFlowIdRoute
+  '/flows/$flowId': typeof AppshellFlowsFlowIdRouteWithChildren
   '/source/$id': typeof AppshellSourceIdRoute
+  '/flows/$flowId/$runId': typeof AppshellFlowsFlowIdRunIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
   '/api/public/hooks/rediscover-inps-operational': typeof ApiPublicHooksRediscoverInpsOperationalRoute
@@ -192,8 +200,9 @@ export interface FileRoutesByTo {
   '/sources': typeof AppshellSourcesRoute
   '/summarize': typeof AppshellSummarizeRoute
   '/workspace': typeof AppshellWorkspaceRoute
-  '/flows/$flowId': typeof AppshellFlowsFlowIdRoute
+  '/flows/$flowId': typeof AppshellFlowsFlowIdRouteWithChildren
   '/source/$id': typeof AppshellSourceIdRoute
+  '/flows/$flowId/$runId': typeof AppshellFlowsFlowIdRunIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
   '/api/public/hooks/rediscover-inps-operational': typeof ApiPublicHooksRediscoverInpsOperationalRoute
@@ -218,8 +227,9 @@ export interface FileRoutesById {
   '/_appshell/sources': typeof AppshellSourcesRoute
   '/_appshell/summarize': typeof AppshellSummarizeRoute
   '/_appshell/workspace': typeof AppshellWorkspaceRoute
-  '/_appshell/flows/$flowId': typeof AppshellFlowsFlowIdRoute
+  '/_appshell/flows/$flowId': typeof AppshellFlowsFlowIdRouteWithChildren
   '/_appshell/source/$id': typeof AppshellSourceIdRoute
+  '/_appshell/flows/$flowId/$runId': typeof AppshellFlowsFlowIdRunIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
   '/api/public/hooks/rediscover-inps-operational': typeof ApiPublicHooksRediscoverInpsOperationalRoute
@@ -246,6 +256,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/flows/$flowId'
     | '/source/$id'
+    | '/flows/$flowId/$runId'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
     | '/api/public/hooks/rediscover-inps-operational'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/flows/$flowId'
     | '/source/$id'
+    | '/flows/$flowId/$runId'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
     | '/api/public/hooks/rediscover-inps-operational'
@@ -295,6 +307,7 @@ export interface FileRouteTypes {
     | '/_appshell/workspace'
     | '/_appshell/flows/$flowId'
     | '/_appshell/source/$id'
+    | '/_appshell/flows/$flowId/$runId'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
     | '/api/public/hooks/rediscover-inps-operational'
@@ -476,15 +489,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksIngestInpsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_appshell/flows/$flowId/$runId': {
+      id: '/_appshell/flows/$flowId/$runId'
+      path: '/$runId'
+      fullPath: '/flows/$flowId/$runId'
+      preLoaderRoute: typeof AppshellFlowsFlowIdRunIdRouteImport
+      parentRoute: typeof AppshellFlowsFlowIdRoute
+    }
   }
 }
 
+interface AppshellFlowsFlowIdRouteChildren {
+  AppshellFlowsFlowIdRunIdRoute: typeof AppshellFlowsFlowIdRunIdRoute
+}
+
+const AppshellFlowsFlowIdRouteChildren: AppshellFlowsFlowIdRouteChildren = {
+  AppshellFlowsFlowIdRunIdRoute: AppshellFlowsFlowIdRunIdRoute,
+}
+
+const AppshellFlowsFlowIdRouteWithChildren =
+  AppshellFlowsFlowIdRoute._addFileChildren(AppshellFlowsFlowIdRouteChildren)
+
 interface AppshellFlowsRouteChildren {
-  AppshellFlowsFlowIdRoute: typeof AppshellFlowsFlowIdRoute
+  AppshellFlowsFlowIdRoute: typeof AppshellFlowsFlowIdRouteWithChildren
 }
 
 const AppshellFlowsRouteChildren: AppshellFlowsRouteChildren = {
-  AppshellFlowsFlowIdRoute: AppshellFlowsFlowIdRoute,
+  AppshellFlowsFlowIdRoute: AppshellFlowsFlowIdRouteWithChildren,
 }
 
 const AppshellFlowsRouteWithChildren = AppshellFlowsRoute._addFileChildren(
