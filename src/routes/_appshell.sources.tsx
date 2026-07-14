@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { FileText, Loader2, GitCompareArrows, Landmark, FileStack, Search, X } from "lucide-react";
+import { FileText, Loader2, GitCompareArrows, Landmark, FileStack, Search, X, Newspaper } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,8 +48,9 @@ function SourcesPage() {
   }, [urlQ]);
 
   const filtered = useMemo(() => filterSources(sources ?? [], query), [sources, query]);
-  const inps = filtered.filter((s) => s.source_type !== "Normativa");
+  const news = filtered.filter((s) => s.source_type === "Notizia");
   const normative = filtered.filter((s) => s.source_type === "Normativa");
+  const inps = filtered.filter((s) => s.source_type !== "Normativa" && s.source_type !== "Notizia");
 
   const submit = (value: string) => {
     const v = value.trim();
@@ -128,9 +129,12 @@ function SourcesPage() {
 
       {sources && sources.length > 0 && (
         <Tabs defaultValue="inps" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="inps" className="gap-1.5">
               <FileStack className="h-3.5 w-3.5" /> Atti INPS ({inps.length})
+            </TabsTrigger>
+            <TabsTrigger value="news" className="gap-1.5">
+              <Newspaper className="h-3.5 w-3.5" /> Notizie INPS ({news.length})
             </TabsTrigger>
             <TabsTrigger value="normativa" className="gap-1.5">
               <Landmark className="h-3.5 w-3.5" /> Normativa cardine ({normative.length})
@@ -142,6 +146,22 @@ function SourcesPage() {
               Circolari, messaggi, decreti e pagine servizio INPS in ordine cronologico (più recenti in alto).
             </p>
             <SourceList items={inps} empty={urlQ ? `Nessun atto INPS corrisponde a "${urlQ}".` : "Nessun atto INPS nel corpus."} />
+          </TabsContent>
+
+          <TabsContent value="news" className="mt-4">
+            <p className="mb-2 text-xs text-muted-foreground">
+              Notizie e comunicati stampa dalla pagina{" "}
+              <a
+                href="https://www.inps.it/it/it/inps-comunica/notizie.html"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                inps.it/inps-comunica/notizie
+              </a>
+              , in ordine cronologico.
+            </p>
+            <SourceList items={news} empty={urlQ ? `Nessuna notizia corrisponde a "${urlQ}".` : "Nessuna notizia INPS nel corpus."} />
           </TabsContent>
 
           <TabsContent value="normativa" className="mt-4">

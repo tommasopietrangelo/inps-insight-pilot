@@ -26,6 +26,10 @@ import {
   batchIngestNews,
   getNewsQueueStats,
 } from "@/lib/inps-news.functions";
+import {
+  discoverInpsNewsLite,
+  batchIngestNewsLite,
+} from "@/lib/inps-news-lite.functions";
 
 import { Database as DatabaseIcon } from "lucide-react";
 import { ingestNormativeCardine } from "@/lib/normative-cardine.functions";
@@ -164,7 +168,13 @@ function Settings() {
   const [newsBusy, setNewsBusy] = useState<"discover" | "batch" | null>(null);
   const [newsMsg, setNewsMsg] = useState<string | null>(null);
   const [newsBatchSize, setNewsBatchSize] = useState(200);
-
+  // Notizie INPS versione LITE (fetch diretto, zero crediti)
+  const runNewsDiscoverLite = useServerFn(discoverInpsNewsLite);
+  const runNewsBatchLite = useServerFn(batchIngestNewsLite);
+  const [newsLiteBusy, setNewsLiteBusy] = useState<"discover" | "batch" | null>(null);
+  const [newsLiteMsg, setNewsLiteMsg] = useState<string | null>(null);
+  const [newsLiteBatchSize, setNewsLiteBatchSize] = useState(100);
+  const [newsLitePages, setNewsLitePages] = useState(3);
 
 
 
@@ -752,6 +762,105 @@ function Settings() {
             <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{newsMsg}</div>
           )}
         </Card>
+
+        {/* Notizie INPS — versione LITE senza Firecrawl (fetch diretto) */}
+        <Card className="p-6 lg:col-span-2 border-amber-400/40 bg-amber-50/30 dark:bg-amber-950/10">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-2 font-display text-base font-semibold">
+                <Newspaper className="h-4 w-4 text-amber-600" /> Notizie INPS · modalità LITE (senza Firecrawl)
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Fetch diretto dell'HTML di inps.it (nessun credito Firecrawl, nessun credito Lovable AI).
+                Discovery legge la landing e le prime pagine di paginazione; il batch scarica ogni notizia
+                con <code>fetch()</code>, estrae testo/titolo/data con regex e fa upsert nel corpus come{" "}
+                <code>source_type = notizia</code>. Usa questa modalità finché i crediti Firecrawl sono bloccati.
+                Riusa la stessa coda <code>inps_news_queue</code>: nessuna doppia ingestion.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="news-lite-pages" className="text-xs">Pagine listing</Label>
+                <Input id="news-lite-pages" type="number" min={1} max={20} value={newsLitePages}
+                  onChange={(e) => setNewsLitePages(Math.max(1, Math.min(20, Number(e.target.value) || 1)))} className="w-20" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="news-lite-bs" className="text-xs">Batch totale</Label>
+                <Input id="news-lite-bs" type="number" min={1} max={1000} value={newsLiteBatchSize}
+                  onChange={(e) => setNewsLiteBatchSize(Math.max(1, Math.min(1000, Number(e.target.value) || 100)))} className="w-24" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={newsLiteBusy !== null}
+              onClick={async () => {
+                setNewsLiteBusy("discover");
+                setNewsLiteMsg("Discovery lite in corso…");
+                try {
+                  const r = await runNewsDiscoverLite({ data: { pages: newsLitePages } });
+                  setNewsLiteMsg(
+                    `Discovery lite: ${r.matched} URL trovati · già in corpus ${r.inCorpus} · nuovi accodati ${r.newEnqueued}${r.errors.length ? ` · ${r.errors.length} errori` : ""}.`,
+                  );
+                  await refetchNewsStats();
+                } catch (e) {
+                  setNewsLiteMsg(`Errore discovery lite: ${(e as Error).message}`);
+                } finally {
+                  setNewsLiteBusy(null);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {newsLiteBusy === "discover" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Newspaper className="h-3.5 w-3.5" />}
+              Discovery lite
+            </Button>
+            <Button
+              size="sm"
+              disabled={newsLiteBusy !== null || (newsStats?.pending ?? 0) === 0}
+              onClick={async () => {
+                setNewsLiteBusy("batch");
+                const totals = { processed: 0, created: 0, skipped: 0, failed: 0 };
+                const CHUNK = 20;
+                try {
+                  while (totals.processed < newsLiteBatchSize) {
+                    const remaining = newsLiteBatchSize - totals.processed;
+                    const limit = Math.min(CHUNK, remaining);
+                    const r = await runNewsBatchLite({ data: { limit, concurrency: 4 } });
+                    totals.processed += r.processed;
+                    totals.created += r.created;
+                    totals.skipped += r.skipped;
+                    totals.failed += r.failed;
+                    setNewsLiteMsg(
+                      `Batch lite ${totals.processed}/${newsLiteBatchSize} · nuovi ${totals.created} · dup ${totals.skipped} · err ${totals.failed} · ${r.remaining} pendenti`,
+                    );
+                    await refetchNewsStats();
+                    if (r.processed === 0) break;
+                  }
+                  setNewsLiteMsg(
+                    `Batch lite completato: ${totals.processed} URL · ${totals.created} nuovi · ${totals.skipped} già presenti · ${totals.failed} errori. Lancia "Aggiorna indice" per gli embedding.`,
+                  );
+                } catch (e) {
+                  setNewsLiteMsg(`Errore batch lite a ${totals.processed}: ${(e as Error).message}`);
+                } finally {
+                  setNewsLiteBusy(null);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {newsLiteBusy === "batch" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flame className="h-3.5 w-3.5" />}
+              Esegui batch lite
+            </Button>
+          </div>
+
+          {newsLiteMsg && (
+            <div className="mt-3 rounded-md border bg-surface px-4 py-3 text-sm">{newsLiteMsg}</div>
+          )}
+        </Card>
+
+
 
         {/* Layer OPERATIVO per-sezione: discovery + batch indipendenti */}
         <Card className="p-6 lg:col-span-2">
