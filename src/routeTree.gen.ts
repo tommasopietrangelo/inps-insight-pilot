@@ -27,6 +27,7 @@ import { Route as AppshellChecklistRouteImport } from './routes/_appshell.checkl
 import { Route as AppshellAnalyzeRouteImport } from './routes/_appshell.analyze'
 import { Route as AppshellAlertsRouteImport } from './routes/_appshell.alerts'
 import { Route as AppshellSourceIdRouteImport } from './routes/_appshell.source.$id'
+import { Route as AppshellFlowsFlowIdRouteImport } from './routes/_appshell.flows.$flowId'
 import { Route as ApiPublicHooksRunAlertsRouteImport } from './routes/api/public/hooks/run-alerts'
 import { Route as ApiPublicHooksRediscoverInpsOperationalRouteImport } from './routes/api/public/hooks/rediscover-inps-operational'
 import { Route as ApiPublicHooksIngestInpsNewsRouteImport } from './routes/api/public/hooks/ingest-inps-news'
@@ -121,6 +122,11 @@ const AppshellSourceIdRoute = AppshellSourceIdRouteImport.update({
   path: '/source/$id',
   getParentRoute: () => AppshellRoute,
 } as any)
+const AppshellFlowsFlowIdRoute = AppshellFlowsFlowIdRouteImport.update({
+  id: '/$flowId',
+  path: '/$flowId',
+  getParentRoute: () => AppshellFlowsRoute,
+} as any)
 const ApiPublicHooksRunAlertsRoute = ApiPublicHooksRunAlertsRouteImport.update({
   id: '/api/public/hooks/run-alerts',
   path: '/api/public/hooks/run-alerts',
@@ -155,13 +161,14 @@ export interface FileRoutesByFullPath {
   '/checklist': typeof AppshellChecklistRoute
   '/compare': typeof AppshellCompareRoute
   '/dashboard': typeof AppshellDashboardRoute
-  '/flows': typeof AppshellFlowsRoute
+  '/flows': typeof AppshellFlowsRouteWithChildren
   '/memory': typeof AppshellMemoryRoute
   '/search': typeof AppshellSearchRoute
   '/settings': typeof AppshellSettingsRoute
   '/sources': typeof AppshellSourcesRoute
   '/summarize': typeof AppshellSummarizeRoute
   '/workspace': typeof AppshellWorkspaceRoute
+  '/flows/$flowId': typeof AppshellFlowsFlowIdRoute
   '/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
@@ -178,13 +185,14 @@ export interface FileRoutesByTo {
   '/checklist': typeof AppshellChecklistRoute
   '/compare': typeof AppshellCompareRoute
   '/dashboard': typeof AppshellDashboardRoute
-  '/flows': typeof AppshellFlowsRoute
+  '/flows': typeof AppshellFlowsRouteWithChildren
   '/memory': typeof AppshellMemoryRoute
   '/search': typeof AppshellSearchRoute
   '/settings': typeof AppshellSettingsRoute
   '/sources': typeof AppshellSourcesRoute
   '/summarize': typeof AppshellSummarizeRoute
   '/workspace': typeof AppshellWorkspaceRoute
+  '/flows/$flowId': typeof AppshellFlowsFlowIdRoute
   '/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
@@ -203,13 +211,14 @@ export interface FileRoutesById {
   '/_appshell/checklist': typeof AppshellChecklistRoute
   '/_appshell/compare': typeof AppshellCompareRoute
   '/_appshell/dashboard': typeof AppshellDashboardRoute
-  '/_appshell/flows': typeof AppshellFlowsRoute
+  '/_appshell/flows': typeof AppshellFlowsRouteWithChildren
   '/_appshell/memory': typeof AppshellMemoryRoute
   '/_appshell/search': typeof AppshellSearchRoute
   '/_appshell/settings': typeof AppshellSettingsRoute
   '/_appshell/sources': typeof AppshellSourcesRoute
   '/_appshell/summarize': typeof AppshellSummarizeRoute
   '/_appshell/workspace': typeof AppshellWorkspaceRoute
+  '/_appshell/flows/$flowId': typeof AppshellFlowsFlowIdRoute
   '/_appshell/source/$id': typeof AppshellSourceIdRoute
   '/api/public/hooks/ingest-inps': typeof ApiPublicHooksIngestInpsRoute
   '/api/public/hooks/ingest-inps-news': typeof ApiPublicHooksIngestInpsNewsRoute
@@ -235,6 +244,7 @@ export interface FileRouteTypes {
     | '/sources'
     | '/summarize'
     | '/workspace'
+    | '/flows/$flowId'
     | '/source/$id'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
@@ -258,6 +268,7 @@ export interface FileRouteTypes {
     | '/sources'
     | '/summarize'
     | '/workspace'
+    | '/flows/$flowId'
     | '/source/$id'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
@@ -282,6 +293,7 @@ export interface FileRouteTypes {
     | '/_appshell/sources'
     | '/_appshell/summarize'
     | '/_appshell/workspace'
+    | '/_appshell/flows/$flowId'
     | '/_appshell/source/$id'
     | '/api/public/hooks/ingest-inps'
     | '/api/public/hooks/ingest-inps-news'
@@ -429,6 +441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppshellSourceIdRouteImport
       parentRoute: typeof AppshellRoute
     }
+    '/_appshell/flows/$flowId': {
+      id: '/_appshell/flows/$flowId'
+      path: '/$flowId'
+      fullPath: '/flows/$flowId'
+      preLoaderRoute: typeof AppshellFlowsFlowIdRouteImport
+      parentRoute: typeof AppshellFlowsRoute
+    }
     '/api/public/hooks/run-alerts': {
       id: '/api/public/hooks/run-alerts'
       path: '/api/public/hooks/run-alerts'
@@ -460,13 +479,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppshellFlowsRouteChildren {
+  AppshellFlowsFlowIdRoute: typeof AppshellFlowsFlowIdRoute
+}
+
+const AppshellFlowsRouteChildren: AppshellFlowsRouteChildren = {
+  AppshellFlowsFlowIdRoute: AppshellFlowsFlowIdRoute,
+}
+
+const AppshellFlowsRouteWithChildren = AppshellFlowsRoute._addFileChildren(
+  AppshellFlowsRouteChildren,
+)
+
 interface AppshellRouteChildren {
   AppshellAlertsRoute: typeof AppshellAlertsRoute
   AppshellAnalyzeRoute: typeof AppshellAnalyzeRoute
   AppshellChecklistRoute: typeof AppshellChecklistRoute
   AppshellCompareRoute: typeof AppshellCompareRoute
   AppshellDashboardRoute: typeof AppshellDashboardRoute
-  AppshellFlowsRoute: typeof AppshellFlowsRoute
+  AppshellFlowsRoute: typeof AppshellFlowsRouteWithChildren
   AppshellMemoryRoute: typeof AppshellMemoryRoute
   AppshellSearchRoute: typeof AppshellSearchRoute
   AppshellSettingsRoute: typeof AppshellSettingsRoute
@@ -482,7 +513,7 @@ const AppshellRouteChildren: AppshellRouteChildren = {
   AppshellChecklistRoute: AppshellChecklistRoute,
   AppshellCompareRoute: AppshellCompareRoute,
   AppshellDashboardRoute: AppshellDashboardRoute,
-  AppshellFlowsRoute: AppshellFlowsRoute,
+  AppshellFlowsRoute: AppshellFlowsRouteWithChildren,
   AppshellMemoryRoute: AppshellMemoryRoute,
   AppshellSearchRoute: AppshellSearchRoute,
   AppshellSettingsRoute: AppshellSettingsRoute,
