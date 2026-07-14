@@ -8,7 +8,6 @@ import {
   Settings,
   ShieldCheck,
   FileSearch,
-  ClipboardCheck,
   Brain,
   Sparkles,
   Workflow,
