@@ -277,7 +277,19 @@ function FlowDetailPage() {
 
         <div className="grid gap-4 md:grid-cols-2">
           {(FLOW_SECTIONS as readonly FlowSection[]).map((sec) => (
-            <div key={sec} className="rounded-md border bg-surface p-3">
+            <div
+              key={sec}
+              className="rounded-md border bg-surface p-3"
+              onDragOver={(e) => {
+                if (editing && dragIdx !== null) e.preventDefault();
+              }}
+              onDrop={(e) => {
+                if (!editing || dragIdx === null) return;
+                e.preventDefault();
+                moveDraft(dragIdx, sec);
+                setDragIdx(null);
+              }}
+            >
               <div className="mb-2 flex items-center justify-between">
                 <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {SECTION_LABELS[sec]}
@@ -287,7 +299,9 @@ function FlowDetailPage() {
                 </Badge>
               </div>
               {grouped[sec].length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nessuna voce.</p>
+                <p className="text-xs text-muted-foreground">
+                  {editing ? "Trascina qui una voce." : "Nessuna voce."}
+                </p>
               ) : (
                 <ul className="space-y-1.5">
                   {grouped[sec].map((it, idx) => {
@@ -295,9 +309,35 @@ function FlowDetailPage() {
                     return (
                       <li
                         key={`${sec}-${idx}`}
-                        className="flex items-start gap-2 rounded border bg-background px-2 py-1.5 text-sm"
+                        draggable={editing}
+                        onDragStart={(e) => {
+                          if (!editing) return;
+                          setDragIdx(globalIdx);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragOver={(e) => {
+                          if (editing && dragIdx !== null) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }
+                        }}
+                        onDrop={(e) => {
+                          if (!editing || dragIdx === null) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          moveDraft(dragIdx, sec, globalIdx);
+                          setDragIdx(null);
+                        }}
+                        onDragEnd={() => setDragIdx(null)}
+                        className={`flex items-start gap-2 rounded border bg-background px-2 py-1.5 text-sm ${
+                          editing ? "cursor-grab active:cursor-grabbing" : ""
+                        } ${dragIdx === globalIdx ? "opacity-40" : ""}`}
                       >
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        {editing ? (
+                          <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                        )}
                         <span className="min-w-0 flex-1">{it.title}</span>
                         {editing && (
                           <Button
