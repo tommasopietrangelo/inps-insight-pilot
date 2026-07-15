@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Download,
   FileUp,
+  GripVertical,
   Info,
   Loader2,
   Pin,
@@ -251,6 +252,26 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
     void persistResult(next, nextChecked);
   };
 
+  // Drag & drop items across sections
+  const [dragId, setDragId] = useState<string | null>(null);
+  const moveItem = (id: string, toSection: ChecklistSection, beforeId?: string) => {
+    if (!result) return;
+    const from = result.items.findIndex((it) => it.id === id);
+    if (from < 0) return;
+    const next = result.items.slice();
+    const [moved] = next.splice(from, 1);
+    moved.section = toSection;
+    let insertAt = next.length;
+    if (beforeId) {
+      const idx = next.findIndex((it) => it.id === beforeId);
+      if (idx >= 0) insertAt = idx;
+    }
+    next.splice(insertAt, 0, moved);
+    const updated = { ...result, items: next };
+    setResult(updated);
+    void persistResult(updated);
+  };
+
   const unpinFn = useServerFn(unpinReminderFromPractice);
   const unpinMutation = useMutation({
     mutationFn: (reminderId: string) =>
@@ -480,7 +501,19 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
             {(Object.keys(SECTION_LABELS) as ChecklistSection[]).map((section) => {
               const items = result.items.filter((it) => it.section === section);
               return (
-                <Card key={section} className="p-5">
+                <Card
+                  key={section}
+                  className="p-5"
+                  onDragOver={(e) => {
+                    if (dragId) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    if (!dragId) return;
+                    e.preventDefault();
+                    moveItem(dragId, section);
+                    setDragId(null);
+                  }}
+                >
                   <div className="flex items-center justify-between">
                     <div className="font-display text-base font-semibold">
                       {SECTION_LABELS[section]}
@@ -491,7 +524,9 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
                   </div>
                   <Separator className="my-3" />
                   {items.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nessuna voce.</p>
+                    <p className="text-sm text-muted-foreground">
+                      {dragId ? "Rilascia qui per spostare la voce." : "Nessuna voce."}
+                    </p>
                   ) : (
                     <ul className="space-y-3">
                       {items.map((it) => (
@@ -505,6 +540,17 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
                               ? () => removeManualItem(it.id)
                               : undefined
                           }
+                          dragging={dragId === it.id}
+                          onDragStart={() => setDragId(it.id)}
+                          onDragEnd={() => setDragId(null)}
+                          onDropBefore={(e) => {
+                            if (!dragId) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            moveItem(dragId, section, it.id);
+                            setDragId(null);
+                          }}
+                          canDropTarget={!!dragId}
                         />
                       ))}
                     </ul>
@@ -583,16 +629,44 @@ function Row({
   checked,
   onToggle,
   onRemove,
+  dragging,
+  onDragStart,
+  onDragEnd,
+  onDropBefore,
+  canDropTarget,
 }: {
   item: ChecklistItem;
   checked: boolean;
   onToggle: () => void;
   onRemove?: () => void;
+  dragging?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onDropBefore?: (e: DragEvent<HTMLLIElement>) => void;
+  canDropTarget?: boolean;
 }) {
   const meta = STATUS_META[item.status];
   return (
-    <li className="rounded-md border bg-surface p-3">
+    <li
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart?.();
+      }}
+      onDragEnd={() => onDragEnd?.()}
+      onDragOver={(e) => {
+        if (canDropTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+      onDrop={(e) => onDropBefore?.(e)}
+      className={`cursor-grab rounded-md border bg-surface p-3 active:cursor-grabbing ${
+        dragging ? "opacity-40" : ""
+      }`}
+    >
       <div className="flex items-start gap-3">
+        <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <Checkbox
           checked={checked}
           onCheckedChange={onToggle}
