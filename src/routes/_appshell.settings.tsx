@@ -882,7 +882,7 @@ function Settings() {
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
               size="sm"
-              disabled={newsLiteBusy !== null || (newsStats?.pending ?? 0) === 0}
+              disabled={newsLiteBusy !== null}
               onClick={async () => {
                 setNewsLiteBusy("batch");
                 const totals = { processed: 0, created: 0, skipped: 0, failed: 0 };
