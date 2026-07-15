@@ -50,8 +50,16 @@ function Workspace() {
   const deleteNoteFn = useServerFn(deleteNote);
   const listSavedFn = useServerFn(listSavedSearches);
   const deleteSavedFn = useServerFn(deleteSavedSearch);
+  const listPracticesFn = useServerFn(listPractices);
+  const deletePracticeFn = useServerFn(deletePractice);
 
   const wsId = current?.id ?? "";
+
+  const summariesQuery = useQuery({
+    queryKey: ["practices", wsId, "summarize"],
+    queryFn: () => listPracticesFn({ data: { workspaceId: wsId, kind: "summarize" } }),
+    enabled: !!wsId,
+  });
 
   const notesQuery = useQuery({
     queryKey: ["notes", wsId],
