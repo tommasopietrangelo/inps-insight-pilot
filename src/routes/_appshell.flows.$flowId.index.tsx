@@ -391,10 +391,6 @@ function FlowDetailPage() {
           </ul>
         )}
       </div>
-      {/* Unused imports guard */}
-      <span className="hidden">
-        <Trash2 />
-      </span>
     </div>
   );
 }
