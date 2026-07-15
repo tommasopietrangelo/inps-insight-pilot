@@ -190,6 +190,18 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
     saveMutation.mutate({});
   };
 
+  const unpinFn = useServerFn(unpinReminderFromPractice);
+  const unpinMutation = useMutation({
+    mutationFn: (reminderId: string) =>
+      unpinFn({ data: { practiceId, reminderId } }),
+    onSuccess: (_res, reminderId) => {
+      setPinnedReminders((prev) => prev.filter((r) => r.id !== reminderId));
+      for (const k of invalidateKeys) qc.invalidateQueries({ queryKey: k });
+      toast.success("Reminder rimosso");
+    },
+    onError: (e) => toast.error(`Errore: ${(e as Error).message}`),
+  });
+
   const exportRiepilogo = async () => {
     if (!result) return;
     const lines: string[] = [];
