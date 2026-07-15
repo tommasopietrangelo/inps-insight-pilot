@@ -64,7 +64,7 @@ export const createFlowRun = createServerFn({ method: "POST" })
       title: string;
       description: string | null;
       query: string;
-      checklist_items: string[];
+      checklist_items: Array<string | { section: string; title: string }>;
       code_prefix: string | null;
     };
 
@@ -79,14 +79,22 @@ export const createFlowRun = createServerFn({ method: "POST" })
     const seq = (count ?? 0) + 1;
     const code = `${prefix}-${String(seq).padStart(3, "0")}`;
 
-    const items = (f.checklist_items ?? []).map((title, idx) => ({
-      id: `flow-${f.id}-${idx}`,
-      section: "documenti",
-      title,
-      status: "da_verificare",
-      explanation: "",
-      citations: [],
-    }));
+    const VALID_SECTIONS = ["requisiti", "documenti", "controlli", "passi_successivi"];
+    const items = (f.checklist_items ?? []).map((raw, idx) => {
+      const title = typeof raw === "string" ? raw : raw.title;
+      const section =
+        typeof raw === "string" || !VALID_SECTIONS.includes(raw.section)
+          ? "documenti"
+          : raw.section;
+      return {
+        id: `flow-${f.id}-${idx}`,
+        section,
+        title,
+        status: "da_verificare",
+        explanation: "",
+        citations: [],
+      };
+    });
 
     const seededResult = {
       practiceType: f.title,
