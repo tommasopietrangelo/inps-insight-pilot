@@ -43,7 +43,9 @@ type NewsListResponse = {
 };
 
 async function fetchNewsListPage(pageNumber: number, maxItems = 100): Promise<NewsListResponse> {
-  const url = `${LIST_JSON}?pageNumber=${pageNumber}&maxItems=${maxItems}`;
+  // NB: il parametro corretto è `currentPage` (AEM cfListDynamic). `pageNumber`
+  // viene ignorato dall'endpoint e restituisce sempre la prima pagina.
+  const url = `${LIST_JSON}?currentPage=${pageNumber}&maxItems=${maxItems}`;
   const res = await fetch(url, {
     headers: { "user-agent": UA, accept: "application/json,text/plain,*/*" },
   });
