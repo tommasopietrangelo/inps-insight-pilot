@@ -302,12 +302,16 @@ function Workspace() {
                 {summaries.map((s) => {
                   const r = (s.result ?? {}) as Partial<SummaryResult>;
                   return (
-                    <li key={s.id} className="px-5 py-4">
+                    <li key={s.id} className="px-5 py-4 hover:bg-surface-muted/40 transition-colors">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => setDetailSummary({ title: s.title, result: r })}
+                          className="min-w-0 flex-1 text-left"
+                        >
                           <div className="flex items-center gap-2">
                             <FileSignature className="h-4 w-4 text-primary" />
-                            <div className="font-medium">{s.title}</div>
+                            <div className="font-medium hover:underline">{s.title}</div>
                           </div>
                           {r.tldr && (
                             <p className="mt-2 text-sm leading-relaxed text-foreground/90">
@@ -335,7 +339,7 @@ function Workspace() {
                               </Badge>
                             )}
                           </div>
-                        </div>
+                        </button>
                         <Button
                           variant="ghost"
                           size="icon"
