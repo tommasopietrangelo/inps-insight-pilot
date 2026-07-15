@@ -59,6 +59,7 @@ export type PracticeWorkbenchProps = {
   initialQuery: string;
   initialResult: ChecklistResult | null;
   initialChecked: string[];
+  initialPinnedReminders?: Reminder[];
   invalidateKeys?: readonly unknown[][];
 };
 
