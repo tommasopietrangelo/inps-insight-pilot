@@ -174,7 +174,13 @@ function Settings() {
   const [newsLiteBusy, setNewsLiteBusy] = useState<"discover" | "batch" | null>(null);
   const [newsLiteMsg, setNewsLiteMsg] = useState<string | null>(null);
   const [newsLiteBatchSize, setNewsLiteBatchSize] = useState(100);
-  const [newsLitePages, setNewsLitePages] = useState(3);
+  const [newsLiteMode, setNewsLiteMode] = useState<"date" | "pages">("date");
+  const _todayISO = new Date().toISOString().slice(0, 10);
+  const _ninetyDaysAgoISO = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const [newsLiteDateFrom, setNewsLiteDateFrom] = useState<string>(_ninetyDaysAgoISO);
+  const [newsLiteDateTo, setNewsLiteDateTo] = useState<string>(_todayISO);
+  const [newsLitePageFrom, setNewsLitePageFrom] = useState(1);
+  const [newsLitePageTo, setNewsLitePageTo] = useState(10);
 
 
 
