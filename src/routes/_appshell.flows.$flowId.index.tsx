@@ -117,6 +117,24 @@ function FlowDetailPage() {
     setNewTitle("");
   };
 
+  // Drag & drop across sections (editing only)
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const moveDraft = (from: number, toSection: FlowSection, beforeIdx?: number) => {
+    setDraftItems((prev) => {
+      if (from < 0 || from >= prev.length) return prev;
+      const next = prev.slice();
+      const [moved] = next.splice(from, 1);
+      moved.section = toSection;
+      let insertAt = next.length;
+      if (beforeIdx !== undefined && beforeIdx >= 0) {
+        // beforeIdx refers to index in the ORIGINAL array; map to next[] after splice.
+        insertAt = beforeIdx > from ? beforeIdx - 1 : beforeIdx;
+      }
+      next.splice(insertAt, 0, moved);
+      return next;
+    });
+  };
+
   const saveTemplate = useMutation({
     mutationFn: () =>
       updateFlowFn({
