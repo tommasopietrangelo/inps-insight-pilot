@@ -172,7 +172,8 @@ function Settings() {
   // Notizie INPS versione LITE (fetch diretto, zero crediti)
   const runNewsDiscoverLite = useServerFn(discoverInpsNewsLite);
   const runNewsBatchLite = useServerFn(batchIngestNewsLite);
-  const [newsLiteBusy, setNewsLiteBusy] = useState<"discover" | "batch" | null>(null);
+  const runNewsRequeueLite = useServerFn(requeueMissingNewsLite);
+  const [newsLiteBusy, setNewsLiteBusy] = useState<"discover" | "batch" | "requeue" | null>(null);
   const [newsLiteMsg, setNewsLiteMsg] = useState<string | null>(null);
   const [newsLiteBatchSize, setNewsLiteBatchSize] = useState(100);
   const [newsLiteMode, setNewsLiteMode] = useState<"date" | "pages">("date");
