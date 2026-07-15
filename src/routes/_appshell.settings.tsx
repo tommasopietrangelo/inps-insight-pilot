@@ -778,27 +778,71 @@ function Settings() {
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 Fetch diretto dell'HTML di inps.it (nessun credito Firecrawl, nessun credito Lovable AI).
-                Discovery legge la landing e le prime pagine di paginazione; il batch scarica ogni notizia
-                con <code>fetch()</code>, estrae testo/titolo/data con regex e fa upsert nel corpus come{" "}
-                <code>source_type = notizia</code>. Usa questa modalità finché i crediti Firecrawl sono bloccati.
-                Riusa la stessa coda <code>inps_news_queue</code>: nessuna doppia ingestion.
+                L'endpoint pubblico INPS espone <strong>~3.700 notizie</strong> ordinate per data.
+                Scegli un <strong>intervallo di date</strong> (o un range di pagine per andare a ritroso a blocchi):
+                la discovery scorre solo le pagine necessarie, accoda gli URL nella coda{" "}
+                <code>inps_news_queue</code> e poi il batch li scarica e li indicizza come{" "}
+                <code>source_type = notizia</code>. Ogni URL è unico: nessuna doppia ingestion.
               </p>
             </div>
             <div className="flex flex-wrap items-end gap-2">
               <div className="space-y-1.5">
-                <Label htmlFor="news-lite-pages" className="text-xs">Pagine listing (100 notizie/pag, max 40 = ~4000)</Label>
-                <Input id="news-lite-pages" type="number" min={1} max={40} value={newsLitePages}
-                  onChange={(e) => setNewsLitePages(Math.max(1, Math.min(40, Number(e.target.value) || 1)))} className="w-20" />
-              </div>
-              <div className="space-y-1.5">
                 <Label htmlFor="news-lite-bs" className="text-xs">Batch totale</Label>
-                <Input id="news-lite-bs" type="number" min={1} max={1000} value={newsLiteBatchSize}
-                  onChange={(e) => setNewsLiteBatchSize(Math.max(1, Math.min(1000, Number(e.target.value) || 100)))} className="w-24" />
+                <Input id="news-lite-bs" type="number" min={1} max={2000} value={newsLiteBatchSize}
+                  onChange={(e) => setNewsLiteBatchSize(Math.max(1, Math.min(2000, Number(e.target.value) || 100)))} className="w-24" />
               </div>
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 inline-flex rounded-md border bg-surface p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setNewsLiteMode("date")}
+              className={`rounded px-3 py-1 ${newsLiteMode === "date" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Per intervallo di date
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewsLiteMode("pages")}
+              className={`rounded px-3 py-1 ${newsLiteMode === "pages" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Per range di pagine
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            {newsLiteMode === "date" ? (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="news-lite-df" className="text-xs">Data da</Label>
+                  <Input id="news-lite-df" type="date" value={newsLiteDateFrom}
+                    onChange={(e) => setNewsLiteDateFrom(e.target.value)} className="w-40" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="news-lite-dt" className="text-xs">Data a</Label>
+                  <Input id="news-lite-dt" type="date" value={newsLiteDateTo}
+                    onChange={(e) => setNewsLiteDateTo(e.target.value)} className="w-40" />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="news-lite-pf" className="text-xs">Pagina da (1 = più recenti)</Label>
+                  <Input id="news-lite-pf" type="number" min={1} max={200} value={newsLitePageFrom}
+                    onChange={(e) => setNewsLitePageFrom(Math.max(1, Math.min(200, Number(e.target.value) || 1)))} className="w-24" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="news-lite-pt" className="text-xs">Pagina a (max +50/blocco)</Label>
+                  <Input id="news-lite-pt" type="number" min={1} max={200} value={newsLitePageTo}
+                    onChange={(e) => setNewsLitePageTo(Math.max(1, Math.min(200, Number(e.target.value) || 10)))} className="w-24" />
+                </div>
+                <div className="text-xs text-muted-foreground pb-2">
+                  100 notizie/pagina — per l'intero archivio scorri a blocchi (es. 1–20, 21–40, …).
+                </div>
+              </>
+            )}
+
             <Button
               size="sm"
               variant="outline"
@@ -807,9 +851,17 @@ function Settings() {
                 setNewsLiteBusy("discover");
                 setNewsLiteMsg("Discovery lite in corso…");
                 try {
-                  const r = await runNewsDiscoverLite({ data: { pages: newsLitePages } });
+                  const payload = newsLiteMode === "date"
+                    ? { dateFrom: newsLiteDateFrom, dateTo: newsLiteDateTo }
+                    : { pageFrom: newsLitePageFrom, pageTo: newsLitePageTo };
+                  const r = await runNewsDiscoverLite({ data: payload });
+                  const scope = newsLiteMode === "date"
+                    ? `${r.dateFrom} → ${r.dateTo}`
+                    : `pagine ${r.pageFrom}–${r.pageTo}`;
                   setNewsLiteMsg(
-                    `Discovery lite: ${r.matched} URL trovati · già in corpus ${r.inCorpus} · nuovi accodati ${r.newEnqueued}${r.errors.length ? ` · ${r.errors.length} errori` : ""}.`,
+                    `Discovery lite (${scope}): ${r.matched} URL trovati su ${r.pagesScanned} pagine scansionate` +
+                    ` · già in corpus ${r.inCorpus} · nuovi accodati ${r.newEnqueued}` +
+                    ` · totale disponibile INPS: ${r.totResult}${r.earlyStop ? " · stop anticipato (fine intervallo)" : ""}${r.errors.length ? ` · ${r.errors.length} errori` : ""}.`,
                   );
                   await refetchNewsStats();
                 } catch (e) {
@@ -821,8 +873,11 @@ function Settings() {
               className="gap-1.5"
             >
               {newsLiteBusy === "discover" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Newspaper className="h-3.5 w-3.5" />}
-              Discovery lite
+              1) Discovery lite
             </Button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
             <Button
               size="sm"
               disabled={newsLiteBusy !== null || (newsStats?.pending ?? 0) === 0}
