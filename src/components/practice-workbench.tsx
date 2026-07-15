@@ -154,7 +154,11 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
           workspaceId,
           kind,
           title: initialTitle,
-          input: { query: query.trim(), fileNames: files.map((f) => f.name) },
+          input: {
+            query: query.trim(),
+            fileNames: files.map((f) => f.name),
+            pinnedReminders,
+          },
           result,
           checked: Array.from(checked),
         },
