@@ -642,7 +642,7 @@ function Row({
   dragging?: boolean;
   onDragStart?: () => void;
   onDragEnd?: () => void;
-  onDropBefore?: (e: React.DragEvent<HTMLLIElement>) => void;
+  onDropBefore?: (e: DragEvent<HTMLLIElement>) => void;
   canDropTarget?: boolean;
 }) {
   const meta = STATUS_META[item.status];
