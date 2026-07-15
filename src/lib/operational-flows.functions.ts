@@ -162,3 +162,55 @@ export const deleteOperationalFlow = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const listPinnedFlows = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { workspaceId: string }) =>
+    z.object({ workspaceId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: rows, error } = await supabase
+      .from("workspace_pinned_flows" as never)
+      .select("flow_id")
+      .eq("workspace_id", data.workspaceId);
+    if (error) throw new Error(error.message);
+    return ((rows ?? []) as Array<{ flow_id: string }>).map((r) => r.flow_id);
+  });
+
+export const pinFlow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { workspaceId: string; flowId: string }) =>
+    z.object({ workspaceId: z.string().uuid(), flowId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("workspace_pinned_flows" as never)
+      .upsert(
+        {
+          workspace_id: data.workspaceId,
+          flow_id: data.flowId,
+          pinned_by: userId,
+        } as never,
+        { onConflict: "workspace_id,flow_id" } as never,
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const unpinFlow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { workspaceId: string; flowId: string }) =>
+    z.object({ workspaceId: z.string().uuid(), flowId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { error } = await supabase
+      .from("workspace_pinned_flows" as never)
+      .delete()
+      .eq("workspace_id", data.workspaceId)
+      .eq("flow_id", data.flowId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

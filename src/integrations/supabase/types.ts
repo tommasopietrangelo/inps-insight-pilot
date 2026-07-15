@@ -864,6 +864,42 @@ export type Database = {
           },
         ]
       }
+      workspace_pinned_flows: {
+        Row: {
+          flow_id: string
+          pinned_at: string
+          pinned_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          flow_id: string
+          pinned_at?: string
+          pinned_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          flow_id?: string
+          pinned_at?: string
+          pinned_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_pinned_flows_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "operational_flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_pinned_flows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           created_at: string
