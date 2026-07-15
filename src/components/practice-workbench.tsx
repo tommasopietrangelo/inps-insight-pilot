@@ -11,6 +11,7 @@ import {
   Loader2,
   Pin,
   PinOff,
+  Plus,
   RefreshCw,
   Save,
   Sparkles,
@@ -84,6 +85,7 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
   const [result, setResult] = useState<ChecklistResult | null>(initialResult);
   const [checked, setChecked] = useState<Set<string>>(new Set(initialChecked));
   const [pinnedReminders, setPinnedReminders] = useState<Reminder[]>(initialPinnedReminders);
+  const [newItemBySection, setNewItemBySection] = useState<Record<string, string>>({});
   const loadedFor = useRef(practiceId);
 
   useEffect(() => {
@@ -188,6 +190,65 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
       return;
     }
     saveMutation.mutate({});
+  };
+
+  const persistResult = async (nextResult: ChecklistResult, nextChecked?: Set<string>) => {
+    try {
+      await saveFn({
+        data: {
+          id: practiceId,
+          workspaceId,
+          kind,
+          title: initialTitle,
+          input: {
+            query: query.trim(),
+            fileNames: files.map((f) => f.name),
+            pinnedReminders,
+          },
+          result: nextResult,
+          checked: Array.from(nextChecked ?? checked),
+        },
+      });
+      for (const k of invalidateKeys) qc.invalidateQueries({ queryKey: k });
+    } catch (e) {
+      toast.error(`Errore salvataggio: ${(e as Error).message}`);
+    }
+  };
+
+  const addManualItem = (section: ChecklistSection) => {
+    const title = (newItemBySection[section] ?? "").trim();
+    if (!title) return;
+    const base: ChecklistResult =
+      result ?? {
+        practiceType: initialTitle,
+        summary: "",
+        disclaimer:
+          "Checklist creata manualmente. Genera l'analisi AI per arricchirla con riferimenti INPS.",
+        items: [],
+        usedSources: [],
+      };
+    const newItem: ChecklistItem = {
+      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      section,
+      title,
+      status: "da_verificare",
+      explanation: "",
+      citations: [],
+    };
+    const next = { ...base, items: [...base.items, newItem] };
+    setResult(next);
+    setNewItemBySection((p) => ({ ...p, [section]: "" }));
+    void persistResult(next);
+  };
+
+  const removeManualItem = (id: string) => {
+    if (!result) return;
+    const next = { ...result, items: result.items.filter((it) => it.id !== id) };
+    setResult(next);
+    const nextChecked = new Set(checked);
+    nextChecked.delete(id);
+    setChecked(nextChecked);
+    void persistResult(next, nextChecked);
   };
 
   const unpinFn = useServerFn(unpinReminderFromPractice);
@@ -439,14 +500,46 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
                           item={it}
                           checked={checked.has(it.id)}
                           onToggle={() => toggle(it.id)}
+                          onRemove={
+                            it.id.startsWith("manual-")
+                              ? () => removeManualItem(it.id)
+                              : undefined
+                          }
                         />
                       ))}
                     </ul>
                   )}
+                  <div className="mt-3 flex gap-2">
+                    <Input
+                      value={newItemBySection[section] ?? ""}
+                      onChange={(e) =>
+                        setNewItemBySection((p) => ({ ...p, [section]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addManualItem(section);
+                        }
+                      }}
+                      placeholder="Aggiungi voce manuale…"
+                      maxLength={200}
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => addManualItem(section)}
+                      disabled={!(newItemBySection[section] ?? "").trim()}
+                      className="h-8 gap-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </Card>
               );
             })}
           </div>
+
 
           {result.usedSources.length > 0 && (
             <Card className="p-5">
@@ -489,10 +582,12 @@ function Row({
   item,
   checked,
   onToggle,
+  onRemove,
 }: {
   item: ChecklistItem;
   checked: boolean;
   onToggle: () => void;
+  onRemove?: () => void;
 }) {
   const meta = STATUS_META[item.status];
   return (
@@ -514,6 +609,11 @@ function Row({
             <Badge variant="outline" className={`rounded-sm text-[10px] ${meta.className}`}>
               {meta.label}
             </Badge>
+            {onRemove && (
+              <Badge variant="outline" className="rounded-sm text-[10px]">
+                manuale
+              </Badge>
+            )}
           </div>
           {item.explanation && (
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -544,6 +644,17 @@ function Row({
             </div>
           )}
         </div>
+        {onRemove && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 shrink-0"
+            title="Rimuovi voce"
+            onClick={onRemove}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
     </li>
   );
