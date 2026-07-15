@@ -2,7 +2,8 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bookmark, FileSignature, PenSquare, Users, Search, Plus, Trash2, Loader2, BellRing } from "lucide-react";
+import { Bookmark, FileSignature, PenSquare, Users, Search, Plus, Trash2, Loader2, BellRing, CalendarClock, CheckCircle2, ListChecks, Wrench, Sparkles } from "lucide-react";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +77,7 @@ function Workspace() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
+  const [detailSummary, setDetailSummary] = useState<{ title: string; result: Partial<SummaryResult> } | null>(null);
 
   const createMut = useMutation({
     mutationFn: () =>
@@ -300,12 +302,16 @@ function Workspace() {
                 {summaries.map((s) => {
                   const r = (s.result ?? {}) as Partial<SummaryResult>;
                   return (
-                    <li key={s.id} className="px-5 py-4">
+                    <li key={s.id} className="px-5 py-4 hover:bg-surface-muted/40 transition-colors">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => setDetailSummary({ title: s.title, result: r })}
+                          className="min-w-0 flex-1 text-left"
+                        >
                           <div className="flex items-center gap-2">
                             <FileSignature className="h-4 w-4 text-primary" />
-                            <div className="font-medium">{s.title}</div>
+                            <div className="font-medium hover:underline">{s.title}</div>
                           </div>
                           {r.tldr && (
                             <p className="mt-2 text-sm leading-relaxed text-foreground/90">
@@ -333,7 +339,7 @@ function Workspace() {
                               </Badge>
                             )}
                           </div>
-                        </div>
+                        </button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -521,6 +527,53 @@ function Workspace() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!detailSummary} onOpenChange={(o) => !o && setDetailSummary(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 pr-6">
+              <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate">{detailSummary?.title}</span>
+            </DialogTitle>
+          </DialogHeader>
+          {detailSummary && (() => {
+            const r = detailSummary.result;
+            return (
+              <div>
+                {r.tldr && (
+                  <p className="rounded-md border bg-surface-muted/40 p-3 text-sm leading-relaxed">{r.tldr}</p>
+                )}
+                <div className="mt-5 grid gap-5 md:grid-cols-2">
+                  <DetailSection icon={<ListChecks className="h-4 w-4 text-primary" />} title="Punti chiave" items={r.keyPoints ?? []} />
+                  <DetailSection icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />} title="Obblighi / adempimenti" items={r.obligations ?? []} />
+                  <DetailSection icon={<CalendarClock className="h-4 w-4 text-amber-600" />} title="Scadenze" items={r.deadlines ?? []} />
+                  <DetailSection icon={<Users className="h-4 w-4 text-primary" />} title="Destinatari" items={r.whoIsAffected ?? []} />
+                  <DetailSection icon={<Wrench className="h-4 w-4 text-primary" />} title="Note operative" items={r.operationalNotes ?? []} />
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function DetailSection({ icon, title, items }: { icon: React.ReactNode; title: string; items: string[] }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {icon} {title}
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">—</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {items.map((it, i) => (
+            <li key={i} className="rounded-md border bg-surface p-2.5 text-sm leading-relaxed">{it}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
