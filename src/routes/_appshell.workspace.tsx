@@ -2,7 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bookmark, PenSquare, Users, Search, Plus, Trash2, Loader2, BellRing } from "lucide-react";
+import { Bookmark, FileSignature, PenSquare, Users, Search, Plus, Trash2, Loader2, BellRing } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
