@@ -77,6 +77,7 @@ function Workspace() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
+  const [detailSummary, setDetailSummary] = useState<{ title: string; result: Partial<SummaryResult> } | null>(null);
 
   const createMut = useMutation({
     mutationFn: () =>
