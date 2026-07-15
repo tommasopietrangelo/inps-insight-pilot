@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Download,
   FileUp,
+  GripVertical,
   Info,
   Loader2,
   Pin,
