@@ -9,7 +9,6 @@ import {
   Pencil,
   Plus,
   Save,
-  Trash2,
   Workflow,
   X,
 } from "lucide-react";
