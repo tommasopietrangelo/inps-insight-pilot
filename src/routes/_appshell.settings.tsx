@@ -912,7 +912,7 @@ function Settings() {
               className="gap-1.5"
             >
               {newsLiteBusy === "batch" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flame className="h-3.5 w-3.5" />}
-              Esegui batch lite
+              2) Esegui batch lite (svuota la coda)
             </Button>
           </div>
 
