@@ -209,6 +209,9 @@ function Workspace() {
           <TabsTrigger value="reminders" className="gap-1.5">
             <BellRing className="h-3.5 w-3.5" /> Reminder da chat
           </TabsTrigger>
+          <TabsTrigger value="summaries" className="gap-1.5">
+            <FileSignature className="h-3.5 w-3.5" /> Atti riassunti
+          </TabsTrigger>
           <TabsTrigger value="notes">Note interne</TabsTrigger>
           <TabsTrigger value="searches">Ricerche salvate</TabsTrigger>
           <TabsTrigger value="favs">Fonti preferite</TabsTrigger>
