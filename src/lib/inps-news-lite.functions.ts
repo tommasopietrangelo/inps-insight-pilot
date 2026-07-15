@@ -429,3 +429,70 @@ export const batchIngestNewsLite = createServerFn({ method: "POST" })
       remaining: remainingCount ?? 0,
     };
   });
+
+// ---------------------------------------------------------------------------
+// Recupero coda: rimette in `pending` le righe della queue il cui URL non è
+// ancora presente nel corpus `sources`. Serve quando una discovery precedente
+// ha marcato tutto come done/skipped/error ma i contenuti in realtà non sono
+// stati salvati (dedup by-url returns 0 al secondo giro).
+// ---------------------------------------------------------------------------
+export const requeueMissingNewsLite = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Scarica tutti gli URL in coda (in blocchi da 1000) e i loro status
+    const allRows: Array<{ id: string; url: string; status: string }> = [];
+    const PAGE = 1000;
+    let from = 0;
+    while (true) {
+      const { data, error } = await (supabaseAdmin as any).from(QUEUE)
+        .select("id, url, status")
+        .order("discovered_at", { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(error.message);
+      const chunk = (data as Array<{ id: string; url: string; status: string }> | null) ?? [];
+      allRows.push(...chunk);
+      if (chunk.length < PAGE) break;
+      from += PAGE;
+    }
+
+    // Costruisci set degli external_id già in corpus
+    const allExtIds = allRows.map((r) => buildExternalId(r.url));
+    const presentIds = new Set<string>();
+    const CHUNK = 200;
+    for (let i = 0; i < allExtIds.length; i += CHUNK) {
+      const slice = allExtIds.slice(i, i + CHUNK);
+      const { data: existing } = await supabaseAdmin
+        .from("sources")
+        .select("external_id")
+        .in("external_id", slice);
+      for (const e of existing ?? []) if (e.external_id) presentIds.add(e.external_id);
+    }
+
+    // Righe da rimettere in pending: NON in corpus e non già pending
+    const toRequeue = allRows.filter(
+      (r) => r.status !== "pending" && !presentIds.has(buildExternalId(r.url)),
+    );
+
+    let requeued = 0;
+    const IDS = 500;
+    for (let i = 0; i < toRequeue.length; i += IDS) {
+      const ids = toRequeue.slice(i, i + IDS).map((r) => r.id);
+      const { error } = await (supabaseAdmin as any).from(QUEUE)
+        .update({ status: "pending", error: null, processed_at: null })
+        .in("id", ids);
+      if (error) throw new Error(error.message);
+      requeued += ids.length;
+    }
+
+    const { count: pendingCount } = await (supabaseAdmin as any).from(QUEUE)
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+
+    return {
+      totalInQueue: allRows.length,
+      alreadyInCorpus: presentIds.size,
+      requeued,
+      pendingNow: pendingCount ?? 0,
+    };
+  });
