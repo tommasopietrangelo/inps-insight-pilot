@@ -232,6 +232,76 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
 
   return (
     <div className="space-y-5">
+      {pinnedReminders.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5 p-5">
+          <div className="flex items-center gap-2">
+            <Pin className="h-4 w-4 text-primary" />
+            <div className="font-display text-base font-semibold">
+              Reminder pinnati ({pinnedReminders.length})
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Sintesi operative ricavate dalla chat in linguaggio naturale.
+          </p>
+          <div className="mt-3 space-y-3">
+            {pinnedReminders.map((r) => (
+              <div key={r.id} className="rounded-md border bg-surface p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{r.title}</div>
+                    {r.summary && (
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                        {r.summary}
+                      </p>
+                    )}
+                    {r.bullets.length > 0 && (
+                      <ul className="mt-2 space-y-1 text-sm">
+                        {r.bullets.map((b, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                            <span>{b}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {r.sourceRefs.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {r.sourceRefs.map((s, i) =>
+                          s.sourceId ? (
+                            <Link
+                              key={i}
+                              to="/source/$id"
+                              params={{ id: s.sourceId }}
+                              className="rounded-full border bg-primary/5 px-2 py-0.5 text-[11px] hover:bg-primary/10"
+                            >
+                              [{s.n}] {s.label}
+                            </Link>
+                          ) : (
+                            <span key={i} className="rounded-full border px-2 py-0.5 text-[11px]">
+                              [{s.n}] {s.label}
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0"
+                    title="Rimuovi pin"
+                    onClick={() => unpinMutation.mutate(r.id)}
+                    disabled={unpinMutation.isPending}
+                  >
+                    <PinOff className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <div className="flex items-center gap-2">
