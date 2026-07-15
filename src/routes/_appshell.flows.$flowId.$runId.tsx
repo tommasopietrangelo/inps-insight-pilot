@@ -84,6 +84,7 @@ function FlowRunPage() {
         initialQuery={row.input?.query ?? ""}
         initialResult={row.result}
         initialChecked={row.checked ?? []}
+        initialPinnedReminders={row.input?.pinnedReminders ?? []}
         invalidateKeys={[
           ["flow-runs", wsId, flowId],
           ["practice", runId],
