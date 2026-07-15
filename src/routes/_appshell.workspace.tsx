@@ -119,8 +119,18 @@ function Workspace() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const delSummaryMut = useMutation({
+    mutationFn: (id: string) => deletePracticeFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Riassunto eliminato");
+      qc.invalidateQueries({ queryKey: ["practices", wsId, "summarize"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const notes = notesQuery.data ?? [];
   const saved = savedQuery.data ?? [];
+  const summaries = summariesQuery.data ?? [];
 
   return (
     <div className="space-y-6">
