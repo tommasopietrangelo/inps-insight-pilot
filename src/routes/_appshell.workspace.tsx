@@ -2,7 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bookmark, PenSquare, Users, Search, Plus, Trash2, Loader2, BellRing } from "lucide-react";
+import { Bookmark, FileSignature, PenSquare, Users, Search, Plus, Trash2, Loader2, BellRing } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,8 @@ import {
   deleteSavedSearch,
   listSavedSearches,
 } from "@/lib/saved-searches.functions";
+import { listPractices, deletePractice } from "@/lib/practices.functions";
+import type { SummaryResult } from "@/lib/summarize.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_appshell/workspace")({
@@ -48,8 +50,16 @@ function Workspace() {
   const deleteNoteFn = useServerFn(deleteNote);
   const listSavedFn = useServerFn(listSavedSearches);
   const deleteSavedFn = useServerFn(deleteSavedSearch);
+  const listPracticesFn = useServerFn(listPractices);
+  const deletePracticeFn = useServerFn(deletePractice);
 
   const wsId = current?.id ?? "";
+
+  const summariesQuery = useQuery({
+    queryKey: ["practices", wsId, "summarize"],
+    queryFn: () => listPracticesFn({ data: { workspaceId: wsId, kind: "summarize" } }),
+    enabled: !!wsId,
+  });
 
   const notesQuery = useQuery({
     queryKey: ["notes", wsId],
@@ -109,8 +119,18 @@ function Workspace() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const delSummaryMut = useMutation({
+    mutationFn: (id: string) => deletePracticeFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Riassunto eliminato");
+      qc.invalidateQueries({ queryKey: ["practices", wsId, "summarize"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const notes = notesQuery.data ?? [];
   const saved = savedQuery.data ?? [];
+  const summaries = summariesQuery.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -189,6 +209,9 @@ function Workspace() {
           <TabsTrigger value="reminders" className="gap-1.5">
             <BellRing className="h-3.5 w-3.5" /> Reminder da chat
           </TabsTrigger>
+          <TabsTrigger value="summaries" className="gap-1.5">
+            <FileSignature className="h-3.5 w-3.5" /> Atti riassunti
+          </TabsTrigger>
           <TabsTrigger value="notes">Note interne</TabsTrigger>
           <TabsTrigger value="searches">Ricerche salvate</TabsTrigger>
           <TabsTrigger value="favs">Fonti preferite</TabsTrigger>
@@ -262,6 +285,72 @@ function Workspace() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="summaries" className="mt-4">
+          <Card className="p-0">
+            {summariesQuery.isLoading ? (
+              <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carico riassunti…
+              </div>
+            ) : summaries.length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                Nessun atto riassunto ancora. Usa <strong>Riassumi un atto</strong> dal cruscotto e clicca "Salva nel workspace".
+              </div>
+            ) : (
+              <ul className="divide-y">
+                {summaries.map((s) => {
+                  const r = (s.result ?? {}) as Partial<SummaryResult>;
+                  return (
+                    <li key={s.id} className="px-5 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <FileSignature className="h-4 w-4 text-primary" />
+                            <div className="font-medium">{s.title}</div>
+                          </div>
+                          {r.tldr && (
+                            <p className="mt-2 text-sm leading-relaxed text-foreground/90">
+                              {r.tldr}
+                            </p>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                            <span>
+                              {new Date(s.updated_at).toLocaleString("it-IT", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {r.keyPoints && r.keyPoints.length > 0 && (
+                              <Badge variant="secondary" className="rounded-sm text-[10px]">
+                                {r.keyPoints.length} punti chiave
+                              </Badge>
+                            )}
+                            {r.deadlines && r.deadlines.length > 0 && (
+                              <Badge variant="secondary" className="rounded-sm text-[10px]">
+                                {r.deadlines.length} scadenze
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          onClick={() => delSummaryMut.mutate(s.id)}
+                          disabled={delSummaryMut.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+        </TabsContent>
 
 
         <TabsContent value="notes" className="mt-4">
