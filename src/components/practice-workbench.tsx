@@ -72,6 +72,7 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
     initialQuery,
     initialResult,
     initialChecked,
+    initialPinnedReminders = [],
     invalidateKeys = [],
   } = props;
 
@@ -82,6 +83,7 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
   const [extractError, setExtractError] = useState("");
   const [result, setResult] = useState<ChecklistResult | null>(initialResult);
   const [checked, setChecked] = useState<Set<string>>(new Set(initialChecked));
+  const [pinnedReminders, setPinnedReminders] = useState<Reminder[]>(initialPinnedReminders);
   const loadedFor = useRef(practiceId);
 
   useEffect(() => {
@@ -90,8 +92,9 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
     setQuery(initialQuery);
     setResult(initialResult);
     setChecked(new Set(initialChecked));
+    setPinnedReminders(initialPinnedReminders);
     setFiles([]);
-  }, [practiceId, initialQuery, initialResult, initialChecked]);
+  }, [practiceId, initialQuery, initialResult, initialChecked, initialPinnedReminders]);
 
   const documentText = useMemo(
     () => files.map((f) => `=== ${f.name} ===\n${f.text}`).join("\n\n"),
