@@ -916,6 +916,31 @@ function Settings() {
               {newsLiteBusy === "batch" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flame className="h-3.5 w-3.5" />}
               2) Esegui batch lite (svuota la coda)
             </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={newsLiteBusy !== null}
+              onClick={async () => {
+                setNewsLiteBusy("requeue");
+                setNewsLiteMsg("Recupero coda residua in corso…");
+                try {
+                  const r = await runNewsRequeueLite();
+                  setNewsLiteMsg(
+                    `Recupero coda: ${r.totalInQueue} URL totali in coda · ${r.alreadyInCorpus} già nel corpus · ${r.requeued} rimessi in pending · ora pendenti: ${r.pendingNow}. Lancia "batch lite" per processarli.`,
+                  );
+                  await refetchNewsStats();
+                } catch (e) {
+                  setNewsLiteMsg(`Errore recupero coda: ${(e as Error).message}`);
+                } finally {
+                  setNewsLiteBusy(null);
+                }
+              }}
+              className="gap-1.5"
+            >
+              {newsLiteBusy === "requeue" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Flame className="h-3.5 w-3.5" />}
+              Recupera coda residua
+            </Button>
           </div>
 
           {newsLiteMsg && (
