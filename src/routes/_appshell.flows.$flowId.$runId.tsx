@@ -49,7 +49,7 @@ function FlowRunPage() {
     title: string;
     practice_code: string | null;
     workspace_id: string;
-    input: { query?: string } | null;
+    input: { query?: string; pinnedReminders?: import("@/lib/reminders.functions").Reminder[] } | null;
     result: ChecklistResult | null;
     checked: string[] | null;
   };
