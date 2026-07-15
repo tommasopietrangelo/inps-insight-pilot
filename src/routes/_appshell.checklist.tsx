@@ -112,14 +112,19 @@ function ChecklistPage() {
     const flow = flowsQuery.data.find((f: OperationalFlow) => f.id === flowId);
     if (!flow) return;
     setQuery(flow.query);
-    const items: ChecklistItem[] = flow.checklist_items.map((title: string, idx: number) => ({
-      id: `flow-${flow.id}-${idx}`,
-      section: "documenti" as ChecklistSection,
-      title,
-      status: "da_verificare" as ChecklistStatus,
-      explanation: "",
-      citations: [],
-    }));
+    const items: ChecklistItem[] = flow.checklist_items.map((it, idx: number) => {
+      const t = typeof it === "string" ? it : it.title;
+      const section: ChecklistSection =
+        typeof it === "string" ? "documenti" : (it.section as ChecklistSection);
+      return {
+        id: `flow-${flow.id}-${idx}`,
+        section,
+        title: t,
+        status: "da_verificare" as ChecklistStatus,
+        explanation: "",
+        citations: [],
+      };
+    });
     setResult({
       practiceType: flow.title,
       summary: flow.description ?? "Flusso operativo preimpostato. Puoi generare l'analisi AI per arricchire con riferimenti INPS.",
