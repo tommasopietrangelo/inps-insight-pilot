@@ -11,6 +11,7 @@ import {
   Loader2,
   Pin,
   PinOff,
+  Plus,
   RefreshCw,
   Save,
   Sparkles,
