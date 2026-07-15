@@ -33,6 +33,8 @@ import {
   deleteSavedSearch,
   listSavedSearches,
 } from "@/lib/saved-searches.functions";
+import { listPractices, deletePractice } from "@/lib/practices.functions";
+import type { SummaryResult } from "@/lib/summarize.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_appshell/workspace")({
