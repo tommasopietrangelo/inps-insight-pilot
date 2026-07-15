@@ -582,10 +582,12 @@ function Row({
   item,
   checked,
   onToggle,
+  onRemove,
 }: {
   item: ChecklistItem;
   checked: boolean;
   onToggle: () => void;
+  onRemove?: () => void;
 }) {
   const meta = STATUS_META[item.status];
   return (
@@ -607,6 +609,11 @@ function Row({
             <Badge variant="outline" className={`rounded-sm text-[10px] ${meta.className}`}>
               {meta.label}
             </Badge>
+            {onRemove && (
+              <Badge variant="outline" className="rounded-sm text-[10px]">
+                manuale
+              </Badge>
+            )}
           </div>
           {item.explanation && (
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -637,6 +644,17 @@ function Row({
             </div>
           )}
         </div>
+        {onRemove && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 shrink-0"
+            title="Rimuovi voce"
+            onClick={onRemove}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
     </li>
   );
