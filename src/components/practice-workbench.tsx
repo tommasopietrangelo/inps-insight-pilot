@@ -629,16 +629,44 @@ function Row({
   checked,
   onToggle,
   onRemove,
+  dragging,
+  onDragStart,
+  onDragEnd,
+  onDropBefore,
+  canDropTarget,
 }: {
   item: ChecklistItem;
   checked: boolean;
   onToggle: () => void;
   onRemove?: () => void;
+  dragging?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onDropBefore?: (e: React.DragEvent<HTMLLIElement>) => void;
+  canDropTarget?: boolean;
 }) {
   const meta = STATUS_META[item.status];
   return (
-    <li className="rounded-md border bg-surface p-3">
+    <li
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart?.();
+      }}
+      onDragEnd={() => onDragEnd?.()}
+      onDragOver={(e) => {
+        if (canDropTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+      onDrop={(e) => onDropBefore?.(e)}
+      className={`cursor-grab rounded-md border bg-surface p-3 active:cursor-grabbing ${
+        dragging ? "opacity-40" : ""
+      }`}
+    >
       <div className="flex items-start gap-3">
+        <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <Checkbox
           checked={checked}
           onCheckedChange={onToggle}
