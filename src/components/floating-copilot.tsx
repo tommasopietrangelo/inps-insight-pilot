@@ -15,6 +15,7 @@ import {
   ListChecks,
   BookOpenCheck,
   GripVertical,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -212,7 +213,7 @@ export function FloatingCopilot() {
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <MessageSquare className="h-3.5 w-3.5" />
         </span>
-        <span className="font-medium">Copilot INPS</span>
+        <span className="font-medium">Copilot</span>
         {unread > 0 && (
           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 text-[10px] font-semibold text-white">
             {unread}
@@ -249,7 +250,7 @@ export function FloatingCopilot() {
         dragging && "select-none cursor-grabbing",
       )}
       role="dialog"
-      aria-label="Copilot INPS"
+      aria-label="Copilot"
     >
       {/* Header (drag handle in floating mode) */}
       <div
@@ -266,10 +267,10 @@ export function FloatingCopilot() {
           <ShieldCheck className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate text-sm font-semibold">Copilot INPS</div>
+          <div className="truncate text-sm font-semibold">Copilot</div>
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Assistente attivo
+            Servizio informativo indipendente
           </div>
         </div>
         {!isMobile && (
@@ -304,6 +305,14 @@ export function FloatingCopilot() {
         >
           <X className="h-4 w-4" />
         </button>
+      </div>
+
+      {/* Disclaimer */}
+      <div className="flex items-start gap-2 border-b border-border/40 bg-amber-500/10 px-3 py-2">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
+          Servizio informativo indipendente: le risposte non hanno valore ufficiale e non sostituiscono i canali INPS.
+        </p>
       </div>
 
       {/* Messages */}
@@ -381,6 +390,12 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
       <p className="mt-1 text-xs text-muted-foreground">
         Chiedi una norma, una circolare o un'azione operativa.
       </p>
+      <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-left">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
+          Questo assistente è un servizio informativo indipendente e non sostituisce i canali ufficiali INPS.
+        </p>
+      </div>
       <div className="mt-4 flex w-full flex-col gap-1.5">
         {QUICK_ACTIONS.map((a) => (
           <button
