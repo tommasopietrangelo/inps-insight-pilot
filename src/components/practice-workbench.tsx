@@ -85,6 +85,7 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
   const [result, setResult] = useState<ChecklistResult | null>(initialResult);
   const [checked, setChecked] = useState<Set<string>>(new Set(initialChecked));
   const [pinnedReminders, setPinnedReminders] = useState<Reminder[]>(initialPinnedReminders);
+  const [newItemBySection, setNewItemBySection] = useState<Record<string, string>>({});
   const loadedFor = useRef(practiceId);
 
   useEffect(() => {
