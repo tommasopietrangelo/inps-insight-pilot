@@ -9,6 +9,8 @@ import {
   FileUp,
   Info,
   Loader2,
+  Pin,
+  PinOff,
   RefreshCw,
   Save,
   Sparkles,
@@ -32,6 +34,7 @@ import {
 } from "@/lib/checklist.functions";
 import { extractTextFromFile, downloadAsPdf } from "@/lib/doc-io";
 import { savePractice, type PracticeKind } from "@/lib/practices.functions";
+import { unpinReminderFromPractice, type Reminder } from "@/lib/reminders.functions";
 
 type LoadedFile = { name: string; text: string; chars: number };
 
