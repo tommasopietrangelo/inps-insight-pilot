@@ -140,12 +140,39 @@ function guessTopicTags(text: string): string[] {
 
 // ---------------------------------------------------------------------------
 // Discovery lite: usa l'endpoint AEM cfListDynamic.search.json per elencare
-// tutte le notizie (paginazione 100 elementi/pagina, ordinate per data desc).
-// `pages` = quante pagine scaricare (default: tutte, fino a 40 = 4000 notizie).
+// tutte le notizie (100 elementi/pagina, ordinate per data desc).
+//
+// Modalità:
+//  - Intervallo di date (dateFrom/dateTo, formato YYYY-MM-DD): scorre le
+//    pagine finché trova notizie ≥ dateFrom, filtrando client-side per
+//    pubblicazione compresa tra dateFrom e dateTo. Early-stop appena tutti
+//    gli item di una pagina sono più vecchi di dateFrom.
+//  - Legacy `pages`: scorre le prime N pagine senza filtro data.
+//  - Chunking manuale: pageFrom/pageTo per andare oltre le prime pagine
+//    quando totResult supera i 4000 elementi.
 // ---------------------------------------------------------------------------
-const DiscoverInput = z.object({
-  pages: z.number().int().min(1).max(40).optional(),
-});
+const DiscoverInput = z
+  .object({
+    pages: z.number().int().min(1).max(200).optional(),
+    pageFrom: z.number().int().min(1).max(200).optional(),
+    pageTo: z.number().int().min(1).max(200).optional(),
+    dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  })
+  .refine(
+    (d) => !(d.pageFrom && d.pageTo && d.pageTo < d.pageFrom),
+    "pageTo deve essere ≥ pageFrom",
+  )
+  .refine(
+    (d) => !(d.dateFrom && d.dateTo && d.dateTo < d.dateFrom),
+    "dateTo deve essere ≥ dateFrom",
+  );
+
+function tsFromISO(iso: string, endOfDay = false): number {
+  // "2024-06-15" → millis UTC. endOfDay = 23:59:59.999
+  const [y, m, d] = iso.split("-").map(Number);
+  return Date.UTC(y, m - 1, d, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+}
 
 export const discoverInpsNewsLite = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => DiscoverInput.parse(data ?? {}))
@@ -154,6 +181,9 @@ export const discoverInpsNewsLite = createServerFn({ method: "POST" })
     const errors: string[] = [];
     const found = new Set<string>();
 
+    const dateFromTs = data.dateFrom ? tsFromISO(data.dateFrom, false) : null;
+    const dateToTs = data.dateTo ? tsFromISO(data.dateTo, true) : null;
+
     // Prima pagina: ricava totale e numPages
     let first: NewsListResponse;
     try {
@@ -161,21 +191,69 @@ export const discoverInpsNewsLite = createServerFn({ method: "POST" })
     } catch (e) {
       throw new Error(`Impossibile leggere la lista notizie: ${(e as Error).message}`);
     }
-    for (const it of first.items) {
-      const u = normalizeDetailUrl(it.paginaDettaglio);
-      if (u) found.add(u);
+
+    const totalPages = first.numPages ?? 1;
+    let startPage = 1;
+    let endPage = totalPages;
+
+    if (data.pageFrom || data.pageTo) {
+      startPage = Math.max(1, data.pageFrom ?? 1);
+      endPage = Math.min(totalPages, data.pageTo ?? totalPages);
+    } else if (data.pages && !dateFromTs && !dateToTs) {
+      startPage = 1;
+      endPage = Math.min(totalPages, data.pages);
+    } else if (dateFromTs || dateToTs) {
+      // date-range: parti da pagina 1 e itera tutto (con early-stop)
+      startPage = 1;
+      endPage = totalPages;
+    } else {
+      // default sicuro: 3 pagine (~300 notizie recenti)
+      startPage = 1;
+      endPage = Math.min(totalPages, 3);
     }
 
-    const totalPages = Math.min(first.numPages ?? 1, 40);
-    const targetPages = Math.min(data.pages ?? totalPages, totalPages);
+    // Safety cap assoluto: max 200 pagine per singola chiamata (~20k notizie).
+    // Chunkizza usando pageFrom/pageTo per range enormi.
+    const HARD_CAP = 200;
+    if (endPage - startPage + 1 > HARD_CAP) endPage = startPage + HARD_CAP - 1;
 
-    // Pagine successive (sequenziali per non stressare l'origine)
-    for (let p = 2; p <= targetPages; p++) {
+    const consumePage = (items: NewsListItem[]) => {
+      let inRange = 0;
+      let older = 0;
+      for (const it of items) {
+        const ts = it.metadata?.dataDiPubblicazione;
+        if (dateFromTs != null && ts != null && ts < dateFromTs) {
+          older++;
+          continue;
+        }
+        if (dateToTs != null && ts != null && ts > dateToTs) continue;
+        const u = normalizeDetailUrl(it.paginaDettaglio);
+        if (u) {
+          found.add(u);
+          inRange++;
+        }
+      }
+      return { inRange, older, total: items.length };
+    };
+
+    // pagina 1 (già scaricata)
+    let pagesScanned = 0;
+    let earlyStop = false;
+    if (startPage === 1) {
+      const r = consumePage(first.items);
+      pagesScanned = 1;
+      // early-stop se tutti gli item di pagina 1 sono più vecchi di dateFrom
+      if (dateFromTs != null && r.older === r.total && r.total > 0) earlyStop = true;
+    }
+
+    for (let p = Math.max(2, startPage); p <= endPage && !earlyStop; p++) {
       try {
         const page = await fetchNewsListPage(p, 100);
-        for (const it of page.items) {
-          const u = normalizeDetailUrl(it.paginaDettaglio);
-          if (u) found.add(u);
+        const r = consumePage(page.items);
+        pagesScanned++;
+        if (dateFromTs != null && r.older === r.total && r.total > 0) {
+          earlyStop = true;
+          break;
         }
       } catch (e) {
         errors.push(`page ${p}: ${(e as Error).message}`);
@@ -210,13 +288,18 @@ export const discoverInpsNewsLite = createServerFn({ method: "POST" })
 
     return {
       totResult: first.totResult,
-      pagesScanned: targetPages,
+      totalPagesAvailable: totalPages,
+      pageFrom: startPage,
+      pageTo: endPage,
+      pagesScanned,
+      earlyStop,
+      dateFrom: data.dateFrom ?? null,
+      dateTo: data.dateTo ?? null,
       totalLinksSeen: list.length,
       matched: list.length,
       inCorpus,
       newEnqueued,
       errors: errors.slice(0, 10),
-
     };
   });
 
