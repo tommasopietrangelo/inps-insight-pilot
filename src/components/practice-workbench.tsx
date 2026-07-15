@@ -439,14 +439,46 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
                           item={it}
                           checked={checked.has(it.id)}
                           onToggle={() => toggle(it.id)}
+                          onRemove={
+                            it.id.startsWith("manual-")
+                              ? () => removeManualItem(it.id)
+                              : undefined
+                          }
                         />
                       ))}
                     </ul>
                   )}
+                  <div className="mt-3 flex gap-2">
+                    <Input
+                      value={newItemBySection[section] ?? ""}
+                      onChange={(e) =>
+                        setNewItemBySection((p) => ({ ...p, [section]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addManualItem(section);
+                        }
+                      }}
+                      placeholder="Aggiungi voce manuale…"
+                      maxLength={200}
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => addManualItem(section)}
+                      disabled={!(newItemBySection[section] ?? "").trim()}
+                      className="h-8 gap-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </Card>
               );
             })}
           </div>
+
 
           {result.usedSources.length > 0 && (
             <Card className="p-5">
