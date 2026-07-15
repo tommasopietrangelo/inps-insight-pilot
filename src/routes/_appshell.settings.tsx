@@ -29,6 +29,7 @@ import {
 import {
   discoverInpsNewsLite,
   batchIngestNewsLite,
+  requeueMissingNewsLite,
 } from "@/lib/inps-news-lite.functions";
 
 import { Database as DatabaseIcon } from "lucide-react";
