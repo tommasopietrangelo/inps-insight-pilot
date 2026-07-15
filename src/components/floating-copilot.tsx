@@ -307,6 +307,14 @@ export function FloatingCopilot() {
         </button>
       </div>
 
+      {/* Disclaimer */}
+      <div className="flex items-start gap-2 border-b border-border/40 bg-amber-500/10 px-3 py-2">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <p className="text-[11px] leading-snug text-amber-800 dark:text-amber-200">
+          Servizio informativo indipendente: le risposte non hanno valore ufficiale e non sostituiscono i canali INPS.
+        </p>
+      </div>
+
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3">
         {messages.length === 0 && !mutation.isPending && (
