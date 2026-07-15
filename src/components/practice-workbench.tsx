@@ -501,7 +501,19 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
             {(Object.keys(SECTION_LABELS) as ChecklistSection[]).map((section) => {
               const items = result.items.filter((it) => it.section === section);
               return (
-                <Card key={section} className="p-5">
+                <Card
+                  key={section}
+                  className="p-5"
+                  onDragOver={(e) => {
+                    if (dragId) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    if (!dragId) return;
+                    e.preventDefault();
+                    moveItem(dragId, section);
+                    setDragId(null);
+                  }}
+                >
                   <div className="flex items-center justify-between">
                     <div className="font-display text-base font-semibold">
                       {SECTION_LABELS[section]}
@@ -512,7 +524,9 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
                   </div>
                   <Separator className="my-3" />
                   {items.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nessuna voce.</p>
+                    <p className="text-sm text-muted-foreground">
+                      {dragId ? "Rilascia qui per spostare la voce." : "Nessuna voce."}
+                    </p>
                   ) : (
                     <ul className="space-y-3">
                       {items.map((it) => (
@@ -526,6 +540,17 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
                               ? () => removeManualItem(it.id)
                               : undefined
                           }
+                          dragging={dragId === it.id}
+                          onDragStart={() => setDragId(it.id)}
+                          onDragEnd={() => setDragId(null)}
+                          onDropBefore={(e) => {
+                            if (!dragId) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            moveItem(dragId, section, it.id);
+                            setDragId(null);
+                          }}
+                          canDropTarget={!!dragId}
                         />
                       ))}
                     </ul>
