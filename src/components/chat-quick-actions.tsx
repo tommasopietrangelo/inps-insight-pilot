@@ -219,7 +219,7 @@ function ReminderDialog({
   });
 
   // Auto-generate on open
-  useMemo(() => {
+  useEffect(() => {
     if (open && !reminder && !gen.isPending) gen.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
