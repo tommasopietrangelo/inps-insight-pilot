@@ -192,6 +192,65 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
     saveMutation.mutate({});
   };
 
+  const persistResult = async (nextResult: ChecklistResult, nextChecked?: Set<string>) => {
+    try {
+      await saveFn({
+        data: {
+          id: practiceId,
+          workspaceId,
+          kind,
+          title: initialTitle,
+          input: {
+            query: query.trim(),
+            fileNames: files.map((f) => f.name),
+            pinnedReminders,
+          },
+          result: nextResult,
+          checked: Array.from(nextChecked ?? checked),
+        },
+      });
+      for (const k of invalidateKeys) qc.invalidateQueries({ queryKey: k });
+    } catch (e) {
+      toast.error(`Errore salvataggio: ${(e as Error).message}`);
+    }
+  };
+
+  const addManualItem = (section: ChecklistSection) => {
+    const title = (newItemBySection[section] ?? "").trim();
+    if (!title) return;
+    const base: ChecklistResult =
+      result ?? {
+        practiceType: initialTitle,
+        summary: "",
+        disclaimer:
+          "Checklist creata manualmente. Genera l'analisi AI per arricchirla con riferimenti INPS.",
+        items: [],
+        usedSources: [],
+      };
+    const newItem: ChecklistItem = {
+      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      section,
+      title,
+      status: "da_verificare",
+      explanation: "",
+      citations: [],
+    };
+    const next = { ...base, items: [...base.items, newItem] };
+    setResult(next);
+    setNewItemBySection((p) => ({ ...p, [section]: "" }));
+    void persistResult(next);
+  };
+
+  const removeManualItem = (id: string) => {
+    if (!result) return;
+    const next = { ...result, items: result.items.filter((it) => it.id !== id) };
+    setResult(next);
+    const nextChecked = new Set(checked);
+    nextChecked.delete(id);
+    setChecked(nextChecked);
+    void persistResult(next, nextChecked);
+  };
+
   const unpinFn = useServerFn(unpinReminderFromPractice);
   const unpinMutation = useMutation({
     mutationFn: (reminderId: string) =>
