@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  GripVertical,
   Loader2,
   Pencil,
   Plus,
