@@ -2,7 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bookmark, PenSquare, Users, Search, Plus, Trash2, Loader2 } from "lucide-react";
+import { Bookmark, PenSquare, Users, Search, Plus, Trash2, Loader2, BellRing } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -184,12 +184,85 @@ function Workspace() {
         </div>
       </div>
 
-      <Tabs defaultValue="notes" className="w-full">
+      <Tabs defaultValue="reminders" className="w-full">
         <TabsList>
+          <TabsTrigger value="reminders" className="gap-1.5">
+            <BellRing className="h-3.5 w-3.5" /> Reminder da chat
+          </TabsTrigger>
           <TabsTrigger value="notes">Note interne</TabsTrigger>
           <TabsTrigger value="searches">Ricerche salvate</TabsTrigger>
           <TabsTrigger value="favs">Fonti preferite</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="reminders" className="mt-4">
+          <Card className="p-0">
+            {notesQuery.isLoading ? (
+              <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carico reminder…
+              </div>
+            ) : (() => {
+              const reminders = notes.filter((n) => (n.tags ?? []).includes("reminder"));
+              if (reminders.length === 0) {
+                return (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    Nessun reminder ancora. Nella Ricerca in linguaggio naturale usa
+                    <strong> "Crea reminder per punti"</strong> sotto una risposta.
+                  </div>
+                );
+              }
+              return (
+                <ul className="divide-y">
+                  {reminders.map((n) => (
+                    <li key={n.id} className="px-5 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <BellRing className="h-4 w-4 text-primary" />
+                            <div className="font-medium">{n.title}</div>
+                          </div>
+                          {n.body && (
+                            <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
+                              {n.body}
+                            </pre>
+                          )}
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                            <span>
+                              {new Date(n.updated_at).toLocaleString("it-IT", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {(n.tags ?? [])
+                              .filter((t) => t !== "reminder")
+                              .map((t) => (
+                                <Badge key={t} variant="secondary" className="rounded-sm text-[10px]">
+                                  {t}
+                                </Badge>
+                              ))}
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          onClick={() => delNoteMut.mutate(n.id)}
+                          disabled={delNoteMut.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
+          </Card>
+        </TabsContent>
+
+
 
         <TabsContent value="notes" className="mt-4">
           <Card className="p-0">

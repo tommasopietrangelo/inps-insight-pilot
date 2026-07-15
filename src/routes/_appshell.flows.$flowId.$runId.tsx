@@ -49,7 +49,7 @@ function FlowRunPage() {
     title: string;
     practice_code: string | null;
     workspace_id: string;
-    input: { query?: string } | null;
+    input: { query?: string; pinnedReminders?: import("@/lib/reminders.functions").Reminder[] } | null;
     result: ChecklistResult | null;
     checked: string[] | null;
   };
@@ -84,6 +84,7 @@ function FlowRunPage() {
         initialQuery={row.input?.query ?? ""}
         initialResult={row.result}
         initialChecked={row.checked ?? []}
+        initialPinnedReminders={row.input?.pinnedReminders ?? []}
         invalidateKeys={[
           ["flow-runs", wsId, flowId],
           ["practice", runId],
