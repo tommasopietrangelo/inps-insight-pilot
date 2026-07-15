@@ -252,6 +252,26 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
     void persistResult(next, nextChecked);
   };
 
+  // Drag & drop items across sections
+  const [dragId, setDragId] = useState<string | null>(null);
+  const moveItem = (id: string, toSection: ChecklistSection, beforeId?: string) => {
+    if (!result) return;
+    const from = result.items.findIndex((it) => it.id === id);
+    if (from < 0) return;
+    const next = result.items.slice();
+    const [moved] = next.splice(from, 1);
+    moved.section = toSection;
+    let insertAt = next.length;
+    if (beforeId) {
+      const idx = next.findIndex((it) => it.id === beforeId);
+      if (idx >= 0) insertAt = idx;
+    }
+    next.splice(insertAt, 0, moved);
+    const updated = { ...result, items: next };
+    setResult(updated);
+    void persistResult(updated);
+  };
+
   const unpinFn = useServerFn(unpinReminderFromPractice);
   const unpinMutation = useMutation({
     mutationFn: (reminderId: string) =>
