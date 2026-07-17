@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Brain, BookOpen, FolderOpen, Lightbulb, User, Users, Search, Sparkles,
   TrendingUp, Clock, Plus, Pencil, Trash2, Share2, Lock, Loader2, ArrowUpRight,
+  MessageSquare, Workflow, AlertTriangle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
