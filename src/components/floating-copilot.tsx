@@ -88,8 +88,20 @@ export function FloatingCopilot() {
   const [input, setInput] = useState("");
   const [unread, setUnread] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [saveFor, setSaveFor] = useState<{ msg: Msg; question: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragOffset = useRef<{ dx: number; dy: number } | null>(null);
+  const { current } = useWorkspace();
+  const wsId = current?.id ?? "";
+
+  const createCaseFn = useServerFn(createMemoryCase);
+  const saveCaseMut = useMutation({
+    mutationFn: (v: {
+      title: string; situation: string; solution: string; category: string | null; tags: string[]; isShared: boolean; sourceContext: Record<string, unknown>;
+    }) => createCaseFn({ data: { workspaceId: wsId, origin: "chat", ...v } }),
+    onSuccess: () => { toast.success("Caso salvato in Memoria AI"); setSaveFor(null); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const runSearch = useServerFn(groundedSearch);
   const mutation = useMutation({
