@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { DisclaimerBar } from "@/components/disclaimer-bar";
 import appDashboard from "@/assets/app-dashboard.png.asset.json";
 import appSearch from "@/assets/app-search.png.asset.json";
 import appSources from "@/assets/app-sources.png.asset.json";
