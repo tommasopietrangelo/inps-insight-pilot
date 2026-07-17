@@ -444,7 +444,9 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   );
 }
 
-function MessageBubble({ m }: { m: Msg }) {
+const CASE_HEURISTIC = /(eccezion|derog|caso particolar|interpretazion|casistica|non standard|fuori standard|dubbio|contenzios|controvers)/i;
+
+function MessageBubble({ m, onSaveAsCase }: { m: Msg; onSaveAsCase?: () => void }) {
   if (m.role === "user") {
     return (
       <div className="flex justify-end">
@@ -454,6 +456,7 @@ function MessageBubble({ m }: { m: Msg }) {
       </div>
     );
   }
+  const looksLikeException = CASE_HEURISTIC.test(m.content);
   return (
     <div className="flex justify-start">
       <div className="max-w-[90%] space-y-2 rounded-2xl rounded-bl-sm border border-border/40 bg-background/50 px-3 py-2 text-sm text-foreground backdrop-blur">
@@ -468,10 +471,27 @@ function MessageBubble({ m }: { m: Msg }) {
             ))}
           </div>
         )}
+        {onSaveAsCase && (
+          <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
+            {looksLikeException ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                <AlertTriangle className="h-3 w-3" /> Sembra un caso particolare
+              </span>
+            ) : <span />}
+            <button
+              type="button"
+              onClick={onSaveAsCase}
+              className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-background/40 px-2 py-1 text-[10px] font-medium text-muted-foreground hover:border-amber-500/40 hover:text-amber-700 dark:hover:text-amber-300"
+            >
+              <Lightbulb className="h-3 w-3" /> Salva come caso
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 
 function FormattedAnswer({ text }: { text: string }) {
   const lines = text.split("\n");
