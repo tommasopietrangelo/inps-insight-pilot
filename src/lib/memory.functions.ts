@@ -161,10 +161,15 @@ export const getMemoryPratiche = createServerFn({ method: "GET" })
 // ============================================================
 export const listMemoryCases = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { workspaceId: string; scope?: "mine" | "shared" | "all" }) =>
+  .inputValidator((input: {
+    workspaceId: string;
+    scope?: "mine" | "shared" | "all";
+    origin?: "chat" | "flow" | "manual" | "all";
+  }) =>
     z.object({
       workspaceId: z.string().uuid(),
       scope: z.enum(["mine", "shared", "all"]).optional(),
+      origin: z.enum(["chat", "flow", "manual", "all"]).optional(),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -172,6 +177,7 @@ export const listMemoryCases = createServerFn({ method: "GET" })
     let q = supabase.from("memory_cases").select("*").eq("workspace_id", data.workspaceId);
     if (data.scope === "mine") q = q.eq("author_id", userId);
     else if (data.scope === "shared") q = q.eq("is_shared", true);
+    if (data.origin && data.origin !== "all") q = q.eq("origin", data.origin);
     const { data: rows, error } = await q.order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
     return (rows ?? []).map((r) => ({ ...r, isMine: r.author_id === userId }));
@@ -189,6 +195,8 @@ export const createMemoryCase = createServerFn({ method: "POST" })
     solution: string;
     tags?: string[];
     isShared?: boolean;
+    origin?: "manual" | "chat" | "flow";
+    sourceContext?: Record<string, unknown> | null;
   }) =>
     z.object({
       workspaceId: z.string().uuid(),
@@ -196,10 +204,12 @@ export const createMemoryCase = createServerFn({ method: "POST" })
       category: z.string().max(80).nullable().optional(),
       sourceId: z.string().uuid().nullable().optional(),
       sourceRef: z.string().max(200).nullable().optional(),
-      situation: z.string().min(1).max(4000),
-      solution: z.string().min(1).max(4000),
+      situation: z.string().min(1).max(8000),
+      solution: z.string().min(1).max(8000),
       tags: z.array(z.string().min(1).max(40)).max(15).optional(),
       isShared: z.boolean().optional(),
+      origin: z.enum(["manual", "chat", "flow"]).optional(),
+      sourceContext: z.record(z.string(), z.unknown()).nullable().optional(),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -217,12 +227,15 @@ export const createMemoryCase = createServerFn({ method: "POST" })
         solution: data.solution,
         tags: data.tags ?? [],
         is_shared: data.isShared ?? false,
+        origin: data.origin ?? "manual",
+        source_context: (data.sourceContext ?? null) as never,
       })
       .select()
       .single();
     if (error) throw new Error(error.message);
     return row;
   });
+
 
 export const updateMemoryCase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
