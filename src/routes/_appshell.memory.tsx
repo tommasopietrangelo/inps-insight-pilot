@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Brain, BookOpen, FolderOpen, Lightbulb, User, Users, Search, Sparkles,
   TrendingUp, Clock, Plus, Pencil, Trash2, Share2, Lock, Loader2, ArrowUpRight,
+  MessageSquare, Workflow, AlertTriangle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -267,6 +268,7 @@ function CasiTab({ wsId }: { wsId: string }) {
   const updateFn = useServerFn(updateMemoryCase);
   const deleteFn = useServerFn(deleteMemoryCase);
   const [scope, setScope] = useState<"mine" | "shared" | "all">("all");
+  const [originGroup, setOriginGroup] = useState<"chat" | "flow">("chat");
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<any | null>(null);
   const [open, setOpen] = useState(false);
@@ -304,25 +306,32 @@ function CasiTab({ wsId }: { wsId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const all = q.data ?? [];
+  const chatCount = all.filter((c: any) => c.origin === "chat" || c.origin === "manual" || !c.origin).length;
+  const flowCount = all.filter((c: any) => c.origin === "flow").length;
+
   const filtered = useMemo(() => {
     const s = query.trim().toLowerCase();
-    return (q.data ?? []).filter((c) =>
-      !s || c.title.toLowerCase().includes(s) || (c.situation || "").toLowerCase().includes(s) || (c.solution || "").toLowerCase().includes(s),
-    );
-  }, [q.data, query]);
+    return all.filter((c: any) => {
+      const g = originGroup === "flow" ? c.origin === "flow" : (c.origin === "chat" || c.origin === "manual" || !c.origin);
+      if (!g) return false;
+      if (!s) return true;
+      return c.title.toLowerCase().includes(s) || (c.situation || "").toLowerCase().includes(s) || (c.solution || "").toLowerCase().includes(s);
+    });
+  }, [all, query, originGroup]);
 
-  const totalReuses = (q.data ?? []).reduce((s, c) => s + (c.reuses ?? 0), 0);
+  const totalReuses = all.reduce((s: number, c: any) => s + (c.reuses ?? 0), 0);
 
   return (
     <div className="space-y-4">
       <LevelHeader
         icon={Lightbulb} title="Memoria Casi Particolari"
         subtitle="Eccezioni, interpretazioni e soluzioni operative"
-        description="Conserva casi fuori standard: eccezioni normative, interpretazioni operative e problematiche risolte. Ogni caso è privato di default; puoi condividerlo con il team."
+        description="Due modi per popolare questa memoria: (1) salvi manualmente o dalla chat una risposta particolare come caso; (2) dentro un flusso operativo, marchi uno step come eccezione. Ogni caso è privato di default; puoi condividerlo con il team."
         accent="from-amber-500/20 to-amber-500/5 text-amber-600" highlight
         stats={[
-          { label: "Casi memorizzati", value: q.data?.length ?? "—" },
-          { label: "Condivisi con il team", value: (q.data ?? []).filter((c) => c.is_shared).length },
+          { label: "Casi memorizzati", value: all.length },
+          { label: "Condivisi con il team", value: all.filter((c: any) => c.is_shared).length },
           { label: "Riusi totali", value: totalReuses },
         ]}
         insight={filtered[0] ? `Ultimo caso salvato: "${filtered[0].title}".` : undefined}
@@ -331,61 +340,98 @@ function CasiTab({ wsId }: { wsId: string }) {
             <DialogTrigger asChild><Button size="sm" className="gap-2"><Plus className="h-4 w-4" />Nuovo caso</Button></DialogTrigger>
             <CaseDialog
               editing={editing}
-              onSubmit={(v) => editing ? update.mutate({ id: editing.id, ...v }) : create.mutate(v)}
+              onSubmit={(v) => editing ? update.mutate({ id: editing.id, ...v }) : create.mutate({ ...v, origin: "manual" })}
               pending={create.isPending || update.isPending}
             />
           </Dialog>
         }
       />
-      <Card className="p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant={scope === "all" ? "default" : "outline"} onClick={() => setScope("all")}>Tutti</Button>
-            <Button size="sm" variant={scope === "mine" ? "default" : "outline"} onClick={() => setScope("mine")}>Miei</Button>
-            <Button size="sm" variant={scope === "shared" ? "default" : "outline"} onClick={() => setScope("shared")}>Condivisi</Button>
+
+      <Tabs value={originGroup} onValueChange={(v) => setOriginGroup(v as "chat" | "flow")}>
+        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-surface p-1">
+          <TabsTrigger value="chat" className="gap-2 data-[state=active]:bg-background">
+            <MessageSquare className="h-3.5 w-3.5" />Da chat / manuali
+            <Badge variant="outline" className="ml-1 rounded-sm text-[10px]">{chatCount}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="flow" className="gap-2 data-[state=active]:bg-background">
+            <Workflow className="h-3.5 w-3.5" />Da flussi
+            <Badge variant="outline" className="ml-1 rounded-sm text-[10px]">{flowCount}</Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        <Card className="mt-3 p-5">
+          <div className="mb-3 rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+            {originGroup === "chat" ? (
+              <><span className="font-medium text-foreground">Come si popola:</span> dalla chat Copilot con il pulsante "Salva come caso" su una risposta particolare, oppure manualmente con "Nuovo caso" qui sopra. L'AI evidenzia con un badge le risposte che sembrano eccezioni/deroghe/interpretazioni.</>
+            ) : (
+              <><span className="font-medium text-foreground">Come si popola:</span> dentro un flusso operativo (sotto-pratica), premi "Segna come eccezione" sullo step non-standard. Il caso conserva il riferimento a flusso e step per riaprire il contesto.</>
+            )}
           </div>
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca nei casi…" className="h-9 pl-8 text-sm" />
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant={scope === "all" ? "default" : "outline"} onClick={() => setScope("all")}>Tutti</Button>
+              <Button size="sm" variant={scope === "mine" ? "default" : "outline"} onClick={() => setScope("mine")}>Miei</Button>
+              <Button size="sm" variant={scope === "shared" ? "default" : "outline"} onClick={() => setScope("shared")}>Condivisi</Button>
+            </div>
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cerca nei casi…" className="h-9 pl-8 text-sm" />
+            </div>
           </div>
-        </div>
-        {q.isLoading ? <LoadingRow /> : filtered.length === 0 ? <EmptyState label='Nessun caso ancora. Clicca "Nuovo caso" per iniziare.' /> : (
-          <div className="space-y-3">
-            {filtered.map((c) => (
-              <div key={c.id} className="rounded-md border p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium">{c.title}</span>
-                      {c.category && <Badge variant="secondary" className="rounded-sm text-[10px]">{c.category}</Badge>}
-                      {c.is_shared ? <Badge className="rounded-sm bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/15 text-[10px] gap-1"><Share2 className="h-3 w-3" />condiviso</Badge>
-                        : <Badge variant="outline" className="rounded-sm text-[10px] gap-1"><Lock className="h-3 w-3" />privato</Badge>}
-                      {c.reuses > 0 && <Badge variant="outline" className="rounded-sm text-[10px]">{c.reuses} riusi</Badge>}
+          {q.isLoading ? <LoadingRow /> : filtered.length === 0 ? (
+            <EmptyState label={originGroup === "chat" ? 'Nessun caso da chat/manuale ancora. Salva una risposta dal Copilot o crea un nuovo caso.' : 'Nessun caso da flusso ancora. Apri una sotto-pratica e usa "Segna come eccezione" su uno step.'} />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((c: any) => (
+                <div key={c.id} className="rounded-md border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium">{c.title}</span>
+                        {c.origin === "chat" && <Badge className="rounded-sm bg-sky-500/15 text-sky-700 hover:bg-sky-500/15 text-[10px] gap-1"><MessageSquare className="h-3 w-3" />chat</Badge>}
+                        {c.origin === "flow" && <Badge className="rounded-sm bg-violet-500/15 text-violet-700 hover:bg-violet-500/15 text-[10px] gap-1"><Workflow className="h-3 w-3" />flusso</Badge>}
+                        {(c.origin === "manual" || !c.origin) && <Badge variant="outline" className="rounded-sm text-[10px]">manuale</Badge>}
+                        {c.category && <Badge variant="secondary" className="rounded-sm text-[10px]">{c.category}</Badge>}
+                        {c.is_shared ? <Badge className="rounded-sm bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/15 text-[10px] gap-1"><Share2 className="h-3 w-3" />condiviso</Badge>
+                          : <Badge variant="outline" className="rounded-sm text-[10px] gap-1"><Lock className="h-3 w-3" />privato</Badge>}
+                        {c.reuses > 0 && <Badge variant="outline" className="rounded-sm text-[10px]">{c.reuses} riusi</Badge>}
+                      </div>
+                      <div className="mt-1.5 text-xs text-muted-foreground"><span className="font-medium text-foreground">Situazione:</span> {c.situation}</div>
+                      <div className="mt-1 text-xs text-muted-foreground"><span className="font-medium text-foreground">Soluzione:</span> {c.solution}</div>
+                      {c.source_context?.flow_run_id && (
+                        <div className="mt-1.5 text-[11px] text-muted-foreground">
+                          Contesto: {c.source_context.item_title ? `step "${c.source_context.item_title}"` : "step"} · <Link to="/flows/$flowId/$runId" params={{ flowId: c.source_context.flow_id, runId: c.source_context.flow_run_id }} className="text-primary hover:underline">apri sotto-pratica</Link>
+                        </div>
+                      )}
+                      {c.source_context?.chat_question && (
+                        <div className="mt-1.5 text-[11px] italic text-muted-foreground">
+                          Da chat: "{String(c.source_context.chat_question).slice(0, 140)}"
+                        </div>
+                      )}
+                      {c.tags?.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">{c.tags.map((t: string) => <Badge key={t} variant="outline" className="rounded-sm text-[10px]">#{t}</Badge>)}</div>
+                      )}
                     </div>
-                    <div className="mt-1.5 text-xs text-muted-foreground"><span className="font-medium text-foreground">Situazione:</span> {c.situation}</div>
-                    <div className="mt-1 text-xs text-muted-foreground"><span className="font-medium text-foreground">Soluzione:</span> {c.solution}</div>
-                    {c.tags?.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">{c.tags.map((t: string) => <Badge key={t} variant="outline" className="rounded-sm text-[10px]">#{t}</Badge>)}</div>
+                    {c.isMine && (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <div className="flex items-center gap-1 pr-1 text-xs text-muted-foreground">
+                          <Switch checked={c.is_shared} onCheckedChange={(v) => toggleShare.mutate({ id: c.id, isShared: v })} />
+                        </div>
+                        <Button size="icon" variant="ghost" onClick={() => { setEditing(c); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" onClick={() => { if (confirm("Eliminare questo caso?")) del.mutate(c.id); }}><Trash2 className="h-4 w-4" /></Button>
+                      </div>
                     )}
                   </div>
-                  {c.isMine && (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <div className="flex items-center gap-1 pr-1 text-xs text-muted-foreground">
-                        <Switch checked={c.is_shared} onCheckedChange={(v) => toggleShare.mutate({ id: c.id, isShared: v })} />
-                      </div>
-                      <Button size="icon" variant="ghost" onClick={() => { setEditing(c); setOpen(true); }}><Pencil className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => { if (confirm("Eliminare questo caso?")) del.mutate(c.id); }}><Trash2 className="h-4 w-4" /></Button>
-                    </div>
-                  )}
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+              ))}
+            </div>
+          )}
+        </Card>
+      </Tabs>
     </div>
   );
 }
+
 
 function CaseDialog({ editing, onSubmit, pending }: { editing: any | null; onSubmit: (v: any) => void; pending: boolean }) {
   const [title, setTitle] = useState(editing?.title ?? "");

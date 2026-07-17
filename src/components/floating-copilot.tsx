@@ -16,10 +16,20 @@ import {
   BookOpenCheck,
   GripVertical,
   Info,
+  Lightbulb,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { groundedSearch } from "@/lib/search.functions";
+import { createMemoryCase } from "@/lib/memory.functions";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
@@ -78,8 +88,20 @@ export function FloatingCopilot() {
   const [input, setInput] = useState("");
   const [unread, setUnread] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [saveFor, setSaveFor] = useState<{ msg: Msg; question: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragOffset = useRef<{ dx: number; dy: number } | null>(null);
+  const { current } = useWorkspace();
+  const wsId = current?.id ?? "";
+
+  const createCaseFn = useServerFn(createMemoryCase);
+  const saveCaseMut = useMutation({
+    mutationFn: (v: {
+      title: string; situation: string; solution: string; category: string | null; tags: string[]; isShared: boolean; sourceContext: Record<string, unknown>;
+    }) => createCaseFn({ data: { workspaceId: wsId, origin: "chat", ...v } }),
+    onSuccess: () => { toast.success("Caso salvato in Memoria AI"); setSaveFor(null); },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const runSearch = useServerFn(groundedSearch);
   const mutation = useMutation({
@@ -321,9 +343,18 @@ export function FloatingCopilot() {
           <EmptyState onPick={send} />
         )}
         <div className="space-y-3">
-          {messages.map((m) => (
-            <MessageBubble key={m.id} m={m} />
-          ))}
+          {messages.map((m, i) => {
+            const prevUser = m.role === "assistant"
+              ? [...messages.slice(0, i)].reverse().find((x) => x.role === "user")
+              : undefined;
+            return (
+              <MessageBubble
+                key={m.id}
+                m={m}
+                onSaveAsCase={m.role === "assistant" && wsId ? () => setSaveFor({ msg: m, question: prevUser?.content ?? "" }) : undefined}
+              />
+            );
+          })}
           {mutation.isPending && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
@@ -376,9 +407,89 @@ export function FloatingCopilot() {
           {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </form>
+
+      {saveFor && (
+        <SaveCaseDialog
+          open={!!saveFor}
+          onOpenChange={(v) => { if (!v) setSaveFor(null); }}
+          question={saveFor.question}
+          answer={saveFor.msg.content}
+          sources={saveFor.msg.sources ?? []}
+          pending={saveCaseMut.isPending}
+          onSubmit={(v) => saveCaseMut.mutate(v)}
+        />
+      )}
     </div>
   );
 }
+
+function SaveCaseDialog({
+  open, onOpenChange, question, answer, sources, pending, onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  question: string;
+  answer: string;
+  sources: { n: number; title: string | null; source_type: string | null; document_number: string | null }[];
+  pending: boolean;
+  onSubmit: (v: { title: string; situation: string; solution: string; category: string | null; tags: string[]; isShared: boolean; sourceContext: Record<string, unknown> }) => void;
+}) {
+  const [title, setTitle] = useState(question.slice(0, 90) || "Caso da chat");
+  const [category, setCategory] = useState("");
+  const [situation, setSituation] = useState(question);
+  const [solution, setSolution] = useState(answer);
+  const [tagsStr, setTagsStr] = useState("");
+  const [isShared, setIsShared] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-amber-600" />
+            Salva risposta come caso particolare
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div><Label>Titolo</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+          <div><Label>Categoria (facoltativa)</Label><Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Assegno Unico, NASpI, ADI…" /></div>
+          <div><Label>Situazione (domanda / contesto)</Label><Textarea value={situation} onChange={(e) => setSituation(e.target.value)} rows={3} /></div>
+          <div><Label>Soluzione (risposta operativa)</Label><Textarea value={solution} onChange={(e) => setSolution(e.target.value)} rows={5} /></div>
+          <div><Label>Tag (separati da virgola)</Label><Input value={tagsStr} onChange={(e) => setTagsStr(e.target.value)} /></div>
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div>
+              <div className="text-sm font-medium">Condividi con lo studio</div>
+              <div className="text-xs text-muted-foreground">Visibile a tutto il workspace</div>
+            </div>
+            <Switch checked={isShared} onCheckedChange={setIsShared} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            disabled={pending || !title.trim() || !situation.trim() || !solution.trim()}
+            onClick={() => onSubmit({
+              title: title.trim().slice(0, 200),
+              situation: situation.trim(),
+              solution: solution.trim(),
+              category: category.trim() || null,
+              tags: tagsStr.split(",").map((t) => t.trim()).filter(Boolean),
+              isShared,
+              sourceContext: {
+                chat_question: question,
+                chat_answer_preview: answer.slice(0, 400),
+                sources: sources.map((s) => ({ n: s.n, title: s.title, type: s.source_type, doc: s.document_number })),
+                saved_at: new Date().toISOString(),
+              },
+            })}
+          >
+            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Salva caso
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   return (
@@ -413,7 +524,9 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   );
 }
 
-function MessageBubble({ m }: { m: Msg }) {
+const CASE_HEURISTIC = /(eccezion|derog|caso particolar|interpretazion|casistica|non standard|fuori standard|dubbio|contenzios|controvers)/i;
+
+function MessageBubble({ m, onSaveAsCase }: { m: Msg; onSaveAsCase?: () => void }) {
   if (m.role === "user") {
     return (
       <div className="flex justify-end">
@@ -423,6 +536,7 @@ function MessageBubble({ m }: { m: Msg }) {
       </div>
     );
   }
+  const looksLikeException = CASE_HEURISTIC.test(m.content);
   return (
     <div className="flex justify-start">
       <div className="max-w-[90%] space-y-2 rounded-2xl rounded-bl-sm border border-border/40 bg-background/50 px-3 py-2 text-sm text-foreground backdrop-blur">
@@ -437,10 +551,27 @@ function MessageBubble({ m }: { m: Msg }) {
             ))}
           </div>
         )}
+        {onSaveAsCase && (
+          <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-2">
+            {looksLikeException ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                <AlertTriangle className="h-3 w-3" /> Sembra un caso particolare
+              </span>
+            ) : <span />}
+            <button
+              type="button"
+              onClick={onSaveAsCase}
+              className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-background/40 px-2 py-1 text-[10px] font-medium text-muted-foreground hover:border-amber-500/40 hover:text-amber-700 dark:hover:text-amber-300"
+            >
+              <Lightbulb className="h-3 w-3" /> Salva come caso
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 
 function FormattedAnswer({ text }: { text: string }) {
   const lines = text.split("\n");

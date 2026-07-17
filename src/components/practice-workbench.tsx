@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  AlertTriangle,
   CheckCircle2,
   ClipboardCheck,
   Download,
@@ -63,6 +64,7 @@ export type PracticeWorkbenchProps = {
   initialChecked: string[];
   initialPinnedReminders?: Reminder[];
   invalidateKeys?: readonly unknown[][];
+  onMarkException?: (item: ChecklistItem) => void;
 };
 
 export function PracticeWorkbench(props: PracticeWorkbenchProps) {
@@ -76,6 +78,7 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
     initialChecked,
     initialPinnedReminders = [],
     invalidateKeys = [],
+    onMarkException,
   } = props;
 
   const qc = useQueryClient();
@@ -540,6 +543,7 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
                               ? () => removeManualItem(it.id)
                               : undefined
                           }
+                          onMarkException={onMarkException ? () => onMarkException(it) : undefined}
                           dragging={dragId === it.id}
                           onDragStart={() => setDragId(it.id)}
                           onDragEnd={() => setDragId(null)}
@@ -629,6 +633,7 @@ function Row({
   checked,
   onToggle,
   onRemove,
+  onMarkException,
   dragging,
   onDragStart,
   onDragEnd,
@@ -639,6 +644,7 @@ function Row({
   checked: boolean;
   onToggle: () => void;
   onRemove?: () => void;
+  onMarkException?: () => void;
   dragging?: boolean;
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -718,17 +724,30 @@ function Row({
             </div>
           )}
         </div>
-        {onRemove && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 shrink-0"
-            title="Rimuovi voce"
-            onClick={onRemove}
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          {onMarkException && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
+              title="Segna come eccezione: salva questo step in Memoria AI come caso particolare"
+              onClick={onMarkException}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {onRemove && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              title="Rimuovi voce"
+              onClick={onRemove}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
     </li>
   );
