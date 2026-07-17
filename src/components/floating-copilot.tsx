@@ -343,9 +343,18 @@ export function FloatingCopilot() {
           <EmptyState onPick={send} />
         )}
         <div className="space-y-3">
-          {messages.map((m) => (
-            <MessageBubble key={m.id} m={m} />
-          ))}
+          {messages.map((m, i) => {
+            const prevUser = m.role === "assistant"
+              ? [...messages.slice(0, i)].reverse().find((x) => x.role === "user")
+              : undefined;
+            return (
+              <MessageBubble
+                key={m.id}
+                m={m}
+                onSaveAsCase={m.role === "assistant" && wsId ? () => setSaveFor({ msg: m, question: prevUser?.content ?? "" }) : undefined}
+              />
+            );
+          })}
           {mutation.isPending && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
