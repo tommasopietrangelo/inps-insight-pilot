@@ -63,6 +63,7 @@ export type PracticeWorkbenchProps = {
   initialChecked: string[];
   initialPinnedReminders?: Reminder[];
   invalidateKeys?: readonly unknown[][];
+  onMarkException?: (item: ChecklistItem) => void;
 };
 
 export function PracticeWorkbench(props: PracticeWorkbenchProps) {
@@ -76,6 +77,7 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
     initialChecked,
     initialPinnedReminders = [],
     invalidateKeys = [],
+    onMarkException,
   } = props;
 
   const qc = useQueryClient();
@@ -540,6 +542,7 @@ export function PracticeWorkbench(props: PracticeWorkbenchProps) {
                               ? () => removeManualItem(it.id)
                               : undefined
                           }
+                          onMarkException={onMarkException ? () => onMarkException(it) : undefined}
                           dragging={dragId === it.id}
                           onDragStart={() => setDragId(it.id)}
                           onDragEnd={() => setDragId(null)}
