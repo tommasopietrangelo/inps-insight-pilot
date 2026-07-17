@@ -632,6 +632,7 @@ function Row({
   checked,
   onToggle,
   onRemove,
+  onMarkException,
   dragging,
   onDragStart,
   onDragEnd,
@@ -642,6 +643,7 @@ function Row({
   checked: boolean;
   onToggle: () => void;
   onRemove?: () => void;
+  onMarkException?: () => void;
   dragging?: boolean;
   onDragStart?: () => void;
   onDragEnd?: () => void;
