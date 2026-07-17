@@ -723,17 +723,30 @@ function Row({
             </div>
           )}
         </div>
-        {onRemove && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 shrink-0"
-            title="Rimuovi voce"
-            onClick={onRemove}
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          {onMarkException && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
+              title="Segna come eccezione: salva questo step in Memoria AI come caso particolare"
+              onClick={onMarkException}
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {onRemove && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              title="Rimuovi voce"
+              onClick={onRemove}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
     </li>
   );
