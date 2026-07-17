@@ -407,9 +407,89 @@ export function FloatingCopilot() {
           {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </form>
+
+      {saveFor && (
+        <SaveCaseDialog
+          open={!!saveFor}
+          onOpenChange={(v) => { if (!v) setSaveFor(null); }}
+          question={saveFor.question}
+          answer={saveFor.msg.content}
+          sources={saveFor.msg.sources ?? []}
+          pending={saveCaseMut.isPending}
+          onSubmit={(v) => saveCaseMut.mutate(v)}
+        />
+      )}
     </div>
   );
 }
+
+function SaveCaseDialog({
+  open, onOpenChange, question, answer, sources, pending, onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  question: string;
+  answer: string;
+  sources: { n: number; title: string | null; source_type: string | null; document_number: string | null }[];
+  pending: boolean;
+  onSubmit: (v: { title: string; situation: string; solution: string; category: string | null; tags: string[]; isShared: boolean; sourceContext: Record<string, unknown> }) => void;
+}) {
+  const [title, setTitle] = useState(question.slice(0, 90) || "Caso da chat");
+  const [category, setCategory] = useState("");
+  const [situation, setSituation] = useState(question);
+  const [solution, setSolution] = useState(answer);
+  const [tagsStr, setTagsStr] = useState("");
+  const [isShared, setIsShared] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-amber-600" />
+            Salva risposta come caso particolare
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div><Label>Titolo</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+          <div><Label>Categoria (facoltativa)</Label><Input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Assegno Unico, NASpI, ADI…" /></div>
+          <div><Label>Situazione (domanda / contesto)</Label><Textarea value={situation} onChange={(e) => setSituation(e.target.value)} rows={3} /></div>
+          <div><Label>Soluzione (risposta operativa)</Label><Textarea value={solution} onChange={(e) => setSolution(e.target.value)} rows={5} /></div>
+          <div><Label>Tag (separati da virgola)</Label><Input value={tagsStr} onChange={(e) => setTagsStr(e.target.value)} /></div>
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div>
+              <div className="text-sm font-medium">Condividi con lo studio</div>
+              <div className="text-xs text-muted-foreground">Visibile a tutto il workspace</div>
+            </div>
+            <Switch checked={isShared} onCheckedChange={setIsShared} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            disabled={pending || !title.trim() || !situation.trim() || !solution.trim()}
+            onClick={() => onSubmit({
+              title: title.trim().slice(0, 200),
+              situation: situation.trim(),
+              solution: solution.trim(),
+              category: category.trim() || null,
+              tags: tagsStr.split(",").map((t) => t.trim()).filter(Boolean),
+              isShared,
+              sourceContext: {
+                chat_question: question,
+                chat_answer_preview: answer.slice(0, 400),
+                sources: sources.map((s) => ({ n: s.n, title: s.title, type: s.source_type, doc: s.document_number })),
+                saved_at: new Date().toISOString(),
+              },
+            })}
+          >
+            {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Salva caso
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   return (
