@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { DisclaimerBar } from "@/components/disclaimer-bar";
 import appDashboard from "@/assets/app-dashboard.png.asset.json";
 import appSearch from "@/assets/app-search.png.asset.json";
 import appSources from "@/assets/app-sources.png.asset.json";
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/")({
 function Landing() {
   return (
     <div className="min-h-screen bg-background">
+      <DisclaimerBar />
       {/* Nav */}
       <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">

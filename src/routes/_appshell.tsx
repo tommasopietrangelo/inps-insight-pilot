@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { FloatingCopilot } from "@/components/floating-copilot";
+import { DisclaimerBar } from "@/components/disclaimer-bar";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { listMyWorkspaces } from "@/lib/workspace.functions";
@@ -51,15 +52,18 @@ function AppShell() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar />
-        <SidebarInset className="flex min-w-0 flex-1 flex-col">
-          <AppHeader />
-          <main className="flex-1 px-6 py-6 lg:px-8">
-            <Outlet />
-          </main>
-        </SidebarInset>
-        <FloatingCopilot />
+      <div className="flex min-h-screen w-full flex-col bg-background">
+        <DisclaimerBar />
+        <div className="flex min-h-0 flex-1 w-full">
+          <AppSidebar />
+          <SidebarInset className="flex min-w-0 flex-1 flex-col">
+            <AppHeader />
+            <main className="flex-1 px-6 py-6 lg:px-8">
+              <Outlet />
+            </main>
+          </SidebarInset>
+          <FloatingCopilot />
+        </div>
       </div>
     </SidebarProvider>
   );
