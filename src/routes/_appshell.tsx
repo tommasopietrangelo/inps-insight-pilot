@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { FloatingCopilot } from "@/components/floating-copilot";
+import { DisclaimerBar } from "@/components/disclaimer-bar";
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { listMyWorkspaces } from "@/lib/workspace.functions";
