@@ -271,9 +271,11 @@ export type Database = {
           created_at: string
           id: string
           is_shared: boolean
+          origin: string
           reuses: number
           situation: string
           solution: string
+          source_context: Json | null
           source_id: string | null
           source_ref: string | null
           tags: string[]
@@ -287,9 +289,11 @@ export type Database = {
           created_at?: string
           id?: string
           is_shared?: boolean
+          origin?: string
           reuses?: number
           situation: string
           solution: string
+          source_context?: Json | null
           source_id?: string | null
           source_ref?: string | null
           tags?: string[]
@@ -303,9 +307,11 @@ export type Database = {
           created_at?: string
           id?: string
           is_shared?: boolean
+          origin?: string
           reuses?: number
           situation?: string
           solution?: string
+          source_context?: Json | null
           source_id?: string | null
           source_ref?: string | null
           tags?: string[]
