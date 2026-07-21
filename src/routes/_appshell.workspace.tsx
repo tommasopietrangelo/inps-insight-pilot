@@ -472,6 +472,7 @@ function Workspace() {
                       <TableCell>
                         <Link
                           to="/search"
+                          search={{ q: s.query }}
                           className="flex items-center gap-2 hover:text-primary"
                         >
                           <Search className="h-3.5 w-3.5 text-primary" />
