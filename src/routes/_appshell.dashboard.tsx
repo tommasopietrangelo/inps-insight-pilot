@@ -348,6 +348,8 @@ function Dashboard() {
         </div>
       </div>
 
+      <RecurringFlowsSection />
+
       {/* Memoria AI — premium gradient banner */}
       <Link
         to="/memory"
