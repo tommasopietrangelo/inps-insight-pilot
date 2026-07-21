@@ -109,15 +109,27 @@ const MESI: Record<string, string> = {
   luglio: "07", agosto: "08", settembre: "09", ottobre: "10", novembre: "11", dicembre: "12",
 };
 function extractDate(text: string, url: string): string {
-  const um = url.match(/\/notizie\/(\d{4})[\.\/](\d{2})[\.\/]/);
+  const today = new Date().toISOString().slice(0, 10);
+  const isValid = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today && d >= "2000-01-01";
+  // URL patterns: .../notizie/YYYY.MM/... oppure .../dettaglio-news-page.news.YYYY.MM.slug.html
   let fallback: string | null = null;
-  if (um) fallback = `${um[1]}-${um[2]}-01`;
+  const um = url.match(/\/notizie\/(\d{4})[\.\/](\d{2})[\.\/]/) ?? url.match(/\.news\.(\d{4})\.(\d{2})\./);
+  if (um) {
+    const cand = `${um[1]}-${um[2]}-01`;
+    if (isValid(cand)) fallback = cand;
+  }
   const t = text.slice(0, 4000).toLowerCase();
   const m1 = t.match(/(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+(\d{4})/);
-  if (m1) return `${m1[3]}-${MESI[m1[2]]}-${m1[1].padStart(2, "0")}`;
+  if (m1) {
+    const cand = `${m1[3]}-${MESI[m1[2]]}-${m1[1].padStart(2, "0")}`;
+    if (isValid(cand)) return cand;
+  }
   const m2 = t.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (m2) return `${m2[3]}-${m2[2]}-${m2[1]}`;
-  return fallback ?? new Date().toISOString().slice(0, 10);
+  if (m2) {
+    const cand = `${m2[3]}-${m2[2]}-${m2[1]}`;
+    if (isValid(cand)) return cand;
+  }
+  return fallback ?? today;
 }
 
 function guessTopicTags(text: string): string[] {
