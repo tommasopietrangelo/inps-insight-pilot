@@ -151,11 +151,6 @@ function Dashboard() {
         </div>
       </Card>
 
-      <RecurringFlowsSection />
-
-
-
-
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Latest updates — editorial cards */}
         <div className="space-y-4 lg:col-span-2">
@@ -352,6 +347,8 @@ function Dashboard() {
           </Card>
         </div>
       </div>
+
+      <RecurringFlowsSection />
 
       {/* Memoria AI — premium gradient banner */}
       <Link
