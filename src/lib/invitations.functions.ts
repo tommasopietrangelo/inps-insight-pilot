@@ -34,6 +34,19 @@ export const createInvitation = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+
+    // Enforce seat quota from workspace_subscriptions.seats_limit
+    const { data: canAdd, error: seatErr } = await supabase.rpc(
+      "can_add_seat" as never,
+      { _ws: data.workspaceId } as never,
+    );
+    if (seatErr) throw new Error(seatErr.message);
+    if (canAdd === false) {
+      throw new Error(
+        "Hai raggiunto il numero massimo di posti previsti dal piano. Aggiorna il piano dalle Impostazioni.",
+      );
+    }
+
     const { data: row, error } = await supabase
       .from("workspace_invitations")
       .insert({

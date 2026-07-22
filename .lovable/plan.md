@@ -1,44 +1,93 @@
-# Promemoria: attivazione cron INPS — 31 luglio 2026
+# Accesso a workspace condivisi + piano subscription
 
-Oggi è il 6 luglio 2026. Non posso eseguire azioni "in differita" da solo: il 31 luglio 2026 dovrai riaprire la chat e dirmi "esegui il piano cron INPS". Salvo questo piano nella memoria del progetto così è pronto.
+## Come funziona OGGI (già implementato)
 
-## Cosa fare quel giorno
+Ogni utente ha **credenziali personali** (email/password o Google). Nessuno condivide login — sarebbe insicuro e romperebbe audit, RLS e attribuzione delle azioni. L'accesso condiviso al workspace funziona così:
 
-Tre cron da (ri)attivare tramite SQL su `pg_cron` + `pg_net`, tutti con timezone Europe/Rome (schedulati in UTC coprendo CEST/CET, gate `romeHour` già presente negli handler).
+1. Il "capo" (owner) si registra e crea un workspace da `/onboarding` → riga in `workspaces` + `workspace_members` con ruolo `owner`.
+2. Da **Impostazioni → Team** invia inviti via email (tabella `workspace_invitations`, token univoco, scadenza, ruolo `admin`/`member`).
+3. Il collega si registra con la SUA email → in `/onboarding` vede "Hai inviti in attesa" (`listMyPendingInvitations` filtra per email JWT) → clicca **Accetta** → RPC `accept_workspace_invitation` lo inserisce in `workspace_members`.
+4. Da quel momento vede il workspace nel selector (header) e tutti i dati sono condivisi via RLS su `workspace_id`.
 
-### 1. Circolari INPS — giornaliero 06:00 Rome
-- Endpoint esistente: `POST /api/public/hooks/ingest-inps` (già include gate `romeHour === 6` e ri-embedding).
-- Fonte: `https://www.inps.it/it/it/inps-comunica/atti/circolari-messaggi-e-normativa.html`
-- Job name: `ingest-inps-circolari-daily`
-- Schedule: `0 4,5 * * *` (04:00 e 05:00 UTC → 06:00 Rome in CEST/CET).
-- Body: `{}`
+Ruoli attuali: `owner`, `admin`, `member`, `viewer`. Manca `viewer` UI-side ma esiste in enum.
 
-### 2. Notizie INPS — giornaliero 06:30 Rome
-- Endpoint esistente: `POST /api/public/hooks/ingest-inps-news` (gate `romeHour === 6`; usa `ingestNewsDaily` con `scrapeLimit=30, concurrency=3`; entra nella singola notizia e salva `full_text` in `sources` con `source_type='notizia'`, `corpus_layer='operativo'`; poi `ingestEmbeddings`).
-- Fonte: `https://www.inps.it/it/it/inps-comunica/notizie.html`
-- Job name: `ingest-inps-news-daily`
-- Nota: il gate attuale accetta solo l'ora esatta 06 → per farlo girare alle 06:30 Rome va **rilassato il gate** a `romeHour === 6` con qualunque minuto (già ok) e schedulato `30 4,5 * * *`. Se preferiamo lasciare intatto il gate, va bene anche `0 4,5 * * *` (parte insieme alle circolari). Confermerai al momento.
-- Body: `{}`
+**Quindi: già ora è "un utente = un account", niente credenziali condivise.** Quello che manca per il lancio è: (a) limiti/quota per piano, (b) billing, (c) gating features.
 
-### 3. Layer operativo INPS — mensile, 1° del mese 07:00 Rome
-- Da creare: nuovo endpoint `POST /api/public/hooks/rediscover-inps-operational` che invoca la rediscovery per-sezione già presente in `src/lib/inps-operational.functions.ts` (oggi lanciata manualmente da Impostazioni). Solo **discovery + diff**: enqueue di eventuali nuove URL, nessun re-scrape delle sezioni già in corpus.
-- Gate: `romeHour === 7`, giorno del mese = 1 (già implicito nello schedule).
-- Job name: `rediscover-inps-operational-monthly`
-- Schedule: `0 5,6 1 * *` (05:00 e 06:00 UTC del 1° del mese → 07:00 Rome).
-- Body: `{}`
+## Cosa aggiungere per il lancio
 
-## Passi operativi (da eseguire il 31/07/2026)
+### 1. Modello subscription (a livello workspace, non utente)
 
-1. Verificare che i tre endpoint rispondano 200 in `?force=1` (smoke test manuale).
-2. Creare l'endpoint operativo mensile se non esiste ancora (piccola route + funzione wrapper su `ingestInpsOperationalDaily`/equivalente per-sezione, con flag "solo diff").
-3. Eseguire via `supabase--insert` gli SQL `cron.schedule(...)` per i tre job (usando `apikey` = publishable key nel header, come da convenzione del progetto).
-4. Verificare `SELECT * FROM cron.job;` che i tre job siano presenti; controllare `cron.job_run_details` dopo la prima finestra.
+Nuova tabella `workspace_subscriptions`:
+- `workspace_id` (FK, unique)
+- `plan` enum: `free` | `studio` | `pro` | `enterprise`
+- `status`: `trialing` | `active` | `past_due` | `canceled`
+- `seats_limit` int, `queries_limit_monthly` int, `sources_limit` int
+- `features` jsonb (feature flags per pacchetto opzionale)
+- `current_period_end`, `provider` (`stripe`/`paddle`), `provider_customer_id`, `provider_subscription_id`
+- `trial_ends_at`
 
-## Cosa faccio ora
+Nuova tabella `workspace_usage_monthly`:
+- `workspace_id`, `period` (YYYY-MM), `queries_count`, `ai_tokens`, `firecrawl_calls`, `sources_added`
+- Incrementata da server functions (chat, analyze, summarize, ingest) con `supabaseAdmin`.
 
-- **Non** attivo nulla oggi (mancano 25 giorni; attivarlo prima farebbe girare i cron a vuoto e brucerebbe crediti Firecrawl/AI).
-- **Salvo** questo piano nella memoria del progetto (`mem://features/cron-inps-2026-07-31.md`) così il 31/07 basta dirmi "vai" e lo eseguo pari pari.
+Helper: `public.can_add_seat(_ws)`, `public.can_run_query(_ws)` security-definer da chiamare dagli entry point.
 
-## Cosa devi fare tu il 31 luglio 2026
+### 2. Piani proposti (ipotesi lancio)
 
-Aprire la chat e scrivere: **"Esegui il piano cron INPS del 31 luglio"**. Io recupero questo file di memoria e procedo.
+| Piano | Prezzo/mese | Seats | Query AI/mese | Ingest INPS | Extra |
+|---|---|---|---|---|---|
+| **Free / Trial** | 0 (14gg) | 1 | 50 | solo lettura corpus | — |
+| **Studio** | ~39€ | 3 | 500 | batch lite | Flussi, Reminders, Memory |
+| **Pro** | ~99€ | 10 | 2.500 | batch Firecrawl | + Alerts, Cron, Priorità supporto |
+| **Enterprise** | custom | illimitati* | custom | + SSO SAML | + audit log, onboarding, DPA |
+
+Add-on pacchetti opzionali (feature flags): `alerts_advanced`, `bulk_import`, `api_access`, `white_label`.
+
+### 3. Flusso billing (usa payments built-in di Lovable)
+
+- Owner apre **Impostazioni → Piano** → sceglie tier → checkout Stripe (`enable_stripe_payments`, MOR).
+- Webhook `/api/public/webhooks/stripe` aggiorna `workspace_subscriptions`.
+- Portale cliente Stripe per cambio piano / metodo pagamento / fatture.
+- Solo `owner` (e forse `admin`) può gestire billing.
+
+### 4. Enforcement quota
+
+- **Prima di ogni azione a costo**: server fn chiama `can_run_query()` / `can_add_seat()`. Se supera limite → errore strutturato → UI mostra dialog "Hai raggiunto il limite, fai upgrade".
+- `createInvitation` conta membri attivi + inviti pending vs `seats_limit`.
+- Cron mensile azzera contatori a inizio periodo (o calcolati per `current_period_start`).
+
+### 5. UI da aggiungere
+
+- `/settings` → nuova tab **Piano & Fatturazione** (piano corrente, uso mese, upgrade CTA, portale Stripe).
+- `/settings` → tab **Team**: badge "X/Y posti", disabilita "Invita" se pieno.
+- Banner globale se `status = past_due` o trial in scadenza.
+- Selettore workspace già presente nell'header (utenti in più workspace switchano).
+
+### 6. Sicurezza / edge cases
+
+- RLS: `workspace_subscriptions` leggibile da membri, scrivibile solo da `service_role` (webhook).
+- Owner unico per workspace: aggiungere "Trasferisci ownership" nel Team.
+- Downgrade con troppi seats: blocca l'azione finché non rimuove membri.
+- Cancellazione: passa a `canceled` a fine periodo, poi read-only.
+
+## Dettagli tecnici (per implementazione futura)
+
+- Migrations: 2 nuove tabelle + enum `subscription_plan`/`subscription_status` + funzioni `has_workspace_role`, `can_run_query`, `can_add_seat`, `increment_usage`.
+- Nuovi server fn in `src/lib/billing.functions.ts`: `getMySubscription`, `getMonthlyUsage`, `createCheckoutSession`, `openBillingPortal`.
+- Webhook: `src/routes/api/public/webhooks/stripe.ts` con verifica firma HMAC, gestione eventi `customer.subscription.*`, `invoice.paid`, `invoice.payment_failed`.
+- Feature gate helper `useFeature("alerts_advanced")` che legge da subscription + fallback.
+
+## Ordine di implementazione consigliato
+
+1. Schema + RLS + funzioni quota (1 migration).
+2. Server fn billing + UI Piano (senza Stripe reale, solo mock/free).
+3. Enforcement seats/queries.
+4. Integrazione Stripe payments quando pronti al lancio (`recommend_payment_provider` → `enable_stripe_payments`).
+5. Webhook + portale.
+
+## Domande aperte per te
+
+- Confermi i **prezzi/limiti** proposti o preferisci altri numeri?
+- Vuoi **trial 14gg** automatico all'iscrizione o piano Free permanente?
+- Preferisci **Stripe** (raccomandato: MOR possibile in Italia, gestisce IVA UE) o Paddle?
+- Ownership: **un solo owner** per workspace o multi-owner?

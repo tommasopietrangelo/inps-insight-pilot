@@ -44,6 +44,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame, BookMarked, Layers, Newspaper } from "lucide-react";
 import { TeamCard } from "@/components/team-card";
+import { BillingCard } from "@/components/billing-card";
 
 export const Route = createFileRoute("/_appshell/settings")({
   head: () => ({ meta: [{ title: "Impostazioni · INPS Copilot" }] }),
@@ -1472,26 +1473,7 @@ function Settings() {
 
         <TeamCard />
 
-        {/* Billing */}
-        <Card className="p-6 lg:col-span-2">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="font-display text-base font-semibold">Piano e fatturazione</div>
-              <p className="text-sm text-muted-foreground">Gestisci il piano del workspace.</p>
-            </div>
-            <Badge className="bg-primary text-primary-foreground">Piano Studio</Badge>
-          </div>
-          <Separator className="my-4" />
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label="Utenti" value="8 / 10" />
-            <Stat label="Query questo mese" value="5.420" />
-            <Stat label="Prossima fattura" value="01 giu 2026 · €129" />
-          </div>
-          <div className="mt-5 flex gap-2">
-            <Button variant="outline" size="sm">Aggiorna piano</Button>
-            <Button variant="ghost" size="sm">Storico fatture</Button>
-          </div>
-        </Card>
+        <BillingCard />
       </div>
     </div>
   );
