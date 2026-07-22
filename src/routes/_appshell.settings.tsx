@@ -44,6 +44,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Loader2, Download, Rss, ClipboardPaste, Flame, BookMarked, Layers, Newspaper } from "lucide-react";
 import { TeamCard } from "@/components/team-card";
+import { BillingCard } from "@/components/billing-card";
 
 export const Route = createFileRoute("/_appshell/settings")({
   head: () => ({ meta: [{ title: "Impostazioni · INPS Copilot" }] }),
