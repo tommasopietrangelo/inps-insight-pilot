@@ -35,17 +35,10 @@ export const createInvitation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    // Enforce seat quota from workspace_subscriptions.seats_limit
-    const { data: canAdd, error: seatErr } = await supabase.rpc(
-      "can_add_seat" as never,
-      { _ws: data.workspaceId } as never,
-    );
-    if (seatErr) throw new Error(seatErr.message);
-    if (canAdd === false) {
-      throw new Error(
-        "Hai raggiunto il numero massimo di posti previsti dal piano. Aggiorna il piano dalle Impostazioni.",
-      );
-    }
+    // NOTE: fase di prova libera per CAF/patronati.
+    // I limiti di posti sono disattivati per non bloccare gli inviti.
+    // L'infrastruttura (workspace_subscriptions, can_add_seat, usage) resta
+    // attiva in background e potrà essere riattivata al lancio commerciale.
 
     const { data: row, error } = await supabase
       .from("workspace_invitations")
