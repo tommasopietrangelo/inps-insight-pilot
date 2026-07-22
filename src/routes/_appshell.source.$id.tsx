@@ -127,13 +127,15 @@ function SourceDetail() {
           </Card>
 
           <Tabs defaultValue="ai" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="ai">Sintesi AI</TabsTrigger>
-              <TabsTrigger value="text">Testo integrale</TabsTrigger>
-              <TabsTrigger value="deadlines">Punti chiave</TabsTrigger>
-              <TabsTrigger value="related">Atti collegati</TabsTrigger>
-              <TabsTrigger value="notes">Note interne</TabsTrigger>
-            </TabsList>
+            <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsList className="inline-flex w-max min-w-full gap-1 sm:grid sm:w-full sm:grid-cols-5">
+                <TabsTrigger value="ai" className="shrink-0 whitespace-nowrap">Sintesi AI</TabsTrigger>
+                <TabsTrigger value="text" className="shrink-0 whitespace-nowrap">Testo integrale</TabsTrigger>
+                <TabsTrigger value="deadlines" className="shrink-0 whitespace-nowrap">Punti chiave</TabsTrigger>
+                <TabsTrigger value="related" className="shrink-0 whitespace-nowrap">Atti collegati</TabsTrigger>
+                <TabsTrigger value="notes" className="shrink-0 whitespace-nowrap">Note interne</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="ai" className="mt-4">
               <Card className="space-y-4 p-6 text-sm leading-relaxed">

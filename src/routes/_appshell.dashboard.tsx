@@ -128,7 +128,7 @@ function Dashboard() {
         <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Azioni rapide
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           {[
             { t: "Cerca una fonte", i: Search, to: "/search" as const },
             { t: "Apri flussi operativi", i: ClipboardCheck, to: "/flows" as const },
@@ -139,12 +139,12 @@ function Dashboard() {
             <Button
               key={a.t}
               variant="outline"
-              className="h-auto justify-start gap-3 px-4 py-3 shadow-none transition-all hover:border-primary/30 hover:shadow-card"
+              className="h-auto min-w-0 justify-start gap-3 px-4 py-3 shadow-none transition-all hover:border-primary/30 hover:shadow-card"
               asChild
             >
-              <Link to={a.to}>
-                <a.i className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">{a.t}</span>
+              <Link to={a.to} className="min-w-0">
+                <a.i className="h-4 w-4 shrink-0 text-primary" />
+                <span className="truncate text-sm font-medium">{a.t}</span>
               </Link>
             </Button>
           ))}
