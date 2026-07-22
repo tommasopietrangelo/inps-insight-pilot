@@ -229,6 +229,10 @@ function Settings() {
           </div>
         </Card>
 
+        <TeamCard />
+
+        <BillingCard />
+
         {/* Theme */}
         <Card className="p-6">
           <div className="font-display text-base font-semibold">Aspetto</div>
@@ -1471,9 +1475,6 @@ function Settings() {
           </div>
         </Card>
 
-        <TeamCard />
-
-        <BillingCard />
       </div>
     </div>
   );
