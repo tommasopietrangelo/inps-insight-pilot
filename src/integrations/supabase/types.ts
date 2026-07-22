@@ -906,6 +906,112 @@ export type Database = {
           },
         ]
       }
+      workspace_subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          features: Json
+          id: string
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          provider: string | null
+          provider_customer_id: string | null
+          provider_subscription_id: string | null
+          queries_limit_monthly: number
+          seats_limit: number
+          sources_limit_monthly: number
+          status: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          features?: Json
+          id?: string
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          provider?: string | null
+          provider_customer_id?: string | null
+          provider_subscription_id?: string | null
+          queries_limit_monthly?: number
+          seats_limit?: number
+          sources_limit_monthly?: number
+          status?: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          features?: Json
+          id?: string
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          provider?: string | null
+          provider_customer_id?: string | null
+          provider_subscription_id?: string | null
+          queries_limit_monthly?: number
+          seats_limit?: number
+          sources_limit_monthly?: number
+          status?: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_subscriptions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_usage_monthly: {
+        Row: {
+          ai_tokens: number
+          firecrawl_calls: number
+          id: string
+          period: string
+          queries_count: number
+          sources_added: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          ai_tokens?: number
+          firecrawl_calls?: number
+          id?: string
+          period: string
+          queries_count?: number
+          sources_added?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          ai_tokens?: number
+          firecrawl_calls?: number
+          id?: string
+          period?: string
+          queries_count?: number
+          sources_added?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_usage_monthly_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           created_at: string
@@ -959,6 +1065,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      can_add_seat: { Args: { _ws: string }; Returns: boolean }
+      can_run_query: { Args: { _ws: string }; Returns: boolean }
       create_workspace_with_owner: {
         Args: { _name: string; _slug: string }
         Returns: {
@@ -977,12 +1085,49 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ensure_workspace_subscription: {
+        Args: { _ws: string }
+        Returns: {
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          features: Json
+          id: string
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          provider: string | null
+          provider_customer_id: string | null
+          provider_subscription_id: string | null
+          queries_limit_monthly: number
+          seats_limit: number
+          sources_limit_monthly: number
+          status: Database["public"]["Enums"]["subscription_status"]
+          trial_ends_at: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "workspace_subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_usage: {
+        Args: {
+          _ai_tokens?: number
+          _firecrawl?: number
+          _queries?: number
+          _sources?: number
+          _ws: string
+        }
+        Returns: undefined
       }
       is_workspace_member: {
         Args: { _user_id: string; _workspace_id: string }
@@ -1045,6 +1190,8 @@ export type Database = {
         | "pagina_servizio"
         | "normativa"
         | "notizia"
+      subscription_plan: "free" | "studio" | "pro" | "enterprise"
+      subscription_status: "trialing" | "active" | "past_due" | "canceled"
       workspace_member_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
@@ -1192,6 +1339,8 @@ export const Constants = {
         "normativa",
         "notizia",
       ],
+      subscription_plan: ["free", "studio", "pro", "enterprise"],
+      subscription_status: ["trialing", "active", "past_due", "canceled"],
       workspace_member_role: ["owner", "admin", "member"],
     },
   },
