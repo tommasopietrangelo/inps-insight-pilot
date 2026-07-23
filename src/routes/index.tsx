@@ -15,6 +15,7 @@ import appDashboard from "@/assets/app-dashboard.png.asset.json";
 import appSearch from "@/assets/app-search.png.asset.json";
 import appSources from "@/assets/app-sources.png.asset.json";
 import appAlerts from "@/assets/app-alerts.png.asset.json";
+import { PLAN_CATALOG } from "@/lib/billing.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -163,58 +164,72 @@ function Landing() {
             <FeatureRow
               kicker="01 · Ricerca"
               title="Cerca in linguaggio naturale sulle fonti ufficiali INPS"
-              body="Digita una domanda come 'requisiti ADI 2026 per nuclei con minori'. Il copilot interroga circolari, messaggi e normativa indicizzati ogni giorno."
+              body="Digita una domanda come 'requisiti ADI 2026 per nuclei con minori'. Il copilot interroga circolari, messaggi, normativa cardine e notizie INPS indicizzati ogni giorno, e salva le ricerche nel tuo workspace."
               points={[
-                "Indice ufficiale INPS aggiornato quotidianamente",
+                "Corpus INPS aggiornato quotidianamente",
                 "Filtri per tipo atto, periodo, topic",
-                "Suggerimenti di query frequenti per area",
+                "Ricerche salvate riconsultabili con la risposta AI",
               ]}
               align="left"
               image={appSearch.url}
-              imageAlt="Schermata Ricerca: composer in linguaggio naturale con esempi e Memoria AI"
+              imageAlt="Schermata Ricerca: composer in linguaggio naturale con Memoria AI"
               urlLabel="copilot.inps.app / ricerca"
             />
             <FeatureRow
-              kicker="02 · Fonti ufficiali"
-              title="Archivio completo di circolari, messaggi e normativa"
-              body="Ogni atto INPS indicizzato e collegato a topic, scadenze, riferimenti. Naviga con filtri precisi o lascia che il copilot ti porti dove serve."
+              kicker="02 · Flussi operativi"
+              title="Flussi guidati con sotto-pratiche numerate per ogni caso"
+              body="Oltre 50 flussi reali (ADI, SFL, NASpI, Assegno Unico, pensioni, bonus nuovi nati…). Apri un flusso, crea una sotto-pratica con codice automatico (ADI-001) e lavorala fino alla chiusura senza uscire dalla sezione."
               points={[
-                "Tutti gli atti INPS dal 2000 a oggi",
-                "Schede fonte con estratto, tag e cronologia",
-                "Citazioni dirette in ogni risposta del copilot",
-              ]}
-              align="right"
-              image={appSources.url}
-              imageAlt="Schermata Fonti: archivio circolari e messaggi INPS con filtri"
-              urlLabel="copilot.inps.app / fonti"
-            />
-            <FeatureRow
-              kicker="03 · Monitoraggio"
-              title="Avvisi per topic e nuovi atti pubblicati"
-              body="Segui ADI, SFL, NASpI, Assegno Unico, pensioni, contributi. Ricevi solo ciò che riguarda davvero il tuo studio."
-              points={[
-                "Regole di avviso per topic e tipo atto",
-                "Email, in-app e Slack",
-                "Timeline degli aggiornamenti recenti",
-              ]}
-              align="left"
-              image={appAlerts.url}
-              imageAlt="Schermata Avvisi: regole di monitoraggio per topic e notifiche recenti"
-              urlLabel="copilot.inps.app / avvisi"
-            />
-            <FeatureRow
-              kicker="04 · Workspace"
-              title="Memoria condivisa per il tuo ufficio"
-              body="Salva ricerche, prendi note interne, costruisci la prassi dello studio. Tutto privato, tutto ricercabile dal cruscotto."
-              points={[
-                "Note interne collegate alle fonti",
-                "Ricerche salvate condivise",
-                "Ruoli admin, operatore e sola lettura",
+                "Sotto-pratiche con codice automatico per operatore",
+                "Template modificabile a livello di flusso e di singola pratica",
+                "Reminder e riassunti pinnabili nella pratica",
               ]}
               align="right"
               image={appDashboard.url}
+              imageAlt="Schermata Flussi operativi con sotto-pratiche numerate"
+              urlLabel="copilot.inps.app / flussi"
+            />
+            <FeatureRow
+              kicker="03 · Fonti ufficiali"
+              title="Atti INPS, normativa cardine e notizie in un unico corpus"
+              body="Circolari e messaggi INPS, normativa cardine di riferimento e notizie ufficiali dal portale INPS: tutto indicizzato, filtrabile e citato in ogni risposta del copilot."
+              points={[
+                "Atti INPS dal 2000 a oggi",
+                "Normativa cardine collegata ai flussi",
+                "Notizie INPS aggiornate dal portale ufficiale",
+              ]}
+              align="left"
+              image={appSources.url}
+              imageAlt="Schermata Fonti: atti INPS, normativa cardine e notizie"
+              urlLabel="copilot.inps.app / fonti"
+            />
+            <FeatureRow
+              kicker="04 · Monitoraggio"
+              title="Avvisi per topic e nuovi atti pubblicati"
+              body="Segui ADI, SFL, NASpI, Assegno Unico, pensioni, contributi. Ricevi solo ciò che riguarda davvero il tuo studio, con timeline dei nuovi atti."
+              points={[
+                "Regole di avviso per topic e tipo atto",
+                "Notifiche in-app ed email",
+                "Timeline aggiornamenti recenti sul cruscotto",
+              ]}
+              align="right"
+              image={appAlerts.url}
+              imageAlt="Schermata Avvisi: regole di monitoraggio per topic"
+              urlLabel="copilot.inps.app / avvisi"
+            />
+            <FeatureRow
+              kicker="05 · Workspace e Memoria AI"
+              title="Memoria condivisa dello studio, casi particolari e reminder"
+              body="Salva ricerche, riassunti di atti e reminder per punti generati dalla chat. Segna i casi particolari (da chat, da flusso o manuali) per costruire la prassi dello studio, consultabile da tutto il team."
+              points={[
+                "Reminder da chat pinnabili sulle sotto-pratiche",
+                "Casi particolari distinti per origine (chat, flusso, manuale)",
+                "Ruoli owner, admin e operatore con inviti via link",
+              ]}
+              align="left"
+              image={appDashboard.url}
               imageAlt="Cruscotto INPS Copilot: workspace con KPI, aggiornamenti e topic"
-              urlLabel="copilot.inps.app / cruscotto"
+              urlLabel="copilot.inps.app / workspace"
             />
           </div>
         </div>
@@ -332,39 +347,39 @@ function Landing() {
             <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight md:text-5xl">
               Pensato per studi di ogni dimensione.
             </h2>
+            <p className="mt-4 text-muted-foreground md:text-lg">
+              Piani reali attivi in piattaforma. Durante la fase di prova con CAF e patronati non
+              vengono applicati blocchi: puoi testare tutto liberamente.
+            </p>
           </div>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            <PricingCard
-              name="Solo"
-              price="49"
-              tagline="Per il professionista singolo."
-              features={["1 utente", "Ricerca illimitata", "Avvisi per 5 topic", "Note interne personali"]}
-            />
-            <PricingCard
-              name="Studio"
-              price="129"
-              tagline="Per CAF e patronati con team."
-              featured
-              features={[
-                "Fino a 10 utenti",
-                "Workspace condiviso",
-                "Avvisi illimitati",
-                "Esportazione PDF",
-                "Ruoli e permessi",
-              ]}
-            />
-            <PricingCard
-              name="Enterprise"
-              price="Su misura"
-              tagline="Per reti nazionali e federazioni."
-              features={[
-                "Utenti illimitati",
-                "SSO e audit log",
-                "Integrazione gestionale",
-                "SLA dedicato",
-                "Onboarding assistito",
-              ]}
-            />
+          <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {PLAN_CATALOG.map((p) => {
+              const priceLabel =
+                p.priceEur === null ? "Su misura" : p.priceEur === 0 ? "€0" : `€${p.priceEur}`;
+              const tagline =
+                p.id === "free"
+                  ? "Per provare la piattaforma."
+                  : p.id === "studio"
+                    ? "Per CAF e patronati piccoli."
+                    : p.id === "pro"
+                      ? "Per studi strutturati con team."
+                      : "Per reti nazionali e federazioni.";
+              const quotas = [
+                `${p.seats >= 999 ? "Utenti illimitati" : `${p.seats} utenti`}`,
+                `${p.queriesMonthly >= 999999 ? "Query AI illimitate" : `${p.queriesMonthly.toLocaleString("it-IT")} query AI / mese`}`,
+                `${p.sourcesMonthly >= 999999 ? "Fonti illimitate" : `${p.sourcesMonthly.toLocaleString("it-IT")} fonti aggiunte / mese`}`,
+              ];
+              return (
+                <PricingCard
+                  key={p.id}
+                  name={p.name}
+                  price={priceLabel}
+                  tagline={tagline}
+                  featured={p.highlight}
+                  features={[...quotas, ...p.features]}
+                />
+              );
+            })}
           </div>
         </div>
       </section>
@@ -513,10 +528,10 @@ function PricingCard({
         {featured && <Badge className="bg-primary text-primary-foreground">Consigliato</Badge>}
       </div>
       <div className="mt-4 flex items-baseline gap-1">
-        <span className="font-display text-5xl font-semibold tracking-tight">
-          {price === "Su misura" ? price : `€${price}`}
-        </span>
-        {price !== "Su misura" && <span className="text-sm text-muted-foreground">/ mese</span>}
+        <span className="font-display text-5xl font-semibold tracking-tight">{price}</span>
+        {price !== "Su misura" && price !== "€0" && (
+          <span className="text-sm text-muted-foreground">/ mese</span>
+        )}
       </div>
       <p className="mt-2 text-sm text-muted-foreground">{tagline}</p>
       <ul className="mt-6 space-y-2.5 text-sm">
