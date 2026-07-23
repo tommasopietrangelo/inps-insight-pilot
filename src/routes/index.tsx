@@ -528,10 +528,10 @@ function PricingCard({
         {featured && <Badge className="bg-primary text-primary-foreground">Consigliato</Badge>}
       </div>
       <div className="mt-4 flex items-baseline gap-1">
-        <span className="font-display text-5xl font-semibold tracking-tight">
-          {price === "Su misura" ? price : `€${price}`}
-        </span>
-        {price !== "Su misura" && <span className="text-sm text-muted-foreground">/ mese</span>}
+        <span className="font-display text-5xl font-semibold tracking-tight">{price}</span>
+        {price !== "Su misura" && price !== "€0" && (
+          <span className="text-sm text-muted-foreground">/ mese</span>
+        )}
       </div>
       <p className="mt-2 text-sm text-muted-foreground">{tagline}</p>
       <ul className="mt-6 space-y-2.5 text-sm">
