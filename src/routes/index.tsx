@@ -15,6 +15,7 @@ import appDashboard from "@/assets/app-dashboard.png.asset.json";
 import appSearch from "@/assets/app-search.png.asset.json";
 import appSources from "@/assets/app-sources.png.asset.json";
 import appAlerts from "@/assets/app-alerts.png.asset.json";
+import { PLAN_CATALOG } from "@/lib/billing.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
