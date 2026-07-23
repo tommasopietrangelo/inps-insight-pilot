@@ -164,58 +164,72 @@ function Landing() {
             <FeatureRow
               kicker="01 · Ricerca"
               title="Cerca in linguaggio naturale sulle fonti ufficiali INPS"
-              body="Digita una domanda come 'requisiti ADI 2026 per nuclei con minori'. Il copilot interroga circolari, messaggi e normativa indicizzati ogni giorno."
+              body="Digita una domanda come 'requisiti ADI 2026 per nuclei con minori'. Il copilot interroga circolari, messaggi, normativa cardine e notizie INPS indicizzati ogni giorno, e salva le ricerche nel tuo workspace."
               points={[
-                "Indice ufficiale INPS aggiornato quotidianamente",
+                "Corpus INPS aggiornato quotidianamente",
                 "Filtri per tipo atto, periodo, topic",
-                "Suggerimenti di query frequenti per area",
+                "Ricerche salvate riconsultabili con la risposta AI",
               ]}
               align="left"
               image={appSearch.url}
-              imageAlt="Schermata Ricerca: composer in linguaggio naturale con esempi e Memoria AI"
+              imageAlt="Schermata Ricerca: composer in linguaggio naturale con Memoria AI"
               urlLabel="copilot.inps.app / ricerca"
             />
             <FeatureRow
-              kicker="02 · Fonti ufficiali"
-              title="Archivio completo di circolari, messaggi e normativa"
-              body="Ogni atto INPS indicizzato e collegato a topic, scadenze, riferimenti. Naviga con filtri precisi o lascia che il copilot ti porti dove serve."
+              kicker="02 · Flussi operativi"
+              title="Flussi guidati con sotto-pratiche numerate per ogni caso"
+              body="Oltre 50 flussi reali (ADI, SFL, NASpI, Assegno Unico, pensioni, bonus nuovi nati…). Apri un flusso, crea una sotto-pratica con codice automatico (ADI-001) e lavorala fino alla chiusura senza uscire dalla sezione."
               points={[
-                "Tutti gli atti INPS dal 2000 a oggi",
-                "Schede fonte con estratto, tag e cronologia",
-                "Citazioni dirette in ogni risposta del copilot",
-              ]}
-              align="right"
-              image={appSources.url}
-              imageAlt="Schermata Fonti: archivio circolari e messaggi INPS con filtri"
-              urlLabel="copilot.inps.app / fonti"
-            />
-            <FeatureRow
-              kicker="03 · Monitoraggio"
-              title="Avvisi per topic e nuovi atti pubblicati"
-              body="Segui ADI, SFL, NASpI, Assegno Unico, pensioni, contributi. Ricevi solo ciò che riguarda davvero il tuo studio."
-              points={[
-                "Regole di avviso per topic e tipo atto",
-                "Email, in-app e Slack",
-                "Timeline degli aggiornamenti recenti",
-              ]}
-              align="left"
-              image={appAlerts.url}
-              imageAlt="Schermata Avvisi: regole di monitoraggio per topic e notifiche recenti"
-              urlLabel="copilot.inps.app / avvisi"
-            />
-            <FeatureRow
-              kicker="04 · Workspace"
-              title="Memoria condivisa per il tuo ufficio"
-              body="Salva ricerche, prendi note interne, costruisci la prassi dello studio. Tutto privato, tutto ricercabile dal cruscotto."
-              points={[
-                "Note interne collegate alle fonti",
-                "Ricerche salvate condivise",
-                "Ruoli admin, operatore e sola lettura",
+                "Sotto-pratiche con codice automatico per operatore",
+                "Template modificabile a livello di flusso e di singola pratica",
+                "Reminder e riassunti pinnabili nella pratica",
               ]}
               align="right"
               image={appDashboard.url}
+              imageAlt="Schermata Flussi operativi con sotto-pratiche numerate"
+              urlLabel="copilot.inps.app / flussi"
+            />
+            <FeatureRow
+              kicker="03 · Fonti ufficiali"
+              title="Atti INPS, normativa cardine e notizie in un unico corpus"
+              body="Circolari e messaggi INPS, normativa cardine di riferimento e notizie ufficiali dal portale INPS: tutto indicizzato, filtrabile e citato in ogni risposta del copilot."
+              points={[
+                "Atti INPS dal 2000 a oggi",
+                "Normativa cardine collegata ai flussi",
+                "Notizie INPS aggiornate dal portale ufficiale",
+              ]}
+              align="left"
+              image={appSources.url}
+              imageAlt="Schermata Fonti: atti INPS, normativa cardine e notizie"
+              urlLabel="copilot.inps.app / fonti"
+            />
+            <FeatureRow
+              kicker="04 · Monitoraggio"
+              title="Avvisi per topic e nuovi atti pubblicati"
+              body="Segui ADI, SFL, NASpI, Assegno Unico, pensioni, contributi. Ricevi solo ciò che riguarda davvero il tuo studio, con timeline dei nuovi atti."
+              points={[
+                "Regole di avviso per topic e tipo atto",
+                "Notifiche in-app ed email",
+                "Timeline aggiornamenti recenti sul cruscotto",
+              ]}
+              align="right"
+              image={appAlerts.url}
+              imageAlt="Schermata Avvisi: regole di monitoraggio per topic"
+              urlLabel="copilot.inps.app / avvisi"
+            />
+            <FeatureRow
+              kicker="05 · Workspace e Memoria AI"
+              title="Memoria condivisa dello studio, casi particolari e reminder"
+              body="Salva ricerche, riassunti di atti e reminder per punti generati dalla chat. Segna i casi particolari (da chat, da flusso o manuali) per costruire la prassi dello studio, consultabile da tutto il team."
+              points={[
+                "Reminder da chat pinnabili sulle sotto-pratiche",
+                "Casi particolari distinti per origine (chat, flusso, manuale)",
+                "Ruoli owner, admin e operatore con inviti via link",
+              ]}
+              align="left"
+              image={appDashboard.url}
               imageAlt="Cruscotto INPS Copilot: workspace con KPI, aggiornamenti e topic"
-              urlLabel="copilot.inps.app / cruscotto"
+              urlLabel="copilot.inps.app / workspace"
             />
           </div>
         </div>
