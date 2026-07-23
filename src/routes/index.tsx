@@ -347,39 +347,39 @@ function Landing() {
             <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight md:text-5xl">
               Pensato per studi di ogni dimensione.
             </h2>
+            <p className="mt-4 text-muted-foreground md:text-lg">
+              Piani reali attivi in piattaforma. Durante la fase di prova con CAF e patronati non
+              vengono applicati blocchi: puoi testare tutto liberamente.
+            </p>
           </div>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            <PricingCard
-              name="Solo"
-              price="49"
-              tagline="Per il professionista singolo."
-              features={["1 utente", "Ricerca illimitata", "Avvisi per 5 topic", "Note interne personali"]}
-            />
-            <PricingCard
-              name="Studio"
-              price="129"
-              tagline="Per CAF e patronati con team."
-              featured
-              features={[
-                "Fino a 10 utenti",
-                "Workspace condiviso",
-                "Avvisi illimitati",
-                "Esportazione PDF",
-                "Ruoli e permessi",
-              ]}
-            />
-            <PricingCard
-              name="Enterprise"
-              price="Su misura"
-              tagline="Per reti nazionali e federazioni."
-              features={[
-                "Utenti illimitati",
-                "SSO e audit log",
-                "Integrazione gestionale",
-                "SLA dedicato",
-                "Onboarding assistito",
-              ]}
-            />
+          <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {PLAN_CATALOG.map((p) => {
+              const priceLabel =
+                p.priceEur === null ? "Su misura" : p.priceEur === 0 ? "€0" : `€${p.priceEur}`;
+              const tagline =
+                p.id === "free"
+                  ? "Per provare la piattaforma."
+                  : p.id === "studio"
+                    ? "Per CAF e patronati piccoli."
+                    : p.id === "pro"
+                      ? "Per studi strutturati con team."
+                      : "Per reti nazionali e federazioni.";
+              const quotas = [
+                `${p.seats >= 999 ? "Utenti illimitati" : `${p.seats} utenti`}`,
+                `${p.queriesMonthly >= 999999 ? "Query AI illimitate" : `${p.queriesMonthly.toLocaleString("it-IT")} query AI / mese`}`,
+                `${p.sourcesMonthly >= 999999 ? "Fonti illimitate" : `${p.sourcesMonthly.toLocaleString("it-IT")} fonti aggiunte / mese`}`,
+              ];
+              return (
+                <PricingCard
+                  key={p.id}
+                  name={p.name}
+                  price={priceLabel}
+                  tagline={tagline}
+                  featured={p.highlight}
+                  features={[...quotas, ...p.features]}
+                />
+              );
+            })}
           </div>
         </div>
       </section>
