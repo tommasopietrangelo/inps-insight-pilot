@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { DisclaimerBar } from "@/components/disclaimer-bar";
-import appDashboard from "@/assets/app-dashboard.png.asset.json";
-import appSearch from "@/assets/app-search.png.asset.json";
-import appSources from "@/assets/app-sources.png.asset.json";
-import appAlerts from "@/assets/app-alerts.png.asset.json";
+import appDashboard from "@/assets/app-dashboard.png";
+import appSearch from "@/assets/app-search.png";
+import appSources from "@/assets/app-sources.png";
+import appAlerts from "@/assets/app-alerts.png";
 import { PLAN_CATALOG } from "@/lib/billing.functions";
 
 export const Route = createFileRoute("/")({
