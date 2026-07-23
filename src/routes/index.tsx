@@ -32,8 +32,8 @@ export const Route = createFileRoute("/")({
         content:
           "Risposte basate su fonti ufficiali INPS, monitoraggio per topic e workspace privato per il tuo studio.",
       },
-      { property: "og:image", content: appDashboard.url },
-      { name: "twitter:image", content: appDashboard.url },
+      { property: "og:image", content: appDashboard },
+      { name: "twitter:image", content: appDashboard },
     ],
   }),
   component: Landing,
@@ -117,7 +117,7 @@ function Landing() {
 
           {/* Real product shot */}
           <BrowserFrame
-            src={appDashboard.url}
+            src={appDashboard}
             alt="Cruscotto INPS Copilot — aggiornamenti, KPI e azioni rapide"
             urlLabel="copilot.inps.app / cruscotto"
             className="mt-16"
@@ -171,7 +171,7 @@ function Landing() {
                 "Ricerche salvate riconsultabili con la risposta AI",
               ]}
               align="left"
-              image={appSearch.url}
+              image={appSearch}
               imageAlt="Schermata Ricerca: composer in linguaggio naturale con Memoria AI"
               urlLabel="copilot.inps.app / ricerca"
             />
@@ -185,7 +185,7 @@ function Landing() {
                 "Reminder e riassunti pinnabili nella pratica",
               ]}
               align="right"
-              image={appDashboard.url}
+              image={appDashboard}
               imageAlt="Schermata Flussi operativi con sotto-pratiche numerate"
               urlLabel="copilot.inps.app / flussi"
             />
@@ -199,7 +199,7 @@ function Landing() {
                 "Notizie INPS aggiornate dal portale ufficiale",
               ]}
               align="left"
-              image={appSources.url}
+              image={appSources}
               imageAlt="Schermata Fonti: atti INPS, normativa cardine e notizie"
               urlLabel="copilot.inps.app / fonti"
             />
@@ -213,7 +213,7 @@ function Landing() {
                 "Timeline aggiornamenti recenti sul cruscotto",
               ]}
               align="right"
-              image={appAlerts.url}
+              image={appAlerts}
               imageAlt="Schermata Avvisi: regole di monitoraggio per topic"
               urlLabel="copilot.inps.app / avvisi"
             />
@@ -227,7 +227,7 @@ function Landing() {
                 "Ruoli owner, admin e operatore con inviti via link",
               ]}
               align="left"
-              image={appDashboard.url}
+              image={appDashboard}
               imageAlt="Cruscotto INPS Copilot: workspace con KPI, aggiornamenti e topic"
               urlLabel="copilot.inps.app / workspace"
             />
