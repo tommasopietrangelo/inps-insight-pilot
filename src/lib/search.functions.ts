@@ -265,7 +265,7 @@ function scoreMatchAgainstTerms(match: any, terms: string[]) {
   return score;
 }
 
-async function fallbackKeywordMatchesVariants(queries: string[], limit: number, terms: string[], topicFilters?: string[]) {
+async function fallbackKeywordMatchesVariants(queries: string[], limit: number, terms: string[], topicFilters?: string[], corpus?: CorpusScope) {
   const candidateLimit = Math.max(limit * 6, 40);
   const merged = new Map<string, {
     chunk_id: string;
@@ -280,7 +280,8 @@ async function fallbackKeywordMatchesVariants(queries: string[], limit: number, 
   }>();
 
   for (const [queryIndex, query] of queries.entries()) {
-    const rows = await fallbackKeywordMatches(query, candidateLimit, topicFilters);
+    const rows = await fallbackKeywordMatches(query, candidateLimit, topicFilters, corpus);
+
     rows.forEach((row, rowIndex) => {
       const existing = merged.get(row.source_id);
       const boostedSimilarity = Math.max(0.55, row.similarity - queryIndex * 0.02 - rowIndex * 0.01);
