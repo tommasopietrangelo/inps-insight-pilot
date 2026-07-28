@@ -21,7 +21,25 @@ function vecLit(v: number[]) {
   return `[${v.join(",")}]`;
 }
 
-async function fallbackKeywordMatches(query: string, limit: number, topicFilters?: string[]) {
+export type CorpusScope = "all" | "atti" | "normativa" | "notizie";
+
+function applyCorpusScope<T>(request: T, corpus?: CorpusScope): T {
+  if (!corpus || corpus === "all") return request;
+  const r = request as any;
+  if (corpus === "normativa") return r.eq("source_type", "Normativa");
+  if (corpus === "notizie") return r.eq("source_type", "Notizia");
+  return r.not("source_type", "in", '("Normativa","Notizia")');
+}
+
+function matchesCorpusScope(match: any, corpus?: CorpusScope) {
+  if (!corpus || corpus === "all") return true;
+  const type = match?.source_type ?? "";
+  if (corpus === "normativa") return type === "Normativa";
+  if (corpus === "notizie") return type === "Notizia";
+  return type !== "Normativa" && type !== "Notizia";
+}
+
+async function fallbackKeywordMatches(query: string, limit: number, topicFilters?: string[], corpus?: CorpusScope) {
   let request = supabaseAdmin
     .from("sources")
     .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt, corpus_layer")
@@ -33,12 +51,14 @@ async function fallbackKeywordMatches(query: string, limit: number, topicFilters
   if (topicFilters && topicFilters.length > 0) {
     request = request.overlaps("topic_tags", topicFilters);
   }
+  request = applyCorpusScope(request, corpus);
 
   const { data, error } = await request
     .order("publication_date", { ascending: false })
     .limit(limit);
 
   if (error) throw new Error(`fallback text search: ${error.message}`);
+
 
   return (data ?? []).map((row, i) => ({
     chunk_id: `fts-${row.id}`,
