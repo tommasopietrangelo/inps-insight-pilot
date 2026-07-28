@@ -129,10 +129,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="rounded-md border bg-surface p-3 text-xs text-muted-foreground">
-          <div className="font-medium text-foreground">Piano Studio</div>
-          <div className="mt-0.5">8 utenti · 5.420 query / mese</div>
-        </div>
+        <Link
+          to="/settings"
+          className="block rounded-md border bg-surface p-3 text-xs text-muted-foreground transition-colors hover:bg-surface-muted"
+        >
+          <div className="font-medium text-foreground">Piano {planName}</div>
+          <div className="mt-0.5">{seatsLabel} · {queriesLabel}</div>
+        </Link>
+
       </SidebarFooter>
     </Sidebar>
   );
