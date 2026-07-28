@@ -373,9 +373,18 @@ function SearchPage() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          {useMemory && isPro && (
-            <span className="text-xs text-muted-foreground">Memoria AI attiva su questa ricerca</span>
-          )}
+          <div className="flex items-center gap-3">
+            {corpus !== "all" && (
+              <Badge variant="secondary" className="gap-1 text-[11px]">
+                <ListFilter className="h-3 w-3" />
+                {CORPUS_OPTIONS.find((o) => o.value === corpus)?.label}
+              </Badge>
+            )}
+            {useMemory && isPro && (
+              <span className="text-xs text-muted-foreground">Memoria AI attiva su questa ricerca</span>
+            )}
+          </div>
+
         </div>
       </Card>
 
