@@ -399,7 +399,9 @@ const ChatTurnSchema = z.object({
 const SearchInput = z.object({
   query: z.string().min(2).max(8000),
   history: z.array(ChatTurnSchema).max(40).optional(),
+  corpus: z.enum(["all", "atti", "normativa", "notizie"]).optional(),
 });
+
 
 export const groundedSearch = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => SearchInput.parse(data))
