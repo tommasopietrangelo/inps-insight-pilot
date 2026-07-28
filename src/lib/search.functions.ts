@@ -21,7 +21,25 @@ function vecLit(v: number[]) {
   return `[${v.join(",")}]`;
 }
 
-async function fallbackKeywordMatches(query: string, limit: number, topicFilters?: string[]) {
+export type CorpusScope = "all" | "atti" | "normativa" | "notizie";
+
+function applyCorpusScope<T>(request: T, corpus?: CorpusScope): T {
+  if (!corpus || corpus === "all") return request;
+  const r = request as any;
+  if (corpus === "normativa") return r.eq("source_type", "Normativa");
+  if (corpus === "notizie") return r.eq("source_type", "Notizia");
+  return r.not("source_type", "in", '("Normativa","Notizia")');
+}
+
+function matchesCorpusScope(match: any, corpus?: CorpusScope) {
+  if (!corpus || corpus === "all") return true;
+  const type = match?.source_type ?? "";
+  if (corpus === "normativa") return type === "Normativa";
+  if (corpus === "notizie") return type === "Notizia";
+  return type !== "Normativa" && type !== "Notizia";
+}
+
+async function fallbackKeywordMatches(query: string, limit: number, topicFilters?: string[], corpus?: CorpusScope) {
   let request = supabaseAdmin
     .from("sources")
     .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt, corpus_layer")
@@ -33,12 +51,14 @@ async function fallbackKeywordMatches(query: string, limit: number, topicFilters
   if (topicFilters && topicFilters.length > 0) {
     request = request.overlaps("topic_tags", topicFilters);
   }
+  request = applyCorpusScope(request, corpus);
 
   const { data, error } = await request
     .order("publication_date", { ascending: false })
     .limit(limit);
 
   if (error) throw new Error(`fallback text search: ${error.message}`);
+
 
   return (data ?? []).map((row, i) => ({
     chunk_id: `fts-${row.id}`,
@@ -56,7 +76,7 @@ async function fallbackKeywordMatches(query: string, limit: number, topicFilters
 
 
 
-async function specializedPatternMatches(limit: number, topicFilters?: string[]) {
+async function specializedPatternMatches(limit: number, topicFilters?: string[], corpus?: CorpusScope) {
   let request = supabaseAdmin
     .from("sources")
     .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt, corpus_layer")
@@ -74,6 +94,8 @@ async function specializedPatternMatches(limit: number, topicFilters?: string[])
   if (topicFilters && topicFilters.length > 0) {
     request = request.overlaps("topic_tags", topicFilters);
   }
+  request = applyCorpusScope(request, corpus);
+
 
   const { data, error } = await request
     .order("publication_date", { ascending: false })
@@ -243,7 +265,7 @@ function scoreMatchAgainstTerms(match: any, terms: string[]) {
   return score;
 }
 
-async function fallbackKeywordMatchesVariants(queries: string[], limit: number, terms: string[], topicFilters?: string[]) {
+async function fallbackKeywordMatchesVariants(queries: string[], limit: number, terms: string[], topicFilters?: string[], corpus?: CorpusScope) {
   const candidateLimit = Math.max(limit * 6, 40);
   const merged = new Map<string, {
     chunk_id: string;
@@ -258,7 +280,8 @@ async function fallbackKeywordMatchesVariants(queries: string[], limit: number, 
   }>();
 
   for (const [queryIndex, query] of queries.entries()) {
-    const rows = await fallbackKeywordMatches(query, candidateLimit, topicFilters);
+    const rows = await fallbackKeywordMatches(query, candidateLimit, topicFilters, corpus);
+
     rows.forEach((row, rowIndex) => {
       const existing = merged.get(row.source_id);
       const boostedSimilarity = Math.max(0.55, row.similarity - queryIndex * 0.02 - rowIndex * 0.01);
@@ -376,7 +399,9 @@ const ChatTurnSchema = z.object({
 const SearchInput = z.object({
   query: z.string().min(2).max(8000),
   history: z.array(ChatTurnSchema).max(40).optional(),
+  corpus: z.enum(["all", "atti", "normativa", "notizie"]).optional(),
 });
+
 
 export const groundedSearch = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => SearchInput.parse(data))
@@ -395,27 +420,32 @@ export const groundedSearch = createServerFn({ method: "POST" })
     const isProceduralAdiQuery =
       signals.topicFilters.includes("ADI") &&
       /(adi-com|sentenza|giudicato|condanna|comunicazione|modello)/.test(signals.normalized);
+    const corpus = (data.corpus ?? "all") as CorpusScope;
+    const scoped = corpus !== "all";
     const keywordPromise = fallbackKeywordMatchesVariants(
       signals.keywordQueries,
       8,
       signals.keywordTerms,
       signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined,
+      corpus,
     );
     const specializedPromise = isProceduralAdiQuery
-      ? specializedPatternMatches(8, signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined)
+      ? specializedPatternMatches(8, signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined, corpus)
       : Promise.resolve([] as any[]);
     const queryEmb = await embed(signals.semanticQuery);
 
     let matches: any[] | null = null;
     let retrievalMode: "semantic" | "hybrid" | "fts-fallback" = "semantic";
 
-    const { data: semanticMatches, error } = await supabaseAdmin.rpc("match_chunks", {
+    const { data: semanticMatchesRaw, error } = await supabaseAdmin.rpc("match_chunks", {
       query_embedding: vecLit(queryEmb) as unknown as string,
-      match_count: 8,
+      match_count: scoped ? 40 : 8,
       filter_topics: signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined,
     });
+    const semanticMatches = (semanticMatchesRaw ?? []).filter((m: any) => matchesCorpusScope(m, corpus)).slice(0, 8);
 
     const [keywordMatches, specializedMatches] = await Promise.all([keywordPromise, specializedPromise]);
+
     const boostedKeywordMatches = specializedMatches.length > 0
       ? mergeRetrievalMatches(specializedMatches, keywordMatches, 8, signals.keywordTerms)
       : keywordMatches;

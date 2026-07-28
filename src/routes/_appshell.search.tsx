@@ -36,7 +36,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { groundedSearch } from "@/lib/search.functions";
+
 import { createSavedSearch } from "@/lib/saved-searches.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { toast } from "sonner";
@@ -59,6 +69,17 @@ const EXAMPLES = [
   "Rivalutazione pensioni 2026",
   "Contributi UniEmens nuovi codici",
 ];
+
+type CorpusScope = "all" | "atti" | "normativa" | "notizie";
+
+const CORPUS_OPTIONS: { value: CorpusScope; label: string; short: string; hint: string }[] = [
+  { value: "all", label: "Tutto il corpus", short: "Filtri", hint: "Atti INPS, normativa cardine e notizie" },
+  { value: "atti", label: "Solo atti INPS", short: "Atti INPS", hint: "Circolari e messaggi INPS" },
+  { value: "normativa", label: "Solo normativa cardine", short: "Normativa", hint: "Leggi, decreti legge e legislativi" },
+  { value: "notizie", label: "Solo notizie INPS", short: "Notizie", hint: "News da inps.it/inps-comunica" },
+];
+
+
 
 type SearchResult = Awaited<ReturnType<typeof groundedSearch>>;
 
@@ -152,6 +173,7 @@ function SearchPage() {
   const [q, setQ] = useState(urlQ ?? "Nuove regole ADI 2026 per nuclei con minori");
   const [followUp, setFollowUp] = useState("");
   const [thread, setThread] = useState<Turn[]>([]);
+  const [corpus, setCorpus] = useState<CorpusScope>("all");
   const { current } = useWorkspace();
   const qc = useQueryClient();
   const runSearch = useServerFn(groundedSearch);
@@ -170,8 +192,9 @@ function SearchPage() {
             { role: "assistant" as const, content: t.answer },
           ])
         : [];
-      return runSearch({ data: { query, history } });
+      return runSearch({ data: { query, history, corpus } });
     },
+
     onSuccess: (data, vars) => {
       const turn: Turn = {
         id: crypto.randomUUID(),
@@ -284,9 +307,29 @@ function SearchPage() {
             placeholder="Fai una domanda completa in linguaggio naturale… (Invio per inviare, Shift+Invio per andare a capo)"
             className="min-h-11 max-h-64 flex-1 resize-y bg-transparent py-2.5 text-base outline-none placeholder:text-muted-foreground"
           />
-          <Button variant="ghost" size="sm" className="mt-1 gap-1.5" type="button">
-            <ListFilter className="h-4 w-4" /> Filtri
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant={corpus === "all" ? "ghost" : "secondary"} size="sm" className="mt-1 gap-1.5" type="button">
+                <ListFilter className="h-4 w-4" />
+                {CORPUS_OPTIONS.find((o) => o.value === corpus)?.short ?? "Filtri"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>Interroga solo…</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={corpus} onValueChange={(v) => setCorpus(v as CorpusScope)}>
+                {CORPUS_OPTIONS.map((o) => (
+                  <DropdownMenuRadioItem key={o.value} value={o.value} className="items-start">
+                    <span className="flex flex-col">
+                      <span className="font-medium">{o.label}</span>
+                      <span className="text-xs text-muted-foreground">{o.hint}</span>
+                    </span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button type="submit" className="mt-1 gap-1.5" disabled={mutation.isPending}>
             {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Cerca
@@ -330,9 +373,18 @@ function SearchPage() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          {useMemory && isPro && (
-            <span className="text-xs text-muted-foreground">Memoria AI attiva su questa ricerca</span>
-          )}
+          <div className="flex items-center gap-3">
+            {corpus !== "all" && (
+              <Badge variant="secondary" className="gap-1 text-[11px]">
+                <ListFilter className="h-3 w-3" />
+                {CORPUS_OPTIONS.find((o) => o.value === corpus)?.label}
+              </Badge>
+            )}
+            {useMemory && isPro && (
+              <span className="text-xs text-muted-foreground">Memoria AI attiva su questa ricerca</span>
+            )}
+          </div>
+
         </div>
       </Card>
 
