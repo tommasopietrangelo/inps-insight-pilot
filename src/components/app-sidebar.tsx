@@ -1,4 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Search,
@@ -26,6 +28,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { getMySubscription, PLAN_CATALOG } from "@/lib/billing.functions";
+
 
 const nav = [
   { title: "Cruscotto", url: "/dashboard", icon: LayoutDashboard },
