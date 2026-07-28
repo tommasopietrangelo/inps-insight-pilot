@@ -284,9 +284,29 @@ function SearchPage() {
             placeholder="Fai una domanda completa in linguaggio naturale… (Invio per inviare, Shift+Invio per andare a capo)"
             className="min-h-11 max-h-64 flex-1 resize-y bg-transparent py-2.5 text-base outline-none placeholder:text-muted-foreground"
           />
-          <Button variant="ghost" size="sm" className="mt-1 gap-1.5" type="button">
-            <ListFilter className="h-4 w-4" /> Filtri
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant={corpus === "all" ? "ghost" : "secondary"} size="sm" className="mt-1 gap-1.5" type="button">
+                <ListFilter className="h-4 w-4" />
+                {CORPUS_OPTIONS.find((o) => o.value === corpus)?.short ?? "Filtri"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel>Interroga solo…</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={corpus} onValueChange={(v) => setCorpus(v as CorpusScope)}>
+                {CORPUS_OPTIONS.map((o) => (
+                  <DropdownMenuRadioItem key={o.value} value={o.value} className="items-start">
+                    <span className="flex flex-col">
+                      <span className="font-medium">{o.label}</span>
+                      <span className="text-xs text-muted-foreground">{o.hint}</span>
+                    </span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button type="submit" className="mt-1 gap-1.5" disabled={mutation.isPending}>
             {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Cerca
