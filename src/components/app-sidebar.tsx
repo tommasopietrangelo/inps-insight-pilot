@@ -1,4 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Search,
@@ -26,6 +28,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { getMySubscription, PLAN_CATALOG } from "@/lib/billing.functions";
+
 
 const nav = [
   { title: "Cruscotto", url: "/dashboard", icon: LayoutDashboard },
@@ -46,6 +51,26 @@ export function AppSidebar() {
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (p: string) =>
     p === "/dashboard" ? currentPath === p : currentPath.startsWith(p);
+
+  const { current } = useWorkspace();
+  const fetchSub = useServerFn(getMySubscription);
+  const { data: sub } = useQuery({
+    queryKey: ["sidebar-subscription", current?.id],
+    queryFn: () => fetchSub({ data: { workspaceId: current!.id } }),
+    enabled: !!current?.id,
+    staleTime: 60_000,
+  });
+  const plan = sub ? PLAN_CATALOG.find((p) => p.id === sub.plan) : null;
+  const planName = plan?.name ?? "Free / Trial";
+  const seatsLabel =
+    sub && sub.seats_limit >= 999
+      ? "Utenti illimitati"
+      : `${sub?.seats_limit ?? 1} ${(sub?.seats_limit ?? 1) === 1 ? "utente" : "utenti"}`;
+  const queriesLabel =
+    sub && sub.queries_limit_monthly >= 999999
+      ? "Query illimitate"
+      : `${(sub?.queries_limit_monthly ?? 50).toLocaleString("it-IT")} query / mese`;
+
 
   return (
     <Sidebar collapsible="icon">
@@ -104,10 +129,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="rounded-md border bg-surface p-3 text-xs text-muted-foreground">
-          <div className="font-medium text-foreground">Piano Studio</div>
-          <div className="mt-0.5">8 utenti · 5.420 query / mese</div>
-        </div>
+        <Link
+          to="/settings"
+          className="block rounded-md border bg-surface p-3 text-xs text-muted-foreground transition-colors hover:bg-surface-muted"
+        >
+          <div className="font-medium text-foreground">Piano {planName}</div>
+          <div className="mt-0.5">{seatsLabel} · {queriesLabel}</div>
+        </Link>
+
       </SidebarFooter>
     </Sidebar>
   );
