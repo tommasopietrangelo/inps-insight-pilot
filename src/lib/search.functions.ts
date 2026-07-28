@@ -420,27 +420,32 @@ export const groundedSearch = createServerFn({ method: "POST" })
     const isProceduralAdiQuery =
       signals.topicFilters.includes("ADI") &&
       /(adi-com|sentenza|giudicato|condanna|comunicazione|modello)/.test(signals.normalized);
+    const corpus = (data.corpus ?? "all") as CorpusScope;
+    const scoped = corpus !== "all";
     const keywordPromise = fallbackKeywordMatchesVariants(
       signals.keywordQueries,
       8,
       signals.keywordTerms,
       signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined,
+      corpus,
     );
     const specializedPromise = isProceduralAdiQuery
-      ? specializedPatternMatches(8, signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined)
+      ? specializedPatternMatches(8, signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined, corpus)
       : Promise.resolve([] as any[]);
     const queryEmb = await embed(signals.semanticQuery);
 
     let matches: any[] | null = null;
     let retrievalMode: "semantic" | "hybrid" | "fts-fallback" = "semantic";
 
-    const { data: semanticMatches, error } = await supabaseAdmin.rpc("match_chunks", {
+    const { data: semanticMatchesRaw, error } = await supabaseAdmin.rpc("match_chunks", {
       query_embedding: vecLit(queryEmb) as unknown as string,
-      match_count: 8,
+      match_count: scoped ? 40 : 8,
       filter_topics: signals.topicFilters.length > 0 ? [...signals.topicFilters] : undefined,
     });
+    const semanticMatches = (semanticMatchesRaw ?? []).filter((m: any) => matchesCorpusScope(m, corpus)).slice(0, 8);
 
     const [keywordMatches, specializedMatches] = await Promise.all([keywordPromise, specializedPromise]);
+
     const boostedKeywordMatches = specializedMatches.length > 0
       ? mergeRetrievalMatches(specializedMatches, keywordMatches, 8, signals.keywordTerms)
       : keywordMatches;
