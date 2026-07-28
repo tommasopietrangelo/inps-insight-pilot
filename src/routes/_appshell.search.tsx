@@ -70,6 +70,17 @@ const EXAMPLES = [
   "Contributi UniEmens nuovi codici",
 ];
 
+type CorpusScope = "all" | "atti" | "normativa" | "notizie";
+
+const CORPUS_OPTIONS: { value: CorpusScope; label: string; short: string; hint: string }[] = [
+  { value: "all", label: "Tutto il corpus", short: "Filtri", hint: "Atti INPS, normativa cardine e notizie" },
+  { value: "atti", label: "Solo atti INPS", short: "Atti INPS", hint: "Circolari e messaggi INPS" },
+  { value: "normativa", label: "Solo normativa cardine", short: "Normativa", hint: "Leggi, decreti legge e legislativi" },
+  { value: "notizie", label: "Solo notizie INPS", short: "Notizie", hint: "News da inps.it/inps-comunica" },
+];
+
+
+
 type SearchResult = Awaited<ReturnType<typeof groundedSearch>>;
 
 type SourceItem = SearchResult["sources"][number];
