@@ -173,6 +173,7 @@ function SearchPage() {
   const [q, setQ] = useState(urlQ ?? "Nuove regole ADI 2026 per nuclei con minori");
   const [followUp, setFollowUp] = useState("");
   const [thread, setThread] = useState<Turn[]>([]);
+  const [corpus, setCorpus] = useState<CorpusScope>("all");
   const { current } = useWorkspace();
   const qc = useQueryClient();
   const runSearch = useServerFn(groundedSearch);
@@ -191,8 +192,9 @@ function SearchPage() {
             { role: "assistant" as const, content: t.answer },
           ])
         : [];
-      return runSearch({ data: { query, history } });
+      return runSearch({ data: { query, history, corpus } });
     },
+
     onSuccess: (data, vars) => {
       const turn: Turn = {
         id: crypto.randomUUID(),
