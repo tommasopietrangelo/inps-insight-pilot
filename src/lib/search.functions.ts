@@ -76,7 +76,7 @@ async function fallbackKeywordMatches(query: string, limit: number, topicFilters
 
 
 
-async function specializedPatternMatches(limit: number, topicFilters?: string[]) {
+async function specializedPatternMatches(limit: number, topicFilters?: string[], corpus?: CorpusScope) {
   let request = supabaseAdmin
     .from("sources")
     .select("id, title, source_type, document_number, publication_date, official_url, full_text, excerpt, corpus_layer")
@@ -94,6 +94,8 @@ async function specializedPatternMatches(limit: number, topicFilters?: string[])
   if (topicFilters && topicFilters.length > 0) {
     request = request.overlaps("topic_tags", topicFilters);
   }
+  request = applyCorpusScope(request, corpus);
+
 
   const { data, error } = await request
     .order("publication_date", { ascending: false })
