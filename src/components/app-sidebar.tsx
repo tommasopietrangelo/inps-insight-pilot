@@ -52,6 +52,26 @@ export function AppSidebar() {
   const isActive = (p: string) =>
     p === "/dashboard" ? currentPath === p : currentPath.startsWith(p);
 
+  const { current } = useWorkspace();
+  const fetchSub = useServerFn(getMySubscription);
+  const { data: sub } = useQuery({
+    queryKey: ["sidebar-subscription", current?.id],
+    queryFn: () => fetchSub({ data: { workspaceId: current!.id } }),
+    enabled: !!current?.id,
+    staleTime: 60_000,
+  });
+  const plan = sub ? PLAN_CATALOG.find((p) => p.id === sub.plan) : null;
+  const planName = plan?.name ?? "Free / Trial";
+  const seatsLabel =
+    sub && sub.seats_limit >= 999
+      ? "Utenti illimitati"
+      : `${sub?.seats_limit ?? 1} ${(sub?.seats_limit ?? 1) === 1 ? "utente" : "utenti"}`;
+  const queriesLabel =
+    sub && sub.queries_limit_monthly >= 999999
+      ? "Query illimitate"
+      : `${(sub?.queries_limit_monthly ?? 50).toLocaleString("it-IT")} query / mese`;
+
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
