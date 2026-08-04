@@ -534,14 +534,56 @@ export const backfillInpsViaFirecrawl = createServerFn({ method: "POST" })
 
 // ---------- Cron giornaliero: nuove pubblicazioni ----------
 
+// Discovery ufficiale (zero crediti Firecrawl): endpoint AEM usato dalla pagina
+// "Circolari, messaggi e normativa". Restituisce gli atti ordinati per data
+// decrescente, quindi include SEMPRE le pubblicazioni di oggi/ieri — a
+// differenza dell'indice Firecrawl map, che è una cache e resta indietro di
+// giorni (motivo per cui gli atti più recenti non venivano mai scoperti).
+const ATTI_SEARCH_BASE = "https://www.inps.it/content/scorporati/search/jcr:content.search";
+const ATTI_CF_PATH = "/content/dam/inps-site/it/scorporati/circolari-e-messaggi";
+
+function hex(s: string): string {
+  return Buffer.from(s, "utf8").toString("hex");
+}
+
+async function discoverAttiFromListing(limit = 30): Promise<string[]> {
+  const url =
+    `${ATTI_SEARCH_BASE}.${hex(ATTI_CF_PATH)}.${hex("0")}.${hex(String(limit))}` +
+    `.${hex("giorno")}.${hex("DESC")}.${hex("circolari-e-messaggi")}.json`;
+  const res = await fetch(url, {
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+      accept: "application/json,text/plain,*/*",
+    },
+  });
+  if (!res.ok) throw new Error(`INPS listing → ${res.status}`);
+  const json = (await res.json()) as {
+    data?: { results?: Array<{ selectors?: string }> };
+  };
+  const out: string[] = [];
+  for (const r of json.data?.results ?? []) {
+    if (!r.selectors) continue;
+    out.push(
+      `https://www.inps.it/it/it/inps-comunica/atti/circolari-messaggi-e-normativa/dettaglio.${r.selectors}.html`,
+    );
+  }
+  return out;
+}
+
 export const ingestInpsDaily = createServerFn({ method: "POST" })
   .handler(async () => {
     // Strategia: scopriamo gli atti pubblicati negli ultimi 14 giorni
-    // (circolari + messaggi con query separate per non perderne nessuno),
-    // ordiniamo per data REALE estratta dall'URL (più recente prima) e
-    // ingeriamo i primi 20. Dedup su external_id evita lavoro inutile sui
-    // già noti, quindi il costo Firecrawl in regime è basso.
+    // (prima dall'elenco ufficiale INPS, poi come rete di sicurezza da
+    // Firecrawl map), ordiniamo per data REALE estratta dall'URL (più recente
+    // prima) e ingeriamo i primi 30. Dedup su external_id evita lavoro inutile
+    // sui già noti, quindi il costo Firecrawl in regime è basso.
     const discovered = new Set<string>();
+    try {
+      for (const l of await discoverAttiFromListing(40)) discovered.add(l);
+    } catch (e) {
+      console.error("ingestInpsDaily listing discovery failed", e);
+    }
     for (const term of ["circolare numero del", "messaggio numero del"]) {
       try {
         const links = await firecrawlMap("https://www.inps.it", term, 150);
@@ -554,6 +596,7 @@ export const ingestInpsDaily = createServerFn({ method: "POST" })
         console.error(`ingestInpsDaily map "${term}" failed`, e);
       }
     }
+
 
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 14);
@@ -568,7 +611,7 @@ export const ingestInpsDaily = createServerFn({ method: "POST" })
       dated.push({ url, date: d });
     }
     dated.sort((a, b) => b.date.getTime() - a.date.getTime());
-    const candidates = dated.slice(0, 20).map((c) => c.url);
+    const candidates = dated.slice(0, 30).map((c) => c.url);
 
     let created = 0;
     let skipped = 0;
