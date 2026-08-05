@@ -12,6 +12,7 @@ import {
   BellPlus,
   Plus,
   X,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
   generateReminder,
@@ -44,6 +46,9 @@ import {
 import { createNote } from "@/lib/notes.functions";
 import { listPractices } from "@/lib/practices.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { createMemoryCase } from "@/lib/memory.functions";
+
+const CASE_HEURISTIC = /(eccezion|derog|caso particolar|interpretazion|casistica|non standard|fuori standard|dubbio|contenzios|controvers)/i;
 
 export type QuickActionSource = {
   n: number;
@@ -82,6 +87,7 @@ export function ChatQuickActions({
   followUpPending,
 }: Props) {
   const [reminderOpen, setReminderOpen] = useState(false);
+  const [caseOpen, setCaseOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | "eccezioni" | "documenti">(null);
 
   const handleFollowUp = (kind: "eccezioni" | "documenti") => {
