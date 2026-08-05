@@ -71,7 +71,7 @@ function loadState(): Persisted {
 const QUICK_ACTIONS: { label: string; icon: typeof FileText; prompt: string }[] = [
   { label: "Riassumi questa pagina", icon: BookOpenCheck, prompt: "Riassumi i contenuti rilevanti della sezione che sto consultando." },
   { label: "Trova fonti correlate", icon: FileText, prompt: "Trova circolari e messaggi INPS correlati al tema corrente." },
-  { label: "Crea checklist pratica", icon: ListChecks, prompt: "Crea una checklist operativa per gestire questa pratica." },
+  { label: "Crea reminder per punti", icon: ListChecks, prompt: "Trasforma la risposta in un reminder operativo per punti, sintetico e utile per l'operatore." },
 ];
 
 const PANEL_W = 380;
