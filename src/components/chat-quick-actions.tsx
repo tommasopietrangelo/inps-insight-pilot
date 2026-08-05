@@ -48,7 +48,7 @@ import { listPractices } from "@/lib/practices.functions";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { createMemoryCase } from "@/lib/memory.functions";
 
-const CASE_HEURISTIC = /(eccezion|derog|caso particolar|interpretazion|casistica|non standard|fuori standard|dubbio|contenzios|controvers)/i;
+import { detectSpecialCase } from "@/lib/case-heuristic";
 
 export type QuickActionSource = {
   n: number;
@@ -114,7 +114,8 @@ export function ChatQuickActions({
     setTimeout(() => setPendingAction(null), 400);
   };
 
-  const looksLikeException = CASE_HEURISTIC.test(answer);
+  const caseSignal = detectSpecialCase(answer, question);
+  const looksLikeException = caseSignal.isException;
 
   return (
     <div className="mt-5 border-t pt-3">

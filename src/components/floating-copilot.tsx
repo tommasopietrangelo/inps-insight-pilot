@@ -524,7 +524,7 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   );
 }
 
-const CASE_HEURISTIC = /(eccezion|derog|caso particolar|interpretazion|casistica|non standard|fuori standard|dubbio|contenzios|controvers)/i;
+import { detectSpecialCase } from "@/lib/case-heuristic";
 
 function MessageBubble({ m, onSaveAsCase }: { m: Msg; onSaveAsCase?: () => void }) {
   if (m.role === "user") {
@@ -536,7 +536,7 @@ function MessageBubble({ m, onSaveAsCase }: { m: Msg; onSaveAsCase?: () => void 
       </div>
     );
   }
-  const looksLikeException = CASE_HEURISTIC.test(m.content);
+  const looksLikeException = detectSpecialCase(m.content).isException;
   return (
     <div className="flex justify-start">
       <div className="max-w-[90%] space-y-2 rounded-2xl rounded-bl-sm border border-border/40 bg-background/50 px-3 py-2 text-sm text-foreground backdrop-blur">
