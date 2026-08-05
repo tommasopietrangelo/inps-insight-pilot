@@ -108,11 +108,18 @@ export function ChatQuickActions({
     setTimeout(() => setPendingAction(null), 400);
   };
 
+  const looksLikeException = CASE_HEURISTIC.test(answer);
+
   return (
     <div className="mt-5 border-t pt-3">
-      <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         <Sparkles className="h-3 w-3" />
         Trasforma questa risposta in azione
+        {looksLikeException && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium normal-case tracking-normal text-amber-700 dark:text-amber-300">
+            <AlertTriangle className="h-3 w-3" /> Sembra un caso particolare
+          </span>
+        )}
       </div>
       <div className="-mx-1 flex flex-wrap gap-1.5 overflow-x-auto sm:overflow-visible">
         <Button
@@ -123,6 +130,15 @@ export function ChatQuickActions({
         >
           <BellPlus className="h-3.5 w-3.5" />
           Crea reminder per punti
+        </Button>
+        <Button
+          size="sm"
+          variant={looksLikeException ? "default" : "outline"}
+          className="gap-1.5"
+          onClick={() => setCaseOpen(true)}
+        >
+          <Lightbulb className="h-3.5 w-3.5" />
+          Salva come caso
         </Button>
         <Button
           size="sm"
@@ -161,7 +177,130 @@ export function ChatQuickActions({
         answer={answer}
         sources={sources}
       />
+
+      {caseOpen && (
+        <SaveCaseDialog
+          open={caseOpen}
+          onOpenChange={setCaseOpen}
+          question={question}
+          answer={answer}
+          sources={sources}
+        />
+      )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Dialog: Salva risposta come caso particolare                        */
+/* ------------------------------------------------------------------ */
+
+function SaveCaseDialog({
+  open,
+  onOpenChange,
+  question,
+  answer,
+  sources,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  question: string;
+  answer: string;
+  sources: QuickActionSource[];
+}) {
+  const { current: workspace } = useWorkspace();
+  const wsId = workspace?.id ?? "";
+  const createCaseFn = useServerFn(createMemoryCase);
+
+  const [title, setTitle] = useState(question.slice(0, 90) || "Caso da chat");
+  const [category, setCategory] = useState("");
+  const [situation, setSituation] = useState(question);
+  const [solution, setSolution] = useState(answer);
+  const [tagsStr, setTagsStr] = useState("");
+  const [isShared, setIsShared] = useState(false);
+
+  const save = useMutation({
+    mutationFn: () => {
+      if (!wsId) throw new Error("Nessun workspace selezionato");
+      return createCaseFn({
+        data: {
+          workspaceId: wsId,
+          origin: "chat" as const,
+          title: title.trim().slice(0, 200),
+          situation: situation.trim(),
+          solution: solution.trim(),
+          category: category.trim() || null,
+          tags: tagsStr.split(",").map((t) => t.trim()).filter(Boolean),
+          isShared,
+          sourceContext: {
+            chat_question: question,
+            chat_answer_preview: answer.slice(0, 400),
+            sources: sources.map((s) => ({
+              n: s.n,
+              title: s.title,
+              type: s.source_type,
+              doc: s.document_number,
+            })),
+            saved_at: new Date().toISOString(),
+          },
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Caso salvato in Memoria AI");
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4 text-amber-600" />
+            Salva risposta come caso particolare
+          </DialogTitle>
+          <DialogDescription>
+            Il caso finisce in <strong>Memoria AI → Casi particolari</strong> e resta consultabile dallo studio.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+          <div><Label className="text-xs">Titolo</Label><Input className="mt-1" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+          <div><Label className="text-xs">Categoria (facoltativa)</Label><Input className="mt-1" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Assegno Unico, NASpI, ADI…" /></div>
+          <div><Label className="text-xs">Situazione (domanda / contesto)</Label><Textarea className="mt-1" value={situation} onChange={(e) => setSituation(e.target.value)} rows={3} /></div>
+          <div><Label className="text-xs">Soluzione (risposta operativa)</Label><Textarea className="mt-1" value={solution} onChange={(e) => setSolution(e.target.value)} rows={6} /></div>
+          <div><Label className="text-xs">Tag (separati da virgola)</Label><Input className="mt-1" value={tagsStr} onChange={(e) => setTagsStr(e.target.value)} /></div>
+          {sources.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {sources.map((s) => (
+                <Badge key={s.source_id} variant="outline" className="gap-1 text-[11px]">
+                  <ShieldCheck className="h-3 w-3 text-primary" />
+                  [{s.n}] {s.source_type}{s.document_number ? ` ${s.document_number}` : ""}
+                </Badge>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <div>
+              <div className="text-sm font-medium">Condividi con lo studio</div>
+              <div className="text-xs text-muted-foreground">Visibile a tutto il workspace</div>
+            </div>
+            <Switch checked={isShared} onCheckedChange={setIsShared} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            disabled={save.isPending || !wsId || !title.trim() || !situation.trim() || !solution.trim()}
+            onClick={() => save.mutate()}
+            className="gap-1.5"
+          >
+            {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Salva caso
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
