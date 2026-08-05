@@ -114,7 +114,8 @@ export function ChatQuickActions({
     setTimeout(() => setPendingAction(null), 400);
   };
 
-  const looksLikeException = CASE_HEURISTIC.test(answer);
+  const caseSignal = detectSpecialCase(answer, question);
+  const looksLikeException = caseSignal.isException;
 
   return (
     <div className="mt-5 border-t pt-3">
